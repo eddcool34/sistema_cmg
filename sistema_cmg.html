@@ -81,7 +81,7 @@
                 numeroGuia: ''
             });
 
-            // Logo en base64 (versión comprimida)
+            // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
             // Mostrar notificación
@@ -425,11 +425,18 @@
                 v.id.toLowerCase().includes(searchTerm.toLowerCase())
             );
 
+            const eliminarVenta = (ventaId) => {
+                if (window.confirm('¿Estás seguro de que deseas eliminar esta venta?')) {
+                    setVentas(prev => prev.filter(v => v.id !== ventaId));
+                    showNotification('Venta eliminada exitosamente');
+                }
+            };
+
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
                     {/* Notificación */}
                     {notification.show && (
-                        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+                        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg animate-fade-in ${
                             notification.type === 'error' 
                                 ? 'bg-red-500 text-white' 
                                 : 'bg-green-500 text-white'
@@ -493,7 +500,7 @@
                             </div>
                         </div>
 
-                        {/* Contenido */}
+                        {/* Contenido - Registro */}
                         {activeTab === 'registro' && (
                             <div className="bg-white rounded-lg shadow-lg p-6">
                                 <h2 className="text-2xl font-bold text-gray-800 mb-6">
@@ -563,7 +570,7 @@
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     >
                                                         {PAQUETERIAS.map(paq => (
-                                                            <option key={paq} value={paq}>{paq}</option>
+                                                            <option key={paq} value={paq}>{paq.toUpperCase()}</option>
                                                         ))}
                                                     </select>
                                                 </div>
@@ -689,7 +696,7 @@
                                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         >
                                                             {TIPOS_SERVICIO.map(tipo => (
-                                                                <option key={tipo} value={tipo}>{tipo}</option>
+                                                                <option key={tipo} value={tipo}>{tipo.charAt(0).toUpperCase() + tipo.slice(1)}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -702,7 +709,7 @@
                                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         >
                                                             {PAQUETERIAS.map(paq => (
-                                                                <option key={paq} value={paq}>{paq}</option>
+                                                                <option key={paq} value={paq}>{paq.toUpperCase()}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -747,6 +754,7 @@
                                         {formData.precio && formData.costo && (
                                             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                                                 <p className="text-lg font-semibold text-green-700">
+                                                    <i className="fas fa-coins mr-2"></i>
                                                     Ganancia: {formatCurrency(parseFloat(formData.precio) - parseFloat(formData.costo))}
                                                 </p>
                                             </div>
@@ -766,5 +774,259 @@
                                             ) : (
                                                 <i className="fas fa-file-pdf mr-2"></i>
                                             )}
-                                            {loading ? 'Procesando...' : 'Gener
+                                            {loading ? 'Procesando...' : 'Generar PDF'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleSubmit(e, 'ticket')}
+                                            disabled={loading}
+                                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-4 px-6 rounded-lg transition-colors shadow-lg flex items-center justify-center"
+                                        >
+                                            {loading ? (
+                                                <i className="fas fa-spinner fa-spin mr-2"></i>
+                                            ) : (
+                                                <i className="fas fa-receipt mr-2"></i>
+                                            )}
+                                            {loading ? 'Procesando...' : 'Pagar y Generar Ticket'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
 
+                        {/* Contenido - Estadísticas */}
+                        {activeTab === 'estadisticas' && (
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                    <i className="fas fa-chart-bar mr-2"></i>Estadísticas de Ventas
+                                </h2>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">Ventas Hoy</h3>
+                                                <p className="text-4xl font-bold">{getVentasHoy().length}</p>
+                                            </div>
+                                            <i className="fas fa-shopping-cart text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">Total Ventas Hoy</h3>
+                                                <p className="text-3xl font-bold">{formatCurrency(getTotalVentasHoy())}</p>
+                                            </div>
+                                            <i className="fas fa-dollar-sign text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">Ganancias Hoy</h3>
+                                                <p className="text-3xl font-bold">{formatCurrency(getGananciasHoy())}</p>
+                                            </div>
+                                            <i className="fas fa-chart-line text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">Total Ventas</h3>
+                                                <p className="text-4xl font-bold">{ventas.length}</p>
+                                            </div>
+                                            <i className="fas fa-boxes text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-white rounded-lg shadow-lg p-6">
+                                        <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                            <i className="fas fa-truck mr-2"></i>Paquetería Más Vendida
+                                        </h3>
+                                        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg mb-4">
+                                            <span className="text-2xl font-bold text-blue-600 uppercase">
+                                                {getPaqueteriaMasVendida().nombre}
+                                            </span>
+                                            <span className="text-3xl font-bold text-gray-800">
+                                                {getPaqueteriaMasVendida().cantidad}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {PAQUETERIAS.map(paq => {
+                                                const count = ventas.filter(v => 
+                                                    (v.tipoOperacion === 'devolucion' ? v.paqueteriaDevolucion : v.paqueteria) === paq
+                                                ).length;
+                                                return (
+                                                    <div key={paq} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                        <span className="font-medium uppercase">{paq}</span>
+                                                        <span className="font-bold">{count}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white rounded-lg shadow-lg p-6">
+                                        <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                            <i className="fas fa-box mr-2"></i>Tipo Más Vendido
+                                        </h3>
+                                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg mb-4">
+                                            <span className="text-2xl font-bold text-green-600 uppercase">
+                                                {getServicioMasVendido().nombre}
+                                            </span>
+                                            <span className="text-3xl font-bold text-gray-800">
+                                                {getServicioMasVendido().cantidad}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {TIPOS_OPERACION.map(tipo => {
+                                                const count = ventas.filter(v => (v.tipoOperacion || 'envio') === tipo).length;
+                                                return (
+                                                    <div key={tipo} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                        <span className="font-medium uppercase">{tipo}</span>
+                                                        <span className="font-bold">{count}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Contenido - Historial */}
+                        {activeTab === 'historial' && (
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                    <i className="fas fa-history mr-2"></i>Historial de Ventas
+                                </h2>
+                                
+                                {/* Buscador */}
+                                <div className="mb-6">
+                                    <div className="relative">
+                                        <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por nombre de remitente, destinatario o folio..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                {ventasFiltradas.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <i className="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                                        <p className="text-gray-500 text-lg">
+                                            {searchTerm ? 'No se encontraron resultados' : 'No hay ventas registradas'}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Folio</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Remitente</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Destinatario</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Paquetería</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Precio</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200">
+                                                {ventasFiltradas.slice().reverse().map((venta) => (
+                                                    <tr key={venta.id} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{venta.id}</td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                                            {new Date(venta.fecha).toLocaleDateString('es-MX')}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                                                venta.tipoOperacion === 'devolucion' 
+                                                                    ? 'bg-orange-100 text-orange-800' 
+                                                                    : 'bg-blue-100 text-blue-800'
+                                                            }`}>
+                                                                <i className={`fas ${
+                                                                    venta.tipoOperacion === 'devolucion' ? 'fa-undo' : 'fa-shipping-fast'
+                                                                } mr-1`}></i>
+                                                                {venta.tipoOperacion === 'devolucion' ? 'Devolución' : 'Envío'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{venta.nombreRemitente}</td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                                            {venta.tipoOperacion === 'devolucion' ? '-' : venta.nombreDestinatario}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600 uppercase font-medium">
+                                                            {venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                                                            {formatCurrency(venta.precio)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm">
+                                                            <div className="flex gap-2 flex-wrap">
+                                                                <button
+                                                                    onClick={() => generarPDF(venta)}
+                                                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    title="Generar PDF"
+                                                                >
+                                                                    <i className="fas fa-file-pdf mr-1"></i>PDF
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => generarTicket(venta)}
+                                                                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    title="Generar Ticket"
+                                                                >
+                                                                    <i className="fas fa-receipt mr-1"></i>Ticket
+                                                                </button>
+                                                                {venta.guiaPDF ? (
+                                                                    <button
+                                                                        onClick={() => descargarGuia(venta.guiaPDF, venta.id)}
+                                                                        className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                        title="Descargar Guía"
+                                                                    >
+                                                                        <i className="fas fa-download mr-1"></i>Guía
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => adjuntarGuia(venta.id)}
+                                                                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                        title="Adjuntar Guía PDF"
+                                                                    >
+                                                                        <i className="fas fa-paperclip mr-1"></i>Adjuntar
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => eliminarVenta(venta.id)}
+                                                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    title="Eliminar Venta"
+                                                                >
+                                                                    <i className="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
