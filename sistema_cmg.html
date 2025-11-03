@@ -76,9 +76,12 @@
                 paqueteria: 'fedex',
                 precio: '',
                 costo: '',
+                impuesto: '16',
                 // Campos para devolución
                 paqueteriaDevolucion: 'fedex',
-                numeroGuia: ''
+                numeroGuia: '',
+                // Tabla de declaración
+                declaraciones: [{ producto: '', costo: '', peso: '' }]
             });
 
             // Logo en SVG
@@ -184,75 +187,155 @@
                 }));
             };
 
+            const agregarDeclaracion = () => {
+                setFormData(prev => ({
+                    ...prev,
+                    declaraciones: [...prev.declaraciones, { producto: '', costo: '', peso: '' }]
+                }));
+            };
+
+            const eliminarDeclaracion = (index) => {
+                if (formData.declaraciones.length > 1) {
+                    setFormData(prev => ({
+                        ...prev,
+                        declaraciones: prev.declaraciones.filter((_, i) => i !== index)
+                    }));
+                }
+            };
+
+            const actualizarDeclaracion = (index, campo, valor) => {
+                setFormData(prev => ({
+                    ...prev,
+                    declaraciones: prev.declaraciones.map((dec, i) => 
+                        i === index ? { ...dec, [campo]: valor } : dec
+                    )
+                }));
+            };
+
             const generarPDF = (venta) => {
                 try {
                     const doc = new jsPDF();
                     
+                    // Fecha en la parte superior derecha
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    const fechaActual = new Date(venta.fecha).toLocaleDateString('es-MX', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    doc.text(fechaActual, 190, 10, { align: 'right' });
+                    
+                    // Dirección en la parte superior derecha
+                    doc.setFontSize(8);
+                    doc.text('AVENIDA FRANCISCO I. MADERO #200-A', 190, 15, { align: 'right' });
+                    doc.text('ACATZINGO PUEBLA CP75150', 190, 19, { align: 'right' });
+                    
                     doc.setFontSize(20);
                     doc.setFont(undefined, 'bold');
-                    doc.text('COMPROBANTE DE ENVÍO - CMG', 105, 20, { align: 'center' });
+                    doc.text('COMPROBANTE DE ENVÍO - CMG', 105, 30, { align: 'center' });
                     
                     doc.setDrawColor(0, 0, 0);
-                    doc.line(20, 25, 190, 25);
+                    doc.line(20, 35, 190, 35);
 
                     if (venta.tipoOperacion === 'devolucion') {
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('DEVOLUCIÓN', 20, 35);
+                        doc.text('DEVOLUCIÓN', 20, 45);
                         
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Remitente: ${venta.nombreRemitente}`, 20, 42);
-                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 48);
-                        doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 20, 54);
-                        doc.text(`No. de Guía: ${venta.numeroGuia}`, 20, 60);
+                        doc.text(`Remitente: ${venta.nombreRemitente}`, 20, 52);
+                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 58);
+                        doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 20, 64);
+                        doc.text(`No. de Guía: ${venta.numeroGuia}`, 20, 70);
                     } else {
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('REMITENTE', 20, 35);
+                        doc.text('REMITENTE', 20, 45);
                         
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Nombre: ${venta.nombreRemitente}`, 20, 42);
-                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 48);
+                        doc.text(`Nombre: ${venta.nombreRemitente}`, 20, 52);
+                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 58);
 
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('DESTINATARIO', 20, 60);
+                        doc.text('DESTINATARIO', 20, 70);
                         
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Nombre: ${venta.nombreDestinatario}`, 20, 67);
-                        doc.text(`Teléfono: ${venta.telefonoDestinatario}`, 20, 73);
-                        doc.text(`Dirección: ${venta.direccion} #${venta.numero}`, 20, 79);
-                        doc.text(`Colonia: ${venta.colonia}`, 20, 85);
-                        doc.text(`C.P.: ${venta.codigoPostal}`, 20, 91);
-                        doc.text(`Estado: ${venta.estado}`, 20, 97);
-                        doc.text(`País: ${venta.pais}`, 20, 103);
+                        doc.text(`Nombre: ${venta.nombreDestinatario}`, 20, 77);
+                        doc.text(`Teléfono: ${venta.telefonoDestinatario}`, 20, 83);
+                        doc.text(`Dirección: ${venta.direccion} #${venta.numero}`, 20, 89);
+                        doc.text(`Colonia: ${venta.colonia}`, 20, 95);
+                        doc.text(`C.P.: ${venta.codigoPostal}`, 20, 101);
+                        doc.text(`Estado: ${venta.estado}`, 20, 107);
+                        doc.text(`País: ${venta.pais}`, 20, 113);
 
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('DETALLES DEL SERVICIO', 20, 115);
+                        doc.text('DETALLES DEL SERVICIO', 20, 125);
                         
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Paquetería: ${venta.paqueteria.toUpperCase()}`, 20, 122);
-                        doc.text(`Tipo de Servicio: ${venta.tipoServicio.toUpperCase()}`, 20, 128);
+                        doc.text(`Paquetería: ${venta.paqueteria.toUpperCase()}`, 20, 132);
+                        doc.text(`Tipo de Servicio: ${venta.tipoServicio.toUpperCase()}`, 20, 138);
+
+                        // Tabla de declaración si existe
+                        if (venta.declaraciones && venta.declaraciones.length > 0) {
+                            let yPos = 150;
+                            doc.setFontSize(14);
+                            doc.setFont(undefined, 'bold');
+                            doc.text('DECLARACIÓN DE CONTENIDO', 20, yPos);
+                            
+                            yPos += 7;
+                            doc.setFontSize(10);
+                            doc.setFont(undefined, 'bold');
+                            doc.text('No.', 20, yPos);
+                            doc.text('Producto', 35, yPos);
+                            doc.text('Costo', 120, yPos);
+                            doc.text('Peso', 160, yPos);
+                            
+                            doc.setFont(undefined, 'normal');
+                            venta.declaraciones.forEach((dec, index) => {
+                                yPos += 6;
+                                doc.text(`${index + 1}`, 20, yPos);
+                                doc.text(dec.producto || '-', 35, yPos);
+                                doc.text(dec.costo ? formatCurrency(dec.costo) : '-', 120, yPos);
+                                doc.text(dec.peso ? `${dec.peso} kg` : '-', 160, yPos);
+                            });
+                            yPos += 10;
+                        } else {
+                            yPos = 150;
+                        }
                     }
+
+                    const subtotal = parseFloat(venta.precio);
+                    const tasaImpuesto = parseFloat(venta.impuesto || 16) / 100;
+                    const montoImpuesto = subtotal * tasaImpuesto;
+                    const total = subtotal + montoImpuesto;
 
                     doc.setFontSize(14);
                     doc.setFont(undefined, 'bold');
-                    doc.text('INFORMACIÓN FINANCIERA', 20, 146);
+                    doc.text('INFORMACIÓN FINANCIERA', 20, 200);
                     
                     doc.setFontSize(11);
                     doc.setFont(undefined, 'normal');
-                    doc.text(`Precio: ${formatCurrency(venta.precio)}`, 20, 153);
-                    doc.text(`Costo: ${formatCurrency(venta.costo)}`, 20, 159);
-                    doc.text(`Ganancia: ${formatCurrency(parseFloat(venta.precio) - parseFloat(venta.costo))}`, 20, 165);
+                    doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 20, 207);
+                    doc.text(`Impuesto (${venta.impuesto || 16}%): ${formatCurrency(montoImpuesto)}`, 20, 213);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`Total: ${formatCurrency(total)}`, 20, 219);
 
-                    doc.setFontSize(10);
-                    doc.text(`Folio: ${venta.id}`, 20, 280);
-                    doc.text(`Fecha: ${new Date(venta.fecha).toLocaleString('es-MX')}`, 120, 280);
+                    // Pie de página con teléfonos
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(`Folio: ${venta.id}`, 20, 270);
+                    doc.text('WhatsApp: 222-852-5274', 75, 270);
+                    doc.text('Llamadas: 249-424-1364', 130, 270);
+                    
+                    doc.setFontSize(8);
+                    doc.text(`Fecha de emisión: ${new Date(venta.fecha).toLocaleString('es-MX')}`, 105, 280, { align: 'center' });
 
                     doc.save(`Envio-${venta.id}.pdf`);
                     showNotification('PDF generado exitosamente');
@@ -264,7 +347,7 @@
 
             const generarTicket = (venta) => {
                 try {
-                    const doc = new jsPDF({ format: [80, 200] });
+                    const doc = new jsPDF({ format: [80, 250] });
 
                     doc.setFontSize(12);
                     doc.setFont(undefined, 'bold');
@@ -305,14 +388,25 @@
                     
                     doc.text('------------------------', 40, 86, { align: 'center' });
                     
+                    const subtotal = parseFloat(venta.precio);
+                    const tasaImpuesto = parseFloat(venta.impuesto || 16) / 100;
+                    const montoImpuesto = subtotal * tasaImpuesto;
+                    const total = subtotal + montoImpuesto;
+
+                    doc.setFontSize(8);
+                    doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 5, 91);
+                    doc.text(`Impuesto (${venta.impuesto || 16}%): ${formatCurrency(montoImpuesto)}`, 5, 96);
+                    
                     doc.setFont(undefined, 'bold');
                     doc.setFontSize(10);
-                    doc.text(`TOTAL: ${formatCurrency(venta.precio)}`, 5, 94);
+                    doc.text(`TOTAL: ${formatCurrency(total)}`, 5, 104);
                     
-                    doc.setFontSize(8);
+                    doc.setFontSize(7);
                     doc.setFont(undefined, 'normal');
-                    doc.text('------------------------', 40, 99, { align: 'center' });
-                    doc.text('¡Gracias por su compra!', 40, 104, { align: 'center' });
+                    doc.text('------------------------', 40, 109, { align: 'center' });
+                    doc.text('¡Gracias por su compra!', 40, 114, { align: 'center' });
+                    doc.text('WhatsApp: 222-852-5274', 40, 119, { align: 'center' });
+                    doc.text('Llamadas: 249-424-1364', 40, 124, { align: 'center' });
 
                     doc.save(`Ticket-${venta.id}.pdf`);
                     showNotification('Ticket generado exitosamente');
@@ -346,7 +440,8 @@
                         ...formData,
                         id: `ENV-${Date.now()}`,
                         fecha: new Date().toISOString(),
-                        tipoOperacion: tipoOperacion
+                        tipoOperacion: tipoOperacion,
+                        estado: 'activa'
                     };
 
                     setVentas(prev => [...prev, nuevaVenta]);
@@ -374,8 +469,10 @@
                         paqueteria: 'fedex',
                         precio: '',
                         costo: '',
+                        impuesto: '16',
                         paqueteriaDevolucion: 'fedex',
-                        numeroGuia: ''
+                        numeroGuia: '',
+                        declaraciones: [{ producto: '', costo: '', peso: '' }]
                     });
 
                     showNotification('Venta registrada exitosamente');
@@ -383,13 +480,26 @@
                 }, 500);
             };
 
+            const cancelarVenta = (ventaId) => {
+                if (window.confirm('¿Estás seguro de que deseas cancelar esta venta?')) {
+                    setVentas(prev => prev.map(v => 
+                        v.id === ventaId ? { ...v, estado: 'cancelada' } : v
+                    ));
+                    showNotification('Venta cancelada exitosamente', 'success');
+                }
+            };
+
             const getVentasHoy = () => {
                 const hoy = new Date().toLocaleDateString('es-MX');
-                return ventas.filter(v => new Date(v.fecha).toLocaleDateString('es-MX') === hoy);
+                return ventas.filter(v => 
+                    new Date(v.fecha).toLocaleDateString('es-MX') === hoy && 
+                    v.estado !== 'cancelada'
+                );
             };
 
             const getPaqueteriaMasVendida = () => {
-                const conteo = ventas.reduce((acc, v) => {
+                const ventasActivas = ventas.filter(v => v.estado !== 'cancelada');
+                const conteo = ventasActivas.reduce((acc, v) => {
                     const paq = v.tipoOperacion === 'devolucion' ? v.paqueteriaDevolucion : v.paqueteria;
                     acc[paq] = (acc[paq] || 0) + 1;
                     return acc;
@@ -400,7 +510,8 @@
             };
 
             const getServicioMasVendido = () => {
-                const conteo = ventas.reduce((acc, v) => {
+                const ventasActivas = ventas.filter(v => v.estado !== 'cancelada');
+                const conteo = ventasActivas.reduce((acc, v) => {
                     const tipo = v.tipoOperacion || 'envio';
                     acc[tipo] = (acc[tipo] || 0) + 1;
                     return acc;
@@ -426,7 +537,7 @@
             );
 
             const eliminarVenta = (ventaId) => {
-                if (window.confirm('¿Estás seguro de que deseas eliminar esta venta?')) {
+                if (window.confirm('¿Estás seguro de que deseas eliminar esta venta permanentemente?')) {
                     setVentas(prev => prev.filter(v => v.id !== ventaId));
                     showNotification('Venta eliminada exitosamente');
                 }
@@ -715,6 +826,83 @@
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {/* Tabla de Declaración */}
+                                            <div className="mb-6">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h3 className="text-xl font-semibold text-indigo-600">
+                                                        <i className="fas fa-clipboard-list mr-2"></i>Declaración de Contenido
+                                                    </h3>
+                                                    <button
+                                                        type="button"
+                                                        onClick={agregarDeclaracion}
+                                                        className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                                                    >
+                                                        <i className="fas fa-plus mr-2"></i>Agregar Producto
+                                                    </button>
+                                                </div>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border border-gray-300">
+                                                        <thead className="bg-gray-100">
+                                                            <tr>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">No.</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Costo</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Peso (kg)</th>
+                                                                <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700 border-b">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {formData.declaraciones.map((dec, index) => (
+                                                                <tr key={index} className="border-b">
+                                                                    <td className="px-4 py-2 text-sm font-medium text-gray-700">{index + 1}</td>
+                                                                    <td className="px-4 py-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={dec.producto}
+                                                                            onChange={(e) => actualizarDeclaracion(index, 'producto', e.target.value)}
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                            placeholder="Ej: Ropa"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-4 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={dec.costo}
+                                                                            onChange={(e) => actualizarDeclaracion(index, 'costo', e.target.value)}
+                                                                            step="0.01"
+                                                                            min="0"
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                            placeholder="0.00"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-4 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={dec.peso}
+                                                                            onChange={(e) => actualizarDeclaracion(index, 'peso', e.target.value)}
+                                                                            step="0.01"
+                                                                            min="0"
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                            placeholder="0.00"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-4 py-2 text-center">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => eliminarDeclaracion(index)}
+                                                                            disabled={formData.declaraciones.length === 1}
+                                                                            className="bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                        >
+                                                                            <i className="fas fa-trash"></i>
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
                                         </>
                                     )}
 
@@ -723,7 +911,7 @@
                                         <h3 className="text-xl font-semibold text-orange-600 mb-4">
                                             <i className="fas fa-money-bill-wave mr-2"></i>Información Financiera
                                         </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Precio (venta al cliente) *</label>
                                                 <input
@@ -746,6 +934,20 @@
                                                     onChange={handleInputChange}
                                                     step="0.01"
                                                     min="0"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto (%) *</label>
+                                                <input
+                                                    type="number"
+                                                    name="impuesto"
+                                                    value={formData.impuesto}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    min="0"
+                                                    max="100"
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     required
                                                 />
@@ -836,7 +1038,7 @@
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h3 className="text-lg font-semibold mb-2">Total Ventas</h3>
-                                                <p className="text-4xl font-bold">{ventas.length}</p>
+                                                <p className="text-4xl font-bold">{ventas.filter(v => v.estado !== 'cancelada').length}</p>
                                             </div>
                                             <i className="fas fa-boxes text-5xl opacity-20"></i>
                                         </div>
@@ -859,6 +1061,7 @@
                                         <div className="space-y-2">
                                             {PAQUETERIAS.map(paq => {
                                                 const count = ventas.filter(v => 
+                                                    v.estado !== 'cancelada' &&
                                                     (v.tipoOperacion === 'devolucion' ? v.paqueteriaDevolucion : v.paqueteria) === paq
                                                 ).length;
                                                 return (
@@ -885,7 +1088,10 @@
                                         </div>
                                         <div className="space-y-2">
                                             {TIPOS_OPERACION.map(tipo => {
-                                                const count = ventas.filter(v => (v.tipoOperacion || 'envio') === tipo).length;
+                                                const count = ventas.filter(v => 
+                                                    v.estado !== 'cancelada' &&
+                                                    (v.tipoOperacion || 'envio') === tipo
+                                                ).length;
                                                 return (
                                                     <div key={tipo} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                                                         <span className="font-medium uppercase">{tipo}</span>
@@ -938,13 +1144,14 @@
                                                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Remitente</th>
                                                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Destinatario</th>
                                                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Paquetería</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Estado</th>
                                                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Precio</th>
                                                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-200">
                                                 {ventasFiltradas.slice().reverse().map((venta) => (
-                                                    <tr key={venta.id} className="hover:bg-gray-50">
+                                                    <tr key={venta.id} className={`hover:bg-gray-50 ${venta.estado === 'cancelada' ? 'bg-red-50 opacity-60' : ''}`}>
                                                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{venta.id}</td>
                                                         <td className="px-4 py-3 text-sm text-gray-600">
                                                             {new Date(venta.fecha).toLocaleDateString('es-MX')}
@@ -968,6 +1175,15 @@
                                                         <td className="px-4 py-3 text-sm text-gray-600 uppercase font-medium">
                                                             {venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria}
                                                         </td>
+                                                        <td className="px-4 py-3 text-sm">
+                                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                                                venta.estado === 'cancelada' 
+                                                                    ? 'bg-red-100 text-red-800' 
+                                                                    : 'bg-green-100 text-green-800'
+                                                            }`}>
+                                                                {venta.estado === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
+                                                            </span>
+                                                        </td>
                                                         <td className="px-4 py-3 text-sm font-semibold text-green-600">
                                                             {formatCurrency(venta.precio)}
                                                         </td>
@@ -975,14 +1191,16 @@
                                                             <div className="flex gap-2 flex-wrap">
                                                                 <button
                                                                     onClick={() => generarPDF(venta)}
-                                                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    disabled={venta.estado === 'cancelada'}
+                                                                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Generar PDF"
                                                                 >
                                                                     <i className="fas fa-file-pdf mr-1"></i>PDF
                                                                 </button>
                                                                 <button
                                                                     onClick={() => generarTicket(venta)}
-                                                                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    disabled={venta.estado === 'cancelada'}
+                                                                    className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Generar Ticket"
                                                                 >
                                                                     <i className="fas fa-receipt mr-1"></i>Ticket
@@ -998,10 +1216,20 @@
                                                                 ) : (
                                                                     <button
                                                                         onClick={() => adjuntarGuia(venta.id)}
-                                                                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                        disabled={venta.estado === 'cancelada'}
+                                                                        className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                         title="Adjuntar Guía PDF"
                                                                     >
                                                                         <i className="fas fa-paperclip mr-1"></i>Adjuntar
+                                                                    </button>
+                                                                )}
+                                                                {venta.estado !== 'cancelada' && (
+                                                                    <button
+                                                                        onClick={() => cancelarVenta(venta.id)}
+                                                                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                        title="Cancelar Venta"
+                                                                    >
+                                                                        <i className="fas fa-ban mr-1"></i>Cancelar
                                                                     </button>
                                                                 )}
                                                                 <button
