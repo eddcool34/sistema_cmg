@@ -19,6 +19,9 @@
         const { useState, useEffect, useRef } = React;
         const { jsPDF } = window.jspdf;
 
+        // ========== CONFIGURACIÓN DE GOOGLE SHEETS ==========
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNs5bxqYtCOHRzYmtWJCAVTuWO6BkhzO2-L4wmth7h_NAFJPumbJu2RCSHFwP5cAsx/exec';
+
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
@@ -51,6 +54,90 @@
             return errores;
         };
 
+        // ========== FUNCIONES DE GOOGLE SHEETS ==========
+        
+        // Guardar venta en Google Sheets
+        const guardarVentaEnSheets = async (venta) => {
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarVenta',
+                        fecha: new Date(venta.fecha).toLocaleDateString('es-MX'),
+                        hora: new Date(venta.fecha).toLocaleTimeString('es-MX'),
+                        remitente: venta.nombreRemitente,
+                        telRemitente: venta.telefonoRemitente,
+                        destinatario: venta.nombreDestinatario || '-',
+                        telDestinatario: venta.telefonoDestinatario || '-',
+                        direccion: venta.direccion ? `${venta.direccion} #${venta.numero}, ${venta.colonia}` : '-',
+                        codigoPostal: venta.codigoPostal || '-',
+                        ciudad: venta.colonia || '-',
+                        estado: venta.estado || '-',
+                        pais: venta.pais || 'México',
+                        paqueteria: venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria,
+                        servicio: venta.tipoOperacion === 'devolucion' ? 'Devolución' : venta.tipoServicio,
+                        precio: venta.precio,
+                        costo: venta.costo,
+                        ganancia: parseFloat(venta.precio) - parseFloat(venta.costo),
+                        numeroGuia: venta.numeroGuia || venta.id
+                    })
+                });
+                
+                console.log('✅ Venta guardada en Google Sheets');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar en Google Sheets:', error);
+                return false;
+            }
+        };
+
+        // Guardar cliente en Google Sheets
+        const guardarClienteEnSheets = async (cliente) => {
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarCliente',
+                        idCliente: cliente.id,
+                        nombre: cliente.nombre,
+                        telefono: cliente.telefono,
+                        fechaRegistro: new Date().toLocaleDateString('es-MX')
+                    })
+                });
+                
+                console.log('✅ Cliente guardado en Google Sheets');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar cliente en Google Sheets:', error);
+                return false;
+            }
+        };
+
+        // Cargar ventas desde Google Sheets
+        const cargarVentasDesdeSheets = async () => {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerVentas`);
+                const data = await response.json();
+                
+                if (data.success && data.ventas) {
+                    console.log('✅ Ventas cargadas desde Google Sheets:', data.ventas.length);
+                    return data.ventas;
+                }
+                return [];
+            } catch (error) {
+                console.error('❌ Error al cargar ventas desde Google Sheets:', error);
+                return [];
+            }
+        };
+
         function App() {
             const [activeTab, setActiveTab] = useState('registro');
             const [ventas, setVentas] = useState([]);
@@ -58,6 +145,7 @@
             const [tipoOperacion, setTipoOperacion] = useState('envio');
             const [currentVentaForGuia, setCurrentVentaForGuia] = useState(null);
             const [loading, setLoading] = useState(false);
+            const [syncStatus, setSyncStatus] = useState({ syncing: false, message: '' });
             const [notification, setNotification] = useState({ show: false, message: '', type: '' });
             
             const [formData, setFormData] = useState({
@@ -95,33 +183,74 @@
                 }, 3000);
             };
 
+            // Cargar datos al iniciar
             useEffect(() => {
-                const ventasGuardadas = localStorage.getItem('ventas');
-                if (ventasGuardadas) {
-                    try {
-                        setVentas(JSON.parse(ventasGuardadas));
-                    } catch (error) {
-                        console.error('Error al cargar ventas:', error);
-                        showNotification('Error al cargar datos guardados', 'error');
+                const cargarDatos = async () => {
+                    setSyncStatus({ syncing: true, message: 'Cargando datos...' });
+                    
+                    // Intentar cargar desde Google Sheets primero
+                    const ventasSheets = await cargarVentasDesdeSheets();
+                    
+                    if (ventasSheets.length > 0) {
+                        // Convertir las ventas de Sheets al formato de la app
+                        const ventasConvertidas = ventasSheets.map(v => ({
+                            id: v.numeroGuia || `ENV-${Date.now()}`,
+                            fecha: new Date().toISOString(), // Usar fecha actual como respaldo
+                            nombreRemitente: v.remitente,
+                            telefonoRemitente: v.telRemitente,
+                            nombreDestinatario: v.destinatario,
+                            telefonoDestinatario: v.telDestinatario,
+                            direccion: v.direccion,
+                            codigoPostal: v.codigoPostal,
+                            colonia: v.ciudad,
+                            estado: v.estado,
+                            pais: v.pais,
+                            paqueteria: v.paqueteria,
+                            tipoServicio: v.servicio,
+                            precio: v.precio,
+                            costo: v.costo,
+                            tipoOperacion: 'envio',
+                            estado: 'activa'
+                        }));
+                        
+                        setVentas(ventasConvertidas);
+                        localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
+                        setSyncStatus({ syncing: false, message: '✅ Sincronizado con Google Sheets' });
+                    } else {
+                        // Si no hay datos en Sheets, cargar desde localStorage
+                        const ventasGuardadas = localStorage.getItem('ventas');
+                        if (ventasGuardadas) {
+                            try {
+                                setVentas(JSON.parse(ventasGuardadas));
+                                setSyncStatus({ syncing: false, message: '📂 Datos cargados localmente' });
+                            } catch (error) {
+                                console.error('Error al cargar ventas:', error);
+                                setSyncStatus({ syncing: false, message: '⚠️ Error al cargar datos' });
+                            }
+                        } else {
+                            setSyncStatus({ syncing: false, message: '📋 Sin datos registrados' });
+                        }
                     }
-                }
 
-                // Event listener para cargar PDF de guía
-                const fileInput = document.getElementById('guiaFileInput');
-                fileInput.addEventListener('change', handleGuiaFileSelect);
-                
-                return () => {
-                    fileInput.removeEventListener('change', handleGuiaFileSelect);
+                    // Event listener para cargar PDF de guía
+                    const fileInput = document.getElementById('guiaFileInput');
+                    fileInput.addEventListener('change', handleGuiaFileSelect);
+                    
+                    return () => {
+                        fileInput.removeEventListener('change', handleGuiaFileSelect);
+                    };
                 };
+
+                cargarDatos();
             }, []);
 
+            // Guardar en localStorage cuando cambian las ventas
             useEffect(() => {
                 if (ventas.length > 0) {
                     try {
                         localStorage.setItem('ventas', JSON.stringify(ventas));
                     } catch (error) {
                         console.error('Error al guardar ventas:', error);
-                        showNotification('Error al guardar datos', 'error');
                     }
                 }
             }, [ventas]);
@@ -416,7 +545,7 @@
                 }
             };
 
-            const handleSubmit = (e, action) => {
+            const handleSubmit = async (e, action) => {
                 e.preventDefault();
                 
                 // Validar campos
@@ -433,51 +562,69 @@
                 }
 
                 setLoading(true);
+                setSyncStatus({ syncing: true, message: 'Guardando en Google Sheets...' });
 
-                // Simular procesamiento asíncrono
-                setTimeout(() => {
-                    const nuevaVenta = {
-                        ...formData,
-                        id: `ENV-${Date.now()}`,
-                        fecha: new Date().toISOString(),
-                        tipoOperacion: tipoOperacion,
-                        estado: 'activa'
-                    };
+                const nuevaVenta = {
+                    ...formData,
+                    id: `ENV-${Date.now()}`,
+                    fecha: new Date().toISOString(),
+                    tipoOperacion: tipoOperacion,
+                    estado: 'activa'
+                };
 
-                    setVentas(prev => [...prev, nuevaVenta]);
-
-                    if (action === 'pdf') {
-                        generarPDF(nuevaVenta);
-                    } else if (action === 'ticket') {
-                        generarTicket(nuevaVenta);
-                    }
-
-                    // Resetear formulario
-                    setFormData({
-                        nombreRemitente: '',
-                        telefonoRemitente: '',
-                        nombreDestinatario: '',
-                        telefonoDestinatario: '',
-                        direccion: '',
-                        numero: '',
-                        codigoPostal: '',
-                        colonia: '',
-                        estado: '',
-                        pais: 'México',
-                        tipoServicio: 'nacional',
-                        devolucion: 'no',
-                        paqueteria: 'fedex',
-                        precio: '',
-                        costo: '',
-                        impuesto: '16',
-                        paqueteriaDevolucion: 'fedex',
-                        numeroGuia: '',
-                        declaraciones: [{ producto: '', costo: '', peso: '' }]
+                // Guardar en Google Sheets
+                const guardadoExitoso = await guardarVentaEnSheets(nuevaVenta);
+                
+                // Guardar cliente si es la primera vez
+                const clienteExistente = ventas.find(v => v.telefonoRemitente === formData.telefonoRemitente);
+                if (!clienteExistente) {
+                    await guardarClienteEnSheets({
+                        id: `CLI-${Date.now()}`,
+                        nombre: formData.nombreRemitente,
+                        telefono: formData.telefonoRemitente
                     });
+                }
 
-                    showNotification('Venta registrada exitosamente');
-                    setLoading(false);
-                }, 500);
+                // Actualizar estado local
+                setVentas(prev => [...prev, nuevaVenta]);
+
+                if (guardadoExitoso) {
+                    setSyncStatus({ syncing: false, message: '✅ Guardado en Google Sheets' });
+                } else {
+                    setSyncStatus({ syncing: false, message: '⚠️ Guardado localmente (sin conexión)' });
+                }
+
+                if (action === 'pdf') {
+                    generarPDF(nuevaVenta);
+                } else if (action === 'ticket') {
+                    generarTicket(nuevaVenta);
+                }
+
+                // Resetear formulario
+                setFormData({
+                    nombreRemitente: '',
+                    telefonoRemitente: '',
+                    nombreDestinatario: '',
+                    telefonoDestinatario: '',
+                    direccion: '',
+                    numero: '',
+                    codigoPostal: '',
+                    colonia: '',
+                    estado: '',
+                    pais: 'México',
+                    tipoServicio: 'nacional',
+                    devolucion: 'no',
+                    paqueteria: 'fedex',
+                    precio: '',
+                    costo: '',
+                    impuesto: '16',
+                    paqueteriaDevolucion: 'fedex',
+                    numeroGuia: '',
+                    declaraciones: [{ producto: '', costo: '', peso: '' }]
+                });
+
+                showNotification('Venta registrada exitosamente');
+                setLoading(false);
             };
 
             const cancelarVenta = (ventaId) => {
@@ -560,6 +707,14 @@
                             </div>
                         </div>
                     )}
+
+                    {/* Estado de sincronización */}
+                    {syncStatus.message && (
+                        <div className="fixed top-16 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+                            {syncStatus.syncing && <i className="fas fa-sync fa-spin mr-2"></i>}
+                            {syncStatus.message}
+                        </div>
+                    )}
                     
                     <div className="container mx-auto px-4 py-8">
                         {/* Header con Logo */}
@@ -571,6 +726,10 @@
                                         Sistema CMG
                                     </h1>
                                     <p className="text-lg text-gray-600">Paquetería CMG</p>
+                                    <p className="text-xs text-green-600 mt-1">
+                                        <i className="fas fa-cloud mr-1"></i>
+                                        Conectado a Google Sheets
+                                    </p>
                                 </div>
                             </div>
                         </div>
