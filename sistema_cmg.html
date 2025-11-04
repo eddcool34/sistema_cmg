@@ -10,6 +10,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Estilos para modales */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
@@ -126,7 +166,7 @@
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerVentas`);
                 const data = await response.json();
-                
+
                 if (data.success && data.ventas) {
                     console.log('✅ Ventas cargadas desde Google Sheets:', data.ventas.length);
                     return data.ventas;
@@ -135,6 +175,60 @@
             } catch (error) {
                 console.error('❌ Error al cargar ventas desde Google Sheets:', error);
                 return [];
+            }
+        };
+
+        // Guardar en hoja de ventas por paquetería
+        const guardarVentaPorPaqueteria = async (venta) => {
+            try {
+                const fecha = new Date(venta.fecha);
+                const mes = fecha.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+                const paqueteria = venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria;
+                const tipoServicio = venta.tipoOperacion === 'devolucion' ? 'devolucion' : venta.tipoServicio;
+
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarVentaPorPaqueteria',
+                        mes: mes,
+                        tipoServicio: tipoServicio,
+                        paqueteria: paqueteria
+                    })
+                });
+
+                console.log('✅ Venta por paquetería guardada en Google Sheets');
+            } catch (error) {
+                console.error('❌ Error al guardar venta por paquetería:', error);
+            }
+        };
+
+        // Guardar destino frecuente
+        const guardarDestinoFrecuente = async (venta) => {
+            try {
+                if (venta.tipoOperacion === 'envio' && venta.codigoPostal && venta.estado) {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'guardarDestinoFrecuente',
+                            codigoPostal: venta.codigoPostal,
+                            destino: `${venta.colonia || ''}, ${venta.estado}`.trim(),
+                            estado: venta.estado,
+                            pais: venta.pais || 'México'
+                        })
+                    });
+
+                    console.log('✅ Destino frecuente guardado en Google Sheets');
+                }
+            } catch (error) {
+                console.error('❌ Error al guardar destino frecuente:', error);
             }
         };
 
@@ -147,6 +241,16 @@
             const [loading, setLoading] = useState(false);
             const [syncStatus, setSyncStatus] = useState({ syncing: false, message: '' });
             const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+            // Estados para Balance General
+            const [gastos, setGastos] = useState([]);
+            const [showGastoModal, setShowGastoModal] = useState(false);
+            const [gastoForm, setGastoForm] = useState({
+                concepto: '',
+                monto: '',
+                tipo: 'gasto',
+                fecha: new Date().toISOString().split('T')[0]
+            });
             
             const [formData, setFormData] = useState({
                 nombreRemitente: '',
@@ -165,9 +269,11 @@
                 precio: '',
                 costo: '',
                 impuesto: '16',
+                metodoPago: 'efectivo',
                 // Campos para devolución
                 paqueteriaDevolucion: 'fedex',
                 numeroGuia: '',
+                caducidadDevolucion: '',
                 // Tabla de declaración
                 declaraciones: [{ producto: '', costo: '', peso: '' }]
             });
@@ -365,8 +471,10 @@
                     precio: venta.precio,
                     costo: venta.costo,
                     impuesto: venta.impuesto || '16',
+                    metodoPago: venta.metodoPago || 'efectivo',
                     paqueteriaDevolucion: venta.paqueteriaDevolucion || 'fedex',
                     numeroGuia: venta.numeroGuia || '',
+                    caducidadDevolucion: venta.caducidadDevolucion || '',
                     declaraciones: venta.declaraciones || [{ producto: '', costo: '', peso: '' }]
                 });
                 setTipoOperacion(venta.tipoOperacion || 'envio');
@@ -639,7 +747,13 @@
 
                 // Guardar en Google Sheets
                 const guardadoExitoso = await guardarVentaEnSheets(nuevaVenta);
-                
+
+                // Guardar en hoja de ventas por paquetería
+                await guardarVentaPorPaqueteria(nuevaVenta);
+
+                // Guardar destino frecuente si es envío
+                await guardarDestinoFrecuente(nuevaVenta);
+
                 // Guardar cliente si es la primera vez
                 const clienteExistente = ventas.find(v => v.telefonoRemitente === formData.telefonoRemitente);
                 if (!clienteExistente) {
@@ -683,8 +797,10 @@
                     precio: '',
                     costo: '',
                     impuesto: '16',
+                    metodoPago: 'efectivo',
                     paqueteriaDevolucion: 'fedex',
                     numeroGuia: '',
+                    caducidadDevolucion: '',
                     declaraciones: [{ producto: '', costo: '', peso: '' }]
                 });
 
@@ -755,6 +871,145 @@
                 }
             };
 
+            // ========== FUNCIONES DE BALANCE GENERAL ==========
+
+            // Cargar gastos desde localStorage
+            useEffect(() => {
+                const gastosGuardados = localStorage.getItem('gastos');
+                if (gastosGuardados) {
+                    try {
+                        setGastos(JSON.parse(gastosGuardados));
+                    } catch (error) {
+                        console.error('Error al cargar gastos:', error);
+                    }
+                }
+            }, []);
+
+            // Guardar gastos en localStorage
+            useEffect(() => {
+                if (gastos.length > 0) {
+                    localStorage.setItem('gastos', JSON.stringify(gastos));
+                }
+            }, [gastos]);
+
+            // Agregar gasto o salida
+            const agregarGasto = () => {
+                if (!gastoForm.concepto.trim() || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
+                    showNotification('Complete todos los campos correctamente', 'error');
+                    return;
+                }
+
+                const nuevoGasto = {
+                    id: `GASTO-${Date.now()}`,
+                    ...gastoForm,
+                    monto: parseFloat(gastoForm.monto),
+                    fecha: gastoForm.fecha || new Date().toISOString().split('T')[0]
+                };
+
+                setGastos(prev => [...prev, nuevoGasto]);
+                setGastoForm({
+                    concepto: '',
+                    monto: '',
+                    tipo: 'gasto',
+                    fecha: new Date().toISOString().split('T')[0]
+                });
+                setShowGastoModal(false);
+                showNotification('Registro agregado exitosamente');
+            };
+
+            // Eliminar gasto
+            const eliminarGasto = (gastoId) => {
+                if (window.confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+                    setGastos(prev => prev.filter(g => g.id !== gastoId));
+                    showNotification('Registro eliminado exitosamente');
+                }
+            };
+
+            // Obtener ventas por fecha
+            const getVentasPorFecha = (fecha) => {
+                return ventas.filter(v => {
+                    const fechaVenta = new Date(v.fecha).toLocaleDateString('es-MX');
+                    const fechaBuscar = new Date(fecha).toLocaleDateString('es-MX');
+                    return fechaVenta === fechaBuscar && v.estado !== 'cancelada';
+                });
+            };
+
+            // Obtener total de ventas por fecha
+            const getTotalVentasPorFecha = (fecha) => {
+                return getVentasPorFecha(fecha).reduce((sum, v) => sum + parseFloat(v.precio), 0);
+            };
+
+            // Obtener gastos por fecha
+            const getGastosPorFecha = (fecha) => {
+                return gastos.filter(g => {
+                    const fechaGasto = new Date(g.fecha).toLocaleDateString('es-MX');
+                    const fechaBuscar = new Date(fecha).toLocaleDateString('es-MX');
+                    return fechaGasto === fechaBuscar;
+                });
+            };
+
+            // Obtener total de gastos por fecha
+            const getTotalGastosPorFecha = (fecha) => {
+                return getGastosPorFecha(fecha).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+            };
+
+            // Obtener resumen de la semana actual
+            const getResumenSemanal = () => {
+                const hoy = new Date();
+                const primerDia = new Date(hoy);
+                primerDia.setDate(hoy.getDate() - hoy.getDay()); // Domingo
+
+                const diasSemana = [];
+                for (let i = 0; i < 7; i++) {
+                    const dia = new Date(primerDia);
+                    dia.setDate(primerDia.getDate() + i);
+                    diasSemana.push(dia.toISOString().split('T')[0]);
+                }
+
+                const resumen = diasSemana.map(fecha => {
+                    const totalVentas = getTotalVentasPorFecha(fecha);
+                    const totalGastos = getTotalGastosPorFecha(fecha);
+                    const balance = totalVentas - totalGastos;
+
+                    return {
+                        fecha,
+                        totalVentas,
+                        totalGastos,
+                        balance,
+                        dia: new Date(fecha).toLocaleDateString('es-MX', { weekday: 'short' })
+                    };
+                });
+
+                return resumen;
+            };
+
+            // Obtener totales semanales
+            const getTotalesSemana = () => {
+                const resumen = getResumenSemanal();
+                return {
+                    totalVentas: resumen.reduce((sum, d) => sum + d.totalVentas, 0),
+                    totalGastos: resumen.reduce((sum, d) => sum + d.totalGastos, 0),
+                    balance: resumen.reduce((sum, d) => sum + d.balance, 0)
+                };
+            };
+
+            // Calcular dinero en efectivo y banco
+            const getBalanceGeneral = () => {
+                const ventasEfectivo = ventas.filter(v => v.estado !== 'cancelada' && v.metodoPago === 'efectivo')
+                    .reduce((sum, v) => sum + parseFloat(v.precio), 0);
+                const ventasBanco = ventas.filter(v => v.estado !== 'cancelada' && (v.metodoPago === 'tarjeta' || v.metodoPago === 'transferencia'))
+                    .reduce((sum, v) => sum + parseFloat(v.precio), 0);
+
+                const gastosEfectivo = gastos.filter(g => g.tipo === 'gasto' || g.tipo === 'salida')
+                    .reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                return {
+                    efectivo: ventasEfectivo - gastosEfectivo,
+                    banco: ventasBanco,
+                    total: (ventasEfectivo - gastosEfectivo) + ventasBanco
+                };
+            };
+
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
                     {/* Notificación */}
@@ -778,6 +1033,88 @@
                         <div className="fixed top-16 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
                             {syncStatus.syncing && <i className="fas fa-sync fa-spin mr-2"></i>}
                             {syncStatus.message}
+                        </div>
+                    )}
+
+                    {/* MODAL DE GASTOS */}
+                    {showGastoModal && (
+                        <div className="modal-overlay" onClick={() => setShowGastoModal(false)}>
+                            <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800">
+                                        <i className="fas fa-money-bill-wave mr-2"></i>Registrar Gasto/Salida
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowGastoModal(false)}
+                                        className="text-gray-500 hover:text-gray-700 text-2xl"
+                                    >
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
+                                        <select
+                                            value={gastoForm.tipo}
+                                            onChange={(e) => setGastoForm({...gastoForm, tipo: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="gasto">Gasto</option>
+                                            <option value="salida">Salida de Efectivo</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Concepto *</label>
+                                        <input
+                                            type="text"
+                                            value={gastoForm.concepto}
+                                            onChange={(e) => setGastoForm({...gastoForm, concepto: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Ej: Renta, servicios, retiro..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Monto *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={gastoForm.monto}
+                                            onChange={(e) => setGastoForm({...gastoForm, monto: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Fecha *</label>
+                                        <input
+                                            type="date"
+                                            value={gastoForm.fecha}
+                                            onChange={(e) => setGastoForm({...gastoForm, fecha: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 justify-end mt-6 pt-4 border-t">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowGastoModal(false)}
+                                        className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={agregarGasto}
+                                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center"
+                                    >
+                                        <i className="fas fa-save mr-2"></i>
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -989,6 +1326,16 @@
                                     <i className="fas fa-edit mr-2"></i>Registrar Venta
                                 </button>
                                 <button
+                                    onClick={() => setActiveTab('balance')}
+                                    className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
+                                        activeTab === 'balance'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <i className="fas fa-balance-scale mr-2"></i>Balance General
+                                </button>
+                                <button
                                     onClick={() => setActiveTab('estadisticas')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'estadisticas'
@@ -1091,6 +1438,19 @@
                                                         type="text"
                                                         name="numeroGuia"
                                                         value={formData.numeroGuia}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        <i className="fas fa-calendar-times mr-2"></i>Fecha Límite de Devolución *
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        name="caducidadDevolucion"
+                                                        value={formData.caducidadDevolucion}
                                                         onChange={handleInputChange}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         required
@@ -1311,7 +1671,7 @@
                                         <h3 className="text-xl font-semibold text-orange-600 mb-4">
                                             <i className="fas fa-money-bill-wave mr-2"></i>Información Financiera
                                         </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Precio (venta al cliente) *</label>
                                                 <input
@@ -1351,6 +1711,22 @@
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     required
                                                 />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    <i className="fas fa-credit-card mr-2"></i>Método de Pago *
+                                                </label>
+                                                <select
+                                                    name="metodoPago"
+                                                    value={formData.metodoPago}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    required
+                                                >
+                                                    <option value="efectivo">Efectivo</option>
+                                                    <option value="tarjeta">Tarjeta</option>
+                                                    <option value="transferencia">Transferencia</option>
+                                                </select>
                                             </div>
                                         </div>
                                         {formData.precio && formData.costo && (
@@ -1393,6 +1769,174 @@
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        )}
+
+                        {/* Contenido - Balance General */}
+                        {activeTab === 'balance' && (
+                            <div>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800">
+                                        <i className="fas fa-balance-scale mr-2"></i>Balance General
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowGastoModal(true)}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg flex items-center"
+                                    >
+                                        <i className="fas fa-plus mr-2"></i>
+                                        Agregar Gasto/Salida
+                                    </button>
+                                </div>
+
+                                {/* Tarjetas de Resumen General */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">Efectivo Disponible</h3>
+                                                <p className="text-3xl font-bold">{formatCurrency(getBalanceGeneral().efectivo)}</p>
+                                            </div>
+                                            <i className="fas fa-money-bill-wave text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">En Banco</h3>
+                                                <p className="text-3xl font-bold">{formatCurrency(getBalanceGeneral().banco)}</p>
+                                            </div>
+                                            <i className="fas fa-university text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-2">Total Disponible</h3>
+                                                <p className="text-3xl font-bold">{formatCurrency(getBalanceGeneral().total)}</p>
+                                            </div>
+                                            <i className="fas fa-wallet text-5xl opacity-20"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Resumen Semanal */}
+                                <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-calendar-week mr-2"></i>Resumen Semanal
+                                    </h3>
+
+                                    <div className="overflow-x-auto mb-4">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Día</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Ventas</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Gastos</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Balance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200">
+                                                {getResumenSemanal().map((dia, index) => (
+                                                    <tr key={index} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 capitalize">{dia.dia}</td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                                            {new Date(dia.fecha).toLocaleDateString('es-MX')}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">
+                                                            {formatCurrency(dia.totalVentas)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">
+                                                            {formatCurrency(dia.totalGastos)}
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-sm text-right font-bold ${
+                                                            dia.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                                                        }`}>
+                                                            {formatCurrency(dia.balance)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                                                <tr>
+                                                    <td colSpan="2" className="px-4 py-3 text-sm font-bold text-gray-900">TOTALES SEMANALES</td>
+                                                    <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                                                        {formatCurrency(getTotalesSemana().totalVentas)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-bold text-red-600">
+                                                        {formatCurrency(getTotalesSemana().totalGastos)}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-sm text-right font-bold ${
+                                                        getTotalesSemana().balance >= 0 ? 'text-green-600' : 'text-red-600'
+                                                    }`}>
+                                                        {formatCurrency(getTotalesSemana().balance)}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Lista de Gastos y Salidas */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-list mr-2"></i>Historial de Gastos y Salidas
+                                    </h3>
+
+                                    {gastos.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <i className="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                                            <p className="text-gray-500 text-lg">No hay gastos registrados</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-gray-100">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Concepto</th>
+                                                        <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Monto</th>
+                                                        <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200">
+                                                    {gastos.slice().reverse().map((gasto) => (
+                                                        <tr key={gasto.id} className="hover:bg-gray-50">
+                                                            <td className="px-4 py-3 text-sm text-gray-600">
+                                                                {new Date(gasto.fecha).toLocaleDateString('es-MX')}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm">
+                                                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                                                    gasto.tipo === 'gasto'
+                                                                        ? 'bg-orange-100 text-orange-800'
+                                                                        : 'bg-red-100 text-red-800'
+                                                                }`}>
+                                                                    {gasto.tipo === 'gasto' ? 'GASTO' : 'SALIDA'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm text-gray-900">{gasto.concepto}</td>
+                                                            <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">
+                                                                {formatCurrency(gasto.monto)}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <button
+                                                                    onClick={() => eliminarGasto(gasto.id)}
+                                                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    title="Eliminar"
+                                                                >
+                                                                    <i className="fas fa-trash"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
