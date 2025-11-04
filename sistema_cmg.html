@@ -172,6 +172,10 @@
                 declaraciones: [{ producto: '', costo: '', peso: '' }]
             });
 
+            // Estados para modal de edición
+            const [showEditModal, setShowEditModal] = useState(false);
+            const [ventaEditando, setVentaEditando] = useState(null);
+
             // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
@@ -335,10 +339,71 @@
             const actualizarDeclaracion = (index, campo, valor) => {
                 setFormData(prev => ({
                     ...prev,
-                    declaraciones: prev.declaraciones.map((dec, i) => 
+                    declaraciones: prev.declaraciones.map((dec, i) =>
                         i === index ? { ...dec, [campo]: valor } : dec
                     )
                 }));
+            };
+
+            // Función para abrir modal de edición
+            const abrirModalEdicion = (venta) => {
+                setVentaEditando(venta);
+                setFormData({
+                    nombreRemitente: venta.nombreRemitente,
+                    telefonoRemitente: venta.telefonoRemitente,
+                    nombreDestinatario: venta.nombreDestinatario || '',
+                    telefonoDestinatario: venta.telefonoDestinatario || '',
+                    direccion: venta.direccion || '',
+                    numero: venta.numero || '',
+                    codigoPostal: venta.codigoPostal || '',
+                    colonia: venta.colonia || '',
+                    estado: venta.estado || '',
+                    pais: venta.pais || 'México',
+                    tipoServicio: venta.tipoServicio || 'nacional',
+                    devolucion: venta.tipoOperacion === 'devolucion' ? 'si' : 'no',
+                    paqueteria: venta.paqueteria || 'fedex',
+                    precio: venta.precio,
+                    costo: venta.costo,
+                    impuesto: venta.impuesto || '16',
+                    paqueteriaDevolucion: venta.paqueteriaDevolucion || 'fedex',
+                    numeroGuia: venta.numeroGuia || '',
+                    declaraciones: venta.declaraciones || [{ producto: '', costo: '', peso: '' }]
+                });
+                setTipoOperacion(venta.tipoOperacion || 'envio');
+                setShowEditModal(true);
+            };
+
+            // Función para guardar edición
+            const guardarEdicion = async () => {
+                const errores = validarCampos(formData, tipoOperacion);
+                if (errores.length > 0) {
+                    showNotification(`Complete los campos obligatorios: ${errores.join(', ')}`, 'error');
+                    return;
+                }
+
+                if (parseFloat(formData.precio) < parseFloat(formData.costo)) {
+                    showNotification('El precio debe ser mayor o igual al costo', 'error');
+                    return;
+                }
+
+                setSyncStatus({ syncing: true, message: 'Actualizando...' });
+
+                const ventaActualizada = {
+                    ...ventaEditando,
+                    ...formData,
+                    tipoOperacion: tipoOperacion
+                };
+
+                await guardarVentaEnSheets(ventaActualizada);
+
+                setVentas(prev => prev.map(v =>
+                    v.id === ventaEditando.id ? ventaActualizada : v
+                ));
+
+                setSyncStatus({ syncing: false, message: '✅ Actualizado' });
+                showNotification('Venta actualizada exitosamente');
+                setShowEditModal(false);
+                setVentaEditando(null);
             };
 
             const generarPDF = (venta) => {
@@ -715,7 +780,183 @@
                             {syncStatus.message}
                         </div>
                     )}
-                    
+
+                    {/* MODAL DE EDICIÓN */}
+                    {showEditModal && (
+                        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+                            <div className="modal-content p-6 w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800">
+                                        <i className="fas fa-edit mr-2"></i>Editar Venta
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowEditModal(false)}
+                                        className="text-gray-500 hover:text-gray-700 text-2xl"
+                                    >
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <form className="space-y-6">
+                                    {/* Selector Envío/Devolución */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <i className="fas fa-truck mr-2"></i>Tipo de Operación *
+                                        </label>
+                                        <select
+                                            value={tipoOperacion}
+                                            onChange={(e) => setTipoOperacion(e.target.value)}
+                                            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="envio">Envío</option>
+                                            <option value="devolucion">Devolución</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Remitente */}
+                                    <div>
+                                        <h3 className="text-xl font-semibold text-blue-600 mb-4">
+                                            <i className="fas fa-user mr-2"></i>Datos del Remitente
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                                                <input
+                                                    type="text"
+                                                    name="nombreRemitente"
+                                                    value={formData.nombreRemitente}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                                                <input
+                                                    type="tel"
+                                                    name="telefonoRemitente"
+                                                    value={formData.telefonoRemitente}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Destinatario - solo si es envío */}
+                                    {tipoOperacion === 'envio' && (
+                                        <div>
+                                            <h3 className="text-xl font-semibold text-green-600 mb-4">
+                                                <i className="fas fa-user-friends mr-2"></i>Datos del Destinatario
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                                                    <input
+                                                        type="text"
+                                                        name="nombreDestinatario"
+                                                        value={formData.nombreDestinatario}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                                                    <input
+                                                        type="tel"
+                                                        name="telefonoDestinatario"
+                                                        value={formData.telefonoDestinatario}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
+                                                    <input
+                                                        type="text"
+                                                        name="direccion"
+                                                        value={formData.direccion}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                                                    <input
+                                                        type="text"
+                                                        name="estado"
+                                                        value={formData.estado}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Información Financiera */}
+                                    <div>
+                                        <h3 className="text-xl font-semibold text-orange-600 mb-4">
+                                            <i className="fas fa-money-bill-wave mr-2"></i>Información Financiera
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Precio *</label>
+                                                <input
+                                                    type="number"
+                                                    name="precio"
+                                                    value={formData.precio}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Costo *</label>
+                                                <input
+                                                    type="number"
+                                                    name="costo"
+                                                    value={formData.costo}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto (%)</label>
+                                                <input
+                                                    type="number"
+                                                    name="impuesto"
+                                                    value={formData.impuesto}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Botones del modal */}
+                                    <div className="flex gap-4 justify-end pt-4 border-t">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEditModal(false)}
+                                            className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={guardarEdicion}
+                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center"
+                                        >
+                                            <i className="fas fa-save mr-2"></i>
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="container mx-auto px-4 py-8">
                         {/* Header con Logo */}
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -1348,6 +1589,14 @@
                                                         </td>
                                                         <td className="px-4 py-3 text-sm">
                                                             <div className="flex gap-2 flex-wrap">
+                                                                <button
+                                                                    onClick={() => abrirModalEdicion(venta)}
+                                                                    disabled={venta.estado === 'cancelada'}
+                                                                    className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    title="Editar Venta"
+                                                                >
+                                                                    <i className="fas fa-edit mr-1"></i>Editar
+                                                                </button>
                                                                 <button
                                                                     onClick={() => generarPDF(venta)}
                                                                     disabled={venta.estado === 'cancelada'}
