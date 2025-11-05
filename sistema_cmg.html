@@ -65,7 +65,7 @@
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
-        const TIPOS_OPERACION = ['envio', 'devolucion'];
+        const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega'];
 
         // Función utilitaria para formatear moneda
         const formatCurrency = (amount) => {
@@ -75,22 +75,31 @@
         // Función para validar campos requeridos
         const validarCampos = (formData, tipoOperacion) => {
             const errores = [];
-            
-            // Campos comunes
-            if (!formData.nombreRemitente.trim()) errores.push('Nombre del remitente');
-            if (!formData.telefonoRemitente.trim()) errores.push('Teléfono del remitente');
-            if (!formData.precio || parseFloat(formData.precio) <= 0) errores.push('Precio válido');
-            if (!formData.costo || parseFloat(formData.costo) <= 0) errores.push('Costo válido');
-            
-            if (tipoOperacion === 'devolucion') {
-                if (!formData.paqueteriaDevolucion) errores.push('Paquetería de devolución');
-                if (!formData.numeroGuia.trim()) errores.push('Número de guía');
+
+            if (tipoOperacion === 'entrega') {
+                // Validaciones para entregas
+                if (!formData.nombreEntrega.trim()) errores.push('Nombre');
+                if (!formData.telefonoEntrega.trim()) errores.push('Teléfono');
+                if (!formData.paqueteriaEntrega) errores.push('Paquetería');
+                if (!formData.precio || parseFloat(formData.precio) <= 0) errores.push('Precio válido');
+                if (!formData.costo || parseFloat(formData.costo) <= 0) errores.push('Costo válido');
             } else {
-                if (!formData.nombreDestinatario.trim()) errores.push('Nombre del destinatario');
-                if (!formData.telefonoDestinatario.trim()) errores.push('Teléfono del destinatario');
-                if (!formData.direccion.trim()) errores.push('Dirección');
+                // Campos comunes para envío y devolución
+                if (!formData.nombreRemitente.trim()) errores.push('Nombre del remitente');
+                if (!formData.telefonoRemitente.trim()) errores.push('Teléfono del remitente');
+                if (!formData.precio || parseFloat(formData.precio) <= 0) errores.push('Precio válido');
+                if (!formData.costo || parseFloat(formData.costo) <= 0) errores.push('Costo válido');
+
+                if (tipoOperacion === 'devolucion') {
+                    if (!formData.paqueteriaDevolucion) errores.push('Paquetería de devolución');
+                    if (!formData.numeroGuia.trim()) errores.push('Número de guía');
+                } else {
+                    if (!formData.nombreDestinatario.trim()) errores.push('Nombre del destinatario');
+                    if (!formData.telefonoDestinatario.trim()) errores.push('Teléfono del destinatario');
+                    if (!formData.direccion.trim()) errores.push('Dirección');
+                }
             }
-            
+
             return errores;
         };
 
@@ -232,6 +241,38 @@
             }
         };
 
+        // Guardar entrega en Google Sheets
+        const guardarEntregaEnSheets = async (entrega) => {
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarEntrega',
+                        fecha: new Date(entrega.fecha).toLocaleDateString('es-MX'),
+                        hora: new Date(entrega.fecha).toLocaleTimeString('es-MX'),
+                        nombre: entrega.nombreEntrega,
+                        telefono: entrega.telefonoEntrega,
+                        paqueteria: entrega.paqueteriaEntrega,
+                        detalles: entrega.detallesEntrega || '-',
+                        precio: entrega.precio,
+                        costo: entrega.costo,
+                        ganancia: parseFloat(entrega.precio) - parseFloat(entrega.costo),
+                        metodoPago: entrega.metodoPago || 'efectivo'
+                    })
+                });
+
+                console.log('✅ Entrega guardada en Google Sheets');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar entrega en Google Sheets:', error);
+                return false;
+            }
+        };
+
         function App() {
             const [activeTab, setActiveTab] = useState('registro');
             const [ventas, setVentas] = useState([]);
@@ -268,14 +309,19 @@
                 paqueteria: 'fedex',
                 precio: '',
                 costo: '',
-                impuesto: '16',
+                impuesto: '0',
                 metodoPago: 'efectivo',
                 // Campos para devolución
                 paqueteriaDevolucion: 'fedex',
                 numeroGuia: '',
                 caducidadDevolucion: '',
+                // Campos para entregas
+                nombreEntrega: '',
+                telefonoEntrega: '',
+                paqueteriaEntrega: 'fedex',
+                detallesEntrega: '',
                 // Tabla de declaración
-                declaraciones: [{ producto: '', costo: '', peso: '' }]
+                declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }]
             });
 
             // Estados para modal de edición
@@ -429,7 +475,7 @@
             const agregarDeclaracion = () => {
                 setFormData(prev => ({
                     ...prev,
-                    declaraciones: [...prev.declaraciones, { producto: '', costo: '', peso: '' }]
+                    declaraciones: [...prev.declaraciones, { cantidad: '', producto: '', costo: '', peso: '' }]
                 }));
             };
 
@@ -454,9 +500,20 @@
             // Función para abrir modal de edición
             const abrirModalEdicion = (venta) => {
                 setVentaEditando(venta);
+
+                // Normalizar declaraciones para asegurar que tengan el campo cantidad
+                const declaracionesNormalizadas = venta.declaraciones && venta.declaraciones.length > 0
+                    ? venta.declaraciones.map(dec => ({
+                        cantidad: dec.cantidad || '',
+                        producto: dec.producto || '',
+                        costo: dec.costo || '',
+                        peso: dec.peso || ''
+                    }))
+                    : [{ cantidad: '', producto: '', costo: '', peso: '' }];
+
                 setFormData({
-                    nombreRemitente: venta.nombreRemitente,
-                    telefonoRemitente: venta.telefonoRemitente,
+                    nombreRemitente: venta.nombreRemitente || '',
+                    telefonoRemitente: venta.telefonoRemitente || '',
                     nombreDestinatario: venta.nombreDestinatario || '',
                     telefonoDestinatario: venta.telefonoDestinatario || '',
                     direccion: venta.direccion || '',
@@ -468,14 +525,18 @@
                     tipoServicio: venta.tipoServicio || 'nacional',
                     devolucion: venta.tipoOperacion === 'devolucion' ? 'si' : 'no',
                     paqueteria: venta.paqueteria || 'fedex',
-                    precio: venta.precio,
-                    costo: venta.costo,
-                    impuesto: venta.impuesto || '16',
+                    precio: venta.precio || '',
+                    costo: venta.costo || '',
+                    impuesto: venta.impuesto || '0',
                     metodoPago: venta.metodoPago || 'efectivo',
                     paqueteriaDevolucion: venta.paqueteriaDevolucion || 'fedex',
                     numeroGuia: venta.numeroGuia || '',
                     caducidadDevolucion: venta.caducidadDevolucion || '',
-                    declaraciones: venta.declaraciones || [{ producto: '', costo: '', peso: '' }]
+                    nombreEntrega: venta.nombreEntrega || '',
+                    telefonoEntrega: venta.telefonoEntrega || '',
+                    paqueteriaEntrega: venta.paqueteriaEntrega || 'fedex',
+                    detallesEntrega: venta.detallesEntrega || '',
+                    declaraciones: declaracionesNormalizadas
                 });
                 setTipoOperacion(venta.tipoOperacion || 'envio');
                 setShowEditModal(true);
@@ -590,20 +651,22 @@
                             doc.setFontSize(14);
                             doc.setFont(undefined, 'bold');
                             doc.text('DECLARACIÓN DE CONTENIDO', 20, yPos);
-                            
+
                             yPos += 7;
                             doc.setFontSize(10);
                             doc.setFont(undefined, 'bold');
                             doc.text('No.', 20, yPos);
-                            doc.text('Producto', 35, yPos);
+                            doc.text('Cant.', 30, yPos);
+                            doc.text('Producto', 50, yPos);
                             doc.text('Costo', 120, yPos);
                             doc.text('Peso', 160, yPos);
-                            
+
                             doc.setFont(undefined, 'normal');
                             venta.declaraciones.forEach((dec, index) => {
                                 yPos += 6;
                                 doc.text(`${index + 1}`, 20, yPos);
-                                doc.text(dec.producto || '-', 35, yPos);
+                                doc.text(dec.cantidad || '1', 30, yPos);
+                                doc.text(dec.producto || '-', 50, yPos);
                                 doc.text(dec.costo ? formatCurrency(dec.costo) : '-', 120, yPos);
                                 doc.text(dec.peso ? `${dec.peso} kg` : '-', 160, yPos);
                             });
@@ -614,18 +677,17 @@
                     }
 
                     const subtotal = parseFloat(venta.precio);
-                    const tasaImpuesto = parseFloat(venta.impuesto || 16) / 100;
-                    const montoImpuesto = subtotal * tasaImpuesto;
+                    const montoImpuesto = parseFloat(venta.impuesto || 0);
                     const total = subtotal + montoImpuesto;
 
                     doc.setFontSize(14);
                     doc.setFont(undefined, 'bold');
                     doc.text('INFORMACIÓN FINANCIERA', 20, 200);
-                    
+
                     doc.setFontSize(11);
                     doc.setFont(undefined, 'normal');
                     doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 20, 207);
-                    doc.text(`Impuesto (${venta.impuesto || 16}%): ${formatCurrency(montoImpuesto)}`, 20, 213);
+                    doc.text(`Impuesto: ${formatCurrency(montoImpuesto)}`, 20, 213);
                     doc.setFont(undefined, 'bold');
                     doc.text(`Total: ${formatCurrency(total)}`, 20, 219);
 
@@ -689,16 +751,15 @@
                     }
                     
                     doc.text('------------------------', 40, 86, { align: 'center' });
-                    
+
                     const subtotal = parseFloat(venta.precio);
-                    const tasaImpuesto = parseFloat(venta.impuesto || 16) / 100;
-                    const montoImpuesto = subtotal * tasaImpuesto;
+                    const montoImpuesto = parseFloat(venta.impuesto || 0);
                     const total = subtotal + montoImpuesto;
 
                     doc.setFontSize(8);
                     doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 5, 91);
-                    doc.text(`Impuesto (${venta.impuesto || 16}%): ${formatCurrency(montoImpuesto)}`, 5, 96);
-                    
+                    doc.text(`Impuesto: ${formatCurrency(montoImpuesto)}`, 5, 96);
+
                     doc.setFont(undefined, 'bold');
                     doc.setFontSize(10);
                     doc.text(`TOTAL: ${formatCurrency(total)}`, 5, 104);
@@ -739,29 +800,36 @@
 
                 const nuevaVenta = {
                     ...formData,
-                    id: `ENV-${Date.now()}`,
+                    id: tipoOperacion === 'entrega' ? `ENT-${Date.now()}` : `ENV-${Date.now()}`,
                     fecha: new Date().toISOString(),
                     tipoOperacion: tipoOperacion,
                     estado: 'activa'
                 };
 
-                // Guardar en Google Sheets
-                const guardadoExitoso = await guardarVentaEnSheets(nuevaVenta);
+                let guardadoExitoso = false;
 
-                // Guardar en hoja de ventas por paquetería
-                await guardarVentaPorPaqueteria(nuevaVenta);
+                if (tipoOperacion === 'entrega') {
+                    // Guardar entrega en Google Sheets
+                    guardadoExitoso = await guardarEntregaEnSheets(nuevaVenta);
+                } else {
+                    // Guardar en Google Sheets (envíos y devoluciones)
+                    guardadoExitoso = await guardarVentaEnSheets(nuevaVenta);
 
-                // Guardar destino frecuente si es envío
-                await guardarDestinoFrecuente(nuevaVenta);
+                    // Guardar en hoja de ventas por paquetería
+                    await guardarVentaPorPaqueteria(nuevaVenta);
 
-                // Guardar cliente si es la primera vez
-                const clienteExistente = ventas.find(v => v.telefonoRemitente === formData.telefonoRemitente);
-                if (!clienteExistente) {
-                    await guardarClienteEnSheets({
-                        id: `CLI-${Date.now()}`,
-                        nombre: formData.nombreRemitente,
-                        telefono: formData.telefonoRemitente
-                    });
+                    // Guardar destino frecuente si es envío
+                    await guardarDestinoFrecuente(nuevaVenta);
+
+                    // Guardar cliente si es la primera vez
+                    const clienteExistente = ventas.find(v => v.telefonoRemitente === formData.telefonoRemitente);
+                    if (!clienteExistente) {
+                        await guardarClienteEnSheets({
+                            id: `CLI-${Date.now()}`,
+                            nombre: formData.nombreRemitente,
+                            telefono: formData.telefonoRemitente
+                        });
+                    }
                 }
 
                 // Actualizar estado local
@@ -796,12 +864,16 @@
                     paqueteria: 'fedex',
                     precio: '',
                     costo: '',
-                    impuesto: '16',
+                    impuesto: '0',
                     metodoPago: 'efectivo',
                     paqueteriaDevolucion: 'fedex',
                     numeroGuia: '',
                     caducidadDevolucion: '',
-                    declaraciones: [{ producto: '', costo: '', peso: '' }]
+                    nombreEntrega: '',
+                    telefonoEntrega: '',
+                    paqueteriaEntrega: 'fedex',
+                    detallesEntrega: '',
+                    declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }]
                 });
 
                 showNotification('Venta registrada exitosamente');
@@ -1135,7 +1207,7 @@
                                 </div>
 
                                 <form className="space-y-6">
-                                    {/* Selector Envío/Devolución */}
+                                    {/* Selector Envío/Devolución/Entrega */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             <i className="fas fa-truck mr-2"></i>Tipo de Operación *
@@ -1147,6 +1219,7 @@
                                         >
                                             <option value="envio">Envío</option>
                                             <option value="devolucion">Devolución</option>
+                                            <option value="entrega">Entrega</option>
                                         </select>
                                     </div>
 
@@ -1178,6 +1251,60 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Datos de Entrega - solo si es entrega */}
+                                    {tipoOperacion === 'entrega' && (
+                                        <div>
+                                            <h3 className="text-xl font-semibold text-purple-600 mb-4">
+                                                <i className="fas fa-box mr-2"></i>Datos de Entrega
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                                                    <input
+                                                        type="text"
+                                                        name="nombreEntrega"
+                                                        value={formData.nombreEntrega}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                                                    <input
+                                                        type="tel"
+                                                        name="telefonoEntrega"
+                                                        value={formData.telefonoEntrega}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Paquetería *</label>
+                                                    <select
+                                                        name="paqueteriaEntrega"
+                                                        value={formData.paqueteriaEntrega}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        {PAQUETERIAS.map(paq => (
+                                                            <option key={paq} value={paq}>{paq.toUpperCase()}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Detalles</label>
+                                                    <textarea
+                                                        name="detallesEntrega"
+                                                        value={formData.detallesEntrega}
+                                                        onChange={handleInputChange}
+                                                        rows="3"
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Destinatario - solo si es envío */}
                                     {tipoOperacion === 'envio' && (
@@ -1259,12 +1386,15 @@
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto (%)</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto ($)</label>
                                                 <input
                                                     type="number"
                                                     name="impuesto"
                                                     value={formData.impuesto}
                                                     onChange={handleInputChange}
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
                                                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                                 />
                                             </div>
@@ -1365,7 +1495,7 @@
                                     <i className="fas fa-edit mr-2"></i>Registrar Nueva Venta
                                 </h2>
                                 
-                                {/* Selector Envío/Devolución */}
+                                {/* Selector Envío/Devolución/Entrega */}
                                 <div className="mb-6">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         <i className="fas fa-truck mr-2"></i>Tipo de Operación *
@@ -1377,6 +1507,7 @@
                                     >
                                         <option value="envio">Envío</option>
                                         <option value="devolucion">Devolución</option>
+                                        <option value="entrega">Entrega</option>
                                     </select>
                                 </div>
 
@@ -1413,7 +1544,61 @@
                                     </div>
 
                                     {/* Contenido condicional según tipo */}
-                                    {tipoOperacion === 'devolucion' ? (
+                                    {tipoOperacion === 'entrega' ? (
+                                        <div className="mb-6">
+                                            <h3 className="text-xl font-semibold text-purple-600 mb-4">
+                                                <i className="fas fa-box mr-2"></i>Datos de Entrega
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                                                    <input
+                                                        type="text"
+                                                        name="nombreEntrega"
+                                                        value={formData.nombreEntrega}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                                                    <input
+                                                        type="tel"
+                                                        name="telefonoEntrega"
+                                                        value={formData.telefonoEntrega}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Paquetería *</label>
+                                                    <select
+                                                        name="paqueteriaEntrega"
+                                                        value={formData.paqueteriaEntrega}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    >
+                                                        {PAQUETERIAS.map(paq => (
+                                                            <option key={paq} value={paq}>{paq.toUpperCase()}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Detalles</label>
+                                                    <textarea
+                                                        name="detallesEntrega"
+                                                        value={formData.detallesEntrega}
+                                                        onChange={handleInputChange}
+                                                        rows="3"
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        placeholder="Información adicional sobre la entrega..."
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : tipoOperacion === 'devolucion' ? (
                                         <div className="mb-6">
                                             <h3 className="text-xl font-semibold text-orange-600 mb-4">
                                                 <i className="fas fa-undo mr-2"></i>Datos de Devolución
@@ -1606,6 +1791,7 @@
                                                         <thead className="bg-gray-100">
                                                             <tr>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">No.</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Cant.</th>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Costo</th>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Peso (kg)</th>
@@ -1616,6 +1802,16 @@
                                                             {formData.declaraciones.map((dec, index) => (
                                                                 <tr key={index} className="border-b">
                                                                     <td className="px-4 py-2 text-sm font-medium text-gray-700">{index + 1}</td>
+                                                                    <td className="px-4 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={dec.cantidad}
+                                                                            onChange={(e) => actualizarDeclaracion(index, 'cantidad', e.target.value)}
+                                                                            min="1"
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                            placeholder="1"
+                                                                        />
+                                                                    </td>
                                                                     <td className="px-4 py-2">
                                                                         <input
                                                                             type="text"
@@ -1699,7 +1895,7 @@
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto (%) *</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto ($) *</label>
                                                 <input
                                                     type="number"
                                                     name="impuesto"
@@ -1707,8 +1903,8 @@
                                                     onChange={handleInputChange}
                                                     step="0.01"
                                                     min="0"
-                                                    max="100"
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    placeholder="0.00"
                                                     required
                                                 />
                                             </div>
