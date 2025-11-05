@@ -309,7 +309,7 @@
                 paqueteria: 'fedex',
                 precio: '',
                 costo: '',
-                impuesto: '16',
+                impuesto: '0',
                 metodoPago: 'efectivo',
                 // Campos para devolución
                 paqueteriaDevolucion: 'fedex',
@@ -321,7 +321,7 @@
                 paqueteriaEntrega: 'fedex',
                 detallesEntrega: '',
                 // Tabla de declaración
-                declaraciones: [{ producto: '', costo: '', peso: '' }]
+                declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }]
             });
 
             // Estados para modal de edición
@@ -475,7 +475,7 @@
             const agregarDeclaracion = () => {
                 setFormData(prev => ({
                     ...prev,
-                    declaraciones: [...prev.declaraciones, { producto: '', costo: '', peso: '' }]
+                    declaraciones: [...prev.declaraciones, { cantidad: '', producto: '', costo: '', peso: '' }]
                 }));
             };
 
@@ -500,6 +500,17 @@
             // Función para abrir modal de edición
             const abrirModalEdicion = (venta) => {
                 setVentaEditando(venta);
+
+                // Normalizar declaraciones para asegurar que tengan el campo cantidad
+                const declaracionesNormalizadas = venta.declaraciones && venta.declaraciones.length > 0
+                    ? venta.declaraciones.map(dec => ({
+                        cantidad: dec.cantidad || '',
+                        producto: dec.producto || '',
+                        costo: dec.costo || '',
+                        peso: dec.peso || ''
+                    }))
+                    : [{ cantidad: '', producto: '', costo: '', peso: '' }];
+
                 setFormData({
                     nombreRemitente: venta.nombreRemitente || '',
                     telefonoRemitente: venta.telefonoRemitente || '',
@@ -514,9 +525,9 @@
                     tipoServicio: venta.tipoServicio || 'nacional',
                     devolucion: venta.tipoOperacion === 'devolucion' ? 'si' : 'no',
                     paqueteria: venta.paqueteria || 'fedex',
-                    precio: venta.precio,
-                    costo: venta.costo,
-                    impuesto: venta.impuesto || '16',
+                    precio: venta.precio || '',
+                    costo: venta.costo || '',
+                    impuesto: venta.impuesto || '0',
                     metodoPago: venta.metodoPago || 'efectivo',
                     paqueteriaDevolucion: venta.paqueteriaDevolucion || 'fedex',
                     numeroGuia: venta.numeroGuia || '',
@@ -525,7 +536,7 @@
                     telefonoEntrega: venta.telefonoEntrega || '',
                     paqueteriaEntrega: venta.paqueteriaEntrega || 'fedex',
                     detallesEntrega: venta.detallesEntrega || '',
-                    declaraciones: venta.declaraciones || [{ producto: '', costo: '', peso: '' }]
+                    declaraciones: declaracionesNormalizadas
                 });
                 setTipoOperacion(venta.tipoOperacion || 'envio');
                 setShowEditModal(true);
@@ -640,20 +651,22 @@
                             doc.setFontSize(14);
                             doc.setFont(undefined, 'bold');
                             doc.text('DECLARACIÓN DE CONTENIDO', 20, yPos);
-                            
+
                             yPos += 7;
                             doc.setFontSize(10);
                             doc.setFont(undefined, 'bold');
                             doc.text('No.', 20, yPos);
-                            doc.text('Producto', 35, yPos);
+                            doc.text('Cant.', 30, yPos);
+                            doc.text('Producto', 50, yPos);
                             doc.text('Costo', 120, yPos);
                             doc.text('Peso', 160, yPos);
-                            
+
                             doc.setFont(undefined, 'normal');
                             venta.declaraciones.forEach((dec, index) => {
                                 yPos += 6;
                                 doc.text(`${index + 1}`, 20, yPos);
-                                doc.text(dec.producto || '-', 35, yPos);
+                                doc.text(dec.cantidad || '1', 30, yPos);
+                                doc.text(dec.producto || '-', 50, yPos);
                                 doc.text(dec.costo ? formatCurrency(dec.costo) : '-', 120, yPos);
                                 doc.text(dec.peso ? `${dec.peso} kg` : '-', 160, yPos);
                             });
@@ -664,18 +677,17 @@
                     }
 
                     const subtotal = parseFloat(venta.precio);
-                    const tasaImpuesto = parseFloat(venta.impuesto || 16) / 100;
-                    const montoImpuesto = subtotal * tasaImpuesto;
+                    const montoImpuesto = parseFloat(venta.impuesto || 0);
                     const total = subtotal + montoImpuesto;
 
                     doc.setFontSize(14);
                     doc.setFont(undefined, 'bold');
                     doc.text('INFORMACIÓN FINANCIERA', 20, 200);
-                    
+
                     doc.setFontSize(11);
                     doc.setFont(undefined, 'normal');
                     doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 20, 207);
-                    doc.text(`Impuesto (${venta.impuesto || 16}%): ${formatCurrency(montoImpuesto)}`, 20, 213);
+                    doc.text(`Impuesto: ${formatCurrency(montoImpuesto)}`, 20, 213);
                     doc.setFont(undefined, 'bold');
                     doc.text(`Total: ${formatCurrency(total)}`, 20, 219);
 
@@ -739,16 +751,15 @@
                     }
                     
                     doc.text('------------------------', 40, 86, { align: 'center' });
-                    
+
                     const subtotal = parseFloat(venta.precio);
-                    const tasaImpuesto = parseFloat(venta.impuesto || 16) / 100;
-                    const montoImpuesto = subtotal * tasaImpuesto;
+                    const montoImpuesto = parseFloat(venta.impuesto || 0);
                     const total = subtotal + montoImpuesto;
 
                     doc.setFontSize(8);
                     doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 5, 91);
-                    doc.text(`Impuesto (${venta.impuesto || 16}%): ${formatCurrency(montoImpuesto)}`, 5, 96);
-                    
+                    doc.text(`Impuesto: ${formatCurrency(montoImpuesto)}`, 5, 96);
+
                     doc.setFont(undefined, 'bold');
                     doc.setFontSize(10);
                     doc.text(`TOTAL: ${formatCurrency(total)}`, 5, 104);
@@ -853,7 +864,7 @@
                     paqueteria: 'fedex',
                     precio: '',
                     costo: '',
-                    impuesto: '16',
+                    impuesto: '0',
                     metodoPago: 'efectivo',
                     paqueteriaDevolucion: 'fedex',
                     numeroGuia: '',
@@ -862,7 +873,7 @@
                     telefonoEntrega: '',
                     paqueteriaEntrega: 'fedex',
                     detallesEntrega: '',
-                    declaraciones: [{ producto: '', costo: '', peso: '' }]
+                    declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }]
                 });
 
                 showNotification('Venta registrada exitosamente');
@@ -1375,12 +1386,15 @@
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto (%)</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto ($)</label>
                                                 <input
                                                     type="number"
                                                     name="impuesto"
                                                     value={formData.impuesto}
                                                     onChange={handleInputChange}
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
                                                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                                 />
                                             </div>
@@ -1777,6 +1791,7 @@
                                                         <thead className="bg-gray-100">
                                                             <tr>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">No.</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Cant.</th>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Costo</th>
                                                                 <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Peso (kg)</th>
@@ -1787,6 +1802,16 @@
                                                             {formData.declaraciones.map((dec, index) => (
                                                                 <tr key={index} className="border-b">
                                                                     <td className="px-4 py-2 text-sm font-medium text-gray-700">{index + 1}</td>
+                                                                    <td className="px-4 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={dec.cantidad}
+                                                                            onChange={(e) => actualizarDeclaracion(index, 'cantidad', e.target.value)}
+                                                                            min="1"
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                            placeholder="1"
+                                                                        />
+                                                                    </td>
                                                                     <td className="px-4 py-2">
                                                                         <input
                                                                             type="text"
@@ -1870,7 +1895,7 @@
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto (%) *</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto ($) *</label>
                                                 <input
                                                     type="number"
                                                     name="impuesto"
@@ -1878,8 +1903,8 @@
                                                     onChange={handleInputChange}
                                                     step="0.01"
                                                     min="0"
-                                                    max="100"
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    placeholder="0.00"
                                                     required
                                                 />
                                             </div>
