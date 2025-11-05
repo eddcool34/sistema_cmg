@@ -601,11 +601,24 @@
                     doc.setDrawColor(0, 0, 0);
                     doc.line(20, 35, 190, 35);
 
-                    if (venta.tipoOperacion === 'devolucion') {
+                    if (venta.tipoOperacion === 'entrega') {
+                        doc.setFontSize(14);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('ENTREGA', 20, 45);
+
+                        doc.setFontSize(11);
+                        doc.setFont(undefined, 'normal');
+                        doc.text(`Nombre: ${venta.nombreEntrega}`, 20, 52);
+                        doc.text(`Teléfono: ${venta.telefonoEntrega}`, 20, 58);
+                        doc.text(`Paquetería: ${venta.paqueteriaEntrega.toUpperCase()}`, 20, 64);
+                        if (venta.detallesEntrega) {
+                            doc.text(`Detalles: ${venta.detallesEntrega}`, 20, 70);
+                        }
+                    } else if (venta.tipoOperacion === 'devolucion') {
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
                         doc.text('DEVOLUCIÓN', 20, 45);
-                        
+
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
                         doc.text(`Remitente: ${venta.nombreRemitente}`, 20, 52);
@@ -647,12 +660,11 @@
 
                         // Tabla de declaración si existe
                         if (venta.declaraciones && venta.declaraciones.length > 0) {
-                            let yPos = 150;
                             doc.setFontSize(14);
                             doc.setFont(undefined, 'bold');
-                            doc.text('DECLARACIÓN DE CONTENIDO', 20, yPos);
+                            doc.text('DECLARACIÓN DE CONTENIDO', 20, 150);
 
-                            yPos += 7;
+                            let yPos = 157;
                             doc.setFontSize(10);
                             doc.setFont(undefined, 'bold');
                             doc.text('No.', 20, yPos);
@@ -670,9 +682,6 @@
                                 doc.text(dec.costo ? formatCurrency(dec.costo) : '-', 120, yPos);
                                 doc.text(dec.peso ? `${dec.peso} kg` : '-', 160, yPos);
                             });
-                            yPos += 10;
-                        } else {
-                            yPos = 150;
                         }
                     }
 
@@ -727,20 +736,32 @@
                     doc.text(`Hora: ${new Date(venta.fecha).toLocaleTimeString('es-MX')}`, 5, 36);
                     
                     doc.text('------------------------', 40, 41, { align: 'center' });
-                    
+
                     doc.setFont(undefined, 'bold');
                     doc.text('CLIENTE', 5, 46);
                     doc.setFont(undefined, 'normal');
-                    doc.text(`${venta.nombreRemitente}`, 5, 51);
-                    doc.text(`Tel: ${venta.telefonoRemitente}`, 5, 56);
+
+                    if (venta.tipoOperacion === 'entrega') {
+                        doc.text(`${venta.nombreEntrega || venta.nombreRemitente}`, 5, 51);
+                        doc.text(`Tel: ${venta.telefonoEntrega || venta.telefonoRemitente}`, 5, 56);
+                    } else {
+                        doc.text(`${venta.nombreRemitente}`, 5, 51);
+                        doc.text(`Tel: ${venta.telefonoRemitente}`, 5, 56);
+                    }
                     
                     doc.text('------------------------', 40, 61, { align: 'center' });
-                    
+
                     doc.setFont(undefined, 'bold');
                     doc.text('SERVICIO', 5, 66);
                     doc.setFont(undefined, 'normal');
-                    
-                    if (venta.tipoOperacion === 'devolucion') {
+
+                    if (venta.tipoOperacion === 'entrega') {
+                        doc.text('ENTREGA', 5, 71);
+                        doc.text(`Paquetería: ${venta.paqueteriaEntrega.toUpperCase()}`, 5, 76);
+                        if (venta.detallesEntrega) {
+                            doc.text(`Detalles: ${venta.detallesEntrega.substring(0, 30)}`, 5, 81);
+                        }
+                    } else if (venta.tipoOperacion === 'devolucion') {
                         doc.text('DEVOLUCIÓN', 5, 71);
                         doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 5, 76);
                         doc.text(`Guía: ${venta.numeroGuia}`, 5, 81);
