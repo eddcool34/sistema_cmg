@@ -328,6 +328,25 @@
             const [showEditModal, setShowEditModal] = useState(false);
             const [ventaEditando, setVentaEditando] = useState(null);
 
+            // Estados para registro de paquetes
+            const [paquetes, setPaquetes] = useState([]);
+            const [showRegistroPaqueteModal, setShowRegistroPaqueteModal] = useState(false);
+            const [showLiberarModal, setShowLiberarModal] = useState(false);
+            const [paqueteALiberar, setPaqueteALiberar] = useState(null);
+            const [paqueteForm, setPaqueteForm] = useState({
+                nombre: '',
+                codigoRastreo: '',
+                tipoPaquete: 'paquete',
+                fechaRegistro: new Date().toISOString().split('T')[0]
+            });
+            const [liberacionForm, setLiberacionForm] = useState({
+                esDestinatario: 'si',
+                clienteId: '',
+                nombreReceptor: '',
+                idReceptor: '',
+                monto: ''
+            });
+
             // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
@@ -985,6 +1004,25 @@
                 }
             }, [gastos]);
 
+            // Cargar paquetes desde localStorage
+            useEffect(() => {
+                const paquetesGuardados = localStorage.getItem('paquetes');
+                if (paquetesGuardados) {
+                    try {
+                        setPaquetes(JSON.parse(paquetesGuardados));
+                    } catch (error) {
+                        console.error('Error al cargar paquetes:', error);
+                    }
+                }
+            }, []);
+
+            // Guardar paquetes en localStorage
+            useEffect(() => {
+                if (paquetes.length > 0) {
+                    localStorage.setItem('paquetes', JSON.stringify(paquetes));
+                }
+            }, [paquetes]);
+
             // Agregar gasto o salida
             const agregarGasto = () => {
                 if (!gastoForm.concepto.trim() || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
@@ -1016,6 +1054,135 @@
                     setGastos(prev => prev.filter(g => g.id !== gastoId));
                     showNotification('Registro eliminado exitosamente');
                 }
+            };
+
+            // ========== FUNCIONES PARA REGISTRO DE PAQUETES ==========
+
+            // Registrar nuevo paquete
+            const registrarPaquete = () => {
+                if (!paqueteForm.nombre.trim() || !paqueteForm.codigoRastreo.trim()) {
+                    showNotification('Complete el nombre y código de rastreo', 'error');
+                    return;
+                }
+
+                const nuevoPaquete = {
+                    id: `PKG-${Date.now()}`,
+                    ...paqueteForm,
+                    estado: 'guardado'
+                };
+
+                setPaquetes(prev => [...prev, nuevoPaquete]);
+                setPaqueteForm({
+                    nombre: '',
+                    codigoRastreo: '',
+                    tipoPaquete: 'paquete',
+                    fechaRegistro: new Date().toISOString().split('T')[0]
+                });
+                setShowRegistroPaqueteModal(false);
+                showNotification('Paquete registrado exitosamente');
+            };
+
+            // Abrir modal de liberación
+            const abrirModalLiberar = (paquete) => {
+                setPaqueteALiberar(paquete);
+                setLiberacionForm({
+                    esDestinatario: 'si',
+                    clienteId: '',
+                    nombreReceptor: '',
+                    idReceptor: '',
+                    monto: ''
+                });
+                setShowLiberarModal(true);
+            };
+
+            // Liberar paquete y generar recibo
+            const liberarPaquete = () => {
+                if (!liberacionForm.monto || parseFloat(liberacionForm.monto) <= 0) {
+                    showNotification('Ingrese un monto válido', 'error');
+                    return;
+                }
+
+                if (liberacionForm.esDestinatario === 'si' && !liberacionForm.clienteId.trim()) {
+                    showNotification('Ingrese el No. de cliente o ID', 'error');
+                    return;
+                }
+
+                if (liberacionForm.esDestinatario === 'no' && (!liberacionForm.nombreReceptor.trim() || !liberacionForm.idReceptor.trim())) {
+                    showNotification('Complete quién recibió y su ID', 'error');
+                    return;
+                }
+
+                // Actualizar estado del paquete a liberado
+                setPaquetes(prev => prev.map(p =>
+                    p.id === paqueteALiberar.id
+                        ? { ...p, estado: 'liberado', fechaLiberacion: new Date().toISOString() }
+                        : p
+                ));
+
+                // Generar ticket de recibo
+                generarTicketRecibo(paqueteALiberar, liberacionForm);
+
+                setShowLiberarModal(false);
+                setPaqueteALiberar(null);
+                showNotification('Paquete liberado exitosamente');
+            };
+
+            // Generar ticket de recibo de entrega
+            const generarTicketRecibo = (paquete, liberacion) => {
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: [80, 150]
+                });
+
+                // Logo
+                const logoDataURL = `data:image/svg+xml;base64,${btoa(logoSVG)}`;
+                doc.addImage(logoDataURL, 'SVG', 25, 5, 30, 30);
+
+                doc.setFontSize(16);
+                doc.setFont(undefined, 'bold');
+                doc.text('CMG PAQUETERIA', 40, 40, { align: 'center' });
+
+                doc.setFontSize(14);
+                doc.text('Recibo de entrega', 40, 48, { align: 'center' });
+
+                // Información del recibo
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                const ahora = new Date();
+                doc.text(`Fecha: ${ahora.toLocaleDateString('es-MX')}`, 5, 58);
+                doc.text(`Hora: ${ahora.toLocaleTimeString('es-MX')}`, 5, 63);
+                doc.text(`No. de guía: ${paquete.codigoRastreo}`, 5, 68);
+                doc.text(`Tipo: ${paquete.tipoPaquete}`, 5, 73);
+
+                // Receptor
+                doc.setFont(undefined, 'bold');
+                doc.text('Recibió:', 5, 83);
+                doc.setFont(undefined, 'normal');
+
+                if (liberacion.esDestinatario === 'si') {
+                    doc.text(`Cliente ID: ${liberacion.clienteId}`, 5, 88);
+                    doc.text(`Nombre: ${paquete.nombre}`, 5, 93);
+                } else {
+                    doc.text(`Nombre: ${liberacion.nombreReceptor}`, 5, 88);
+                    doc.text(`ID: ${liberacion.idReceptor}`, 5, 93);
+                }
+
+                // Monto
+                doc.setFont(undefined, 'bold');
+                doc.text(`Monto: ${formatCurrency(liberacion.monto)}`, 5, 103);
+
+                // Línea de firma
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(9);
+                doc.line(10, 125, 70, 125);
+                doc.text('Firma del receptor', 40, 130, { align: 'center' });
+
+                // Footer
+                doc.setFontSize(8);
+                doc.text('Gracias por su preferencia', 40, 140, { align: 'center' });
+
+                doc.save(`Recibo_${paquete.codigoRastreo}_${Date.now()}.pdf`);
             };
 
             // Obtener ventas por fecha
@@ -1441,6 +1608,192 @@
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL DE REGISTRO DE PAQUETE */}
+                    {showRegistroPaqueteModal && (
+                        <div className="modal-overlay" onClick={() => setShowRegistroPaqueteModal(false)}>
+                            <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800">
+                                        <i className="fas fa-archive mr-2"></i>Registrar Paquete
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowRegistroPaqueteModal(false)}
+                                        className="text-gray-500 hover:text-gray-700 text-2xl"
+                                    >
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                                        <input
+                                            type="text"
+                                            value={paqueteForm.nombre}
+                                            onChange={(e) => setPaqueteForm({...paqueteForm, nombre: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Nombre del destinatario"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Código de Rastreo *</label>
+                                        <input
+                                            type="text"
+                                            value={paqueteForm.codigoRastreo}
+                                            onChange={(e) => setPaqueteForm({...paqueteForm, codigoRastreo: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Número de guía o código"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Paquete *</label>
+                                        <select
+                                            value={paqueteForm.tipoPaquete}
+                                            onChange={(e) => setPaqueteForm({...paqueteForm, tipoPaquete: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="sobre">Sobre</option>
+                                            <option value="paquete">Paquete</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de Registro *</label>
+                                        <input
+                                            type="date"
+                                            value={paqueteForm.fechaRegistro}
+                                            onChange={(e) => setPaqueteForm({...paqueteForm, fechaRegistro: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 justify-end mt-6 pt-4 border-t">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowRegistroPaqueteModal(false)}
+                                        className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={registrarPaquete}
+                                        className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center"
+                                    >
+                                        <i className="fas fa-save mr-2"></i>
+                                        Registrar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL DE LIBERACIÓN DE PAQUETE */}
+                    {showLiberarModal && paqueteALiberar && (
+                        <div className="modal-overlay" onClick={() => setShowLiberarModal(false)}>
+                            <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800">
+                                        <i className="fas fa-check-circle mr-2"></i>Liberar Paquete
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowLiberarModal(false)}
+                                        className="text-gray-500 hover:text-gray-700 text-2xl"
+                                    >
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                                    <p className="text-sm text-gray-600">Paquete:</p>
+                                    <p className="font-semibold">{paqueteALiberar.nombre}</p>
+                                    <p className="text-sm text-gray-600 mt-1">Código: {paqueteALiberar.codigoRastreo}</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">¿Es el destinatario? *</label>
+                                        <select
+                                            value={liberacionForm.esDestinatario}
+                                            onChange={(e) => setLiberacionForm({...liberacionForm, esDestinatario: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="si">Sí</option>
+                                            <option value="no">No</option>
+                                        </select>
+                                    </div>
+
+                                    {liberacionForm.esDestinatario === 'si' ? (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">No. de Cliente o ID *</label>
+                                            <input
+                                                type="text"
+                                                value={liberacionForm.clienteId}
+                                                onChange={(e) => setLiberacionForm({...liberacionForm, clienteId: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                placeholder="ID del cliente"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">¿Quién lo recibió? *</label>
+                                                <input
+                                                    type="text"
+                                                    value={liberacionForm.nombreReceptor}
+                                                    onChange={(e) => setLiberacionForm({...liberacionForm, nombreReceptor: e.target.value})}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Nombre completo"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">ID *</label>
+                                                <input
+                                                    type="text"
+                                                    value={liberacionForm.idReceptor}
+                                                    onChange={(e) => setLiberacionForm({...liberacionForm, idReceptor: e.target.value})}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Identificación"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Monto (Tarifa) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={liberacionForm.monto}
+                                            onChange={(e) => setLiberacionForm({...liberacionForm, monto: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 justify-end mt-6 pt-4 border-t">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLiberarModal(false)}
+                                        className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={liberarPaquete}
+                                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center"
+                                    >
+                                        <i className="fas fa-check mr-2"></i>
+                                        Aceptar y Crear
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1881,6 +2234,69 @@
                                                 </div>
                                             </div>
                                         </>
+                                    )}
+
+                                    {/* Registro de Paquetes - Solo para Entregas */}
+                                    {tipoOperacion === 'entrega' && (
+                                        <div className="mb-6">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="text-xl font-semibold text-purple-600">
+                                                    <i className="fas fa-archive mr-2"></i>Registro de Paquetes
+                                                </h3>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowRegistroPaqueteModal(true)}
+                                                    className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                                                >
+                                                    <i className="fas fa-plus mr-2"></i>Registrar Paquete
+                                                </button>
+                                            </div>
+
+                                            {/* Tabla de Paquetes */}
+                                            {paquetes.filter(p => p.estado === 'guardado').length > 0 ? (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border border-gray-300">
+                                                        <thead className="bg-gray-100">
+                                                            <tr>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Nombre</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Código</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Tipo</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha Registro</th>
+                                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {paquetes.filter(p => p.estado === 'guardado').map((paquete) => (
+                                                                <tr key={paquete.id} className="hover:bg-gray-50">
+                                                                    <td className="px-4 py-2 border-b">{paquete.nombre}</td>
+                                                                    <td className="px-4 py-2 border-b">{paquete.codigoRastreo}</td>
+                                                                    <td className="px-4 py-2 border-b">
+                                                                        <span className="capitalize">{paquete.tipoPaquete}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2 border-b">
+                                                                        {new Date(paquete.fechaRegistro).toLocaleDateString('es-MX')}
+                                                                    </td>
+                                                                    <td className="px-4 py-2 border-b">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => abrirModalLiberar(paquete)}
+                                                                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                                                                        >
+                                                                            <i className="fas fa-check mr-1"></i>Liberar
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <i className="fas fa-inbox text-4xl mb-2"></i>
+                                                    <p>No hay paquetes registrados</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
 
                                     {/* Información Financiera */}
