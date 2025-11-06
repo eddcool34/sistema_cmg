@@ -273,6 +273,66 @@
             }
         };
 
+        // Guardar paquete en Google Sheets
+        const guardarPaqueteEnSheets = async (paquete) => {
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarPaquete',
+                        id: paquete.id,
+                        nombre: paquete.nombre,
+                        codigoRastreo: paquete.codigoRastreo,
+                        tipoPaquete: paquete.tipoPaquete,
+                        fechaRegistro: paquete.fechaRegistro,
+                        estado: paquete.estado
+                    })
+                });
+
+                console.log('✅ Paquete guardado en Google Sheets');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar paquete en Google Sheets:', error);
+                return false;
+            }
+        };
+
+        // Guardar liberación de paquete en Google Sheets
+        const guardarLiberacionEnSheets = async (liberacion) => {
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarLiberacion',
+                        fecha: new Date().toLocaleDateString('es-MX'),
+                        hora: new Date().toLocaleTimeString('es-MX'),
+                        codigoPaquete: liberacion.codigoPaquete,
+                        nombrePaquete: liberacion.nombrePaquete,
+                        tipoPaquete: liberacion.tipoPaquete,
+                        esDestinatario: liberacion.esDestinatario,
+                        numeroCliente: liberacion.numeroCliente || '-',
+                        nombreReceptor: liberacion.nombreReceptor,
+                        idReceptor: liberacion.idReceptor,
+                        monto: liberacion.monto
+                    })
+                });
+
+                console.log('✅ Liberación guardada en Google Sheets');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar liberación en Google Sheets:', error);
+                return false;
+            }
+        };
+
         function App() {
             const [activeTab, setActiveTab] = useState('registro');
             const [ventas, setVentas] = useState([]);
@@ -327,6 +387,25 @@
             // Estados para modal de edición
             const [showEditModal, setShowEditModal] = useState(false);
             const [ventaEditando, setVentaEditando] = useState(null);
+
+            // Estados para gestión de paquetes
+            const [paquetes, setPaquetes] = useState([]);
+            const [showRegistroPaqueteModal, setShowRegistroPaqueteModal] = useState(false);
+            const [showLiberarPaqueteModal, setShowLiberarPaqueteModal] = useState(false);
+            const [paqueteALiberar, setPaqueteALiberar] = useState(null);
+            const [paqueteForm, setPaqueteForm] = useState({
+                nombre: '',
+                codigoRastreo: '',
+                tipoPaquete: 'sobre',
+                fechaRegistro: new Date().toISOString().split('T')[0]
+            });
+            const [liberacionForm, setLiberacionForm] = useState({
+                esDestinatario: 'si',
+                numeroCliente: '',
+                nombreReceptor: '',
+                idReceptor: '',
+                monto: ''
+            });
 
             // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
@@ -410,6 +489,250 @@
                     }
                 }
             }, [ventas]);
+
+            // Cargar paquetes al iniciar
+            useEffect(() => {
+                const paquetesGuardados = localStorage.getItem('paquetes');
+                if (paquetesGuardados) {
+                    try {
+                        setPaquetes(JSON.parse(paquetesGuardados));
+                    } catch (error) {
+                        console.error('Error al cargar paquetes:', error);
+                    }
+                }
+            }, []);
+
+            // Guardar paquetes en localStorage cuando cambian
+            useEffect(() => {
+                if (paquetes.length > 0) {
+                    try {
+                        localStorage.setItem('paquetes', JSON.stringify(paquetes));
+                    } catch (error) {
+                        console.error('Error al guardar paquetes:', error);
+                    }
+                }
+            }, [paquetes]);
+
+            // Manejar cambios en formulario de paquete
+            const handlePaqueteInputChange = (e) => {
+                const { name, value } = e.target;
+                setPaqueteForm(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+            };
+
+            // Manejar cambios en formulario de liberación
+            const handleLiberacionInputChange = (e) => {
+                const { name, value } = e.target;
+                setLiberacionForm(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+            };
+
+            // Registrar un nuevo paquete
+            const registrarPaquete = async (e) => {
+                e.preventDefault();
+
+                // Validar campos
+                if (!paqueteForm.nombre.trim() || !paqueteForm.codigoRastreo.trim()) {
+                    showNotification('Complete todos los campos obligatorios', 'error');
+                    return;
+                }
+
+                const nuevoPaquete = {
+                    id: `PKG-${Date.now()}`,
+                    nombre: paqueteForm.nombre,
+                    codigoRastreo: paqueteForm.codigoRastreo,
+                    tipoPaquete: paqueteForm.tipoPaquete,
+                    fechaRegistro: paqueteForm.fechaRegistro,
+                    estado: 'disponible'
+                };
+
+                // Guardar en Google Sheets
+                await guardarPaqueteEnSheets(nuevoPaquete);
+
+                // Agregar a la lista local
+                setPaquetes(prev => [...prev, nuevoPaquete]);
+
+                // Limpiar formulario
+                setPaqueteForm({
+                    nombre: '',
+                    codigoRastreo: '',
+                    tipoPaquete: 'sobre',
+                    fechaRegistro: new Date().toISOString().split('T')[0]
+                });
+
+                setShowRegistroPaqueteModal(false);
+                showNotification('Paquete registrado exitosamente');
+            };
+
+            // Abrir modal de liberación
+            const abrirModalLiberacion = (paquete) => {
+                setPaqueteALiberar(paquete);
+                setLiberacionForm({
+                    esDestinatario: 'si',
+                    numeroCliente: '',
+                    nombreReceptor: '',
+                    idReceptor: '',
+                    monto: ''
+                });
+                setShowLiberarPaqueteModal(true);
+            };
+
+            // Liberar paquete
+            const liberarPaquete = async (e) => {
+                e.preventDefault();
+
+                // Validar campos
+                if (!liberacionForm.monto || parseFloat(liberacionForm.monto) <= 0) {
+                    showNotification('Ingrese un monto válido', 'error');
+                    return;
+                }
+
+                if (liberacionForm.esDestinatario === 'si' && !liberacionForm.numeroCliente.trim()) {
+                    showNotification('Ingrese el número de cliente', 'error');
+                    return;
+                }
+
+                if (liberacionForm.esDestinatario === 'no' && (!liberacionForm.nombreReceptor.trim() || !liberacionForm.idReceptor.trim())) {
+                    showNotification('Complete los datos del receptor', 'error');
+                    return;
+                }
+
+                const liberacion = {
+                    codigoPaquete: paqueteALiberar.codigoRastreo,
+                    nombrePaquete: paqueteALiberar.nombre,
+                    tipoPaquete: paqueteALiberar.tipoPaquete,
+                    esDestinatario: liberacionForm.esDestinatario,
+                    numeroCliente: liberacionForm.numeroCliente,
+                    nombreReceptor: liberacionForm.esDestinatario === 'si'
+                        ? paqueteALiberar.nombre
+                        : liberacionForm.nombreReceptor,
+                    idReceptor: liberacionForm.esDestinatario === 'si'
+                        ? liberacionForm.numeroCliente
+                        : liberacionForm.idReceptor,
+                    monto: liberacionForm.monto,
+                    fecha: new Date().toISOString()
+                };
+
+                // Guardar liberación en Google Sheets
+                await guardarLiberacionEnSheets(liberacion);
+
+                // Marcar paquete como liberado
+                setPaquetes(prev => prev.map(p =>
+                    p.id === paqueteALiberar.id
+                        ? { ...p, estado: 'liberado', fechaLiberacion: new Date().toISOString() }
+                        : p
+                ));
+
+                // Generar ticket
+                generarTicketLiberacion(liberacion, paqueteALiberar);
+
+                setShowLiberarPaqueteModal(false);
+                showNotification('Paquete liberado exitosamente');
+            };
+
+            // Generar ticket de liberación
+            const generarTicketLiberacion = (liberacion, paquete) => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    format: [80, 200],
+                    unit: 'mm'
+                });
+
+                // Logo (convertir SVG a imagen)
+                const logoDataUrl = 'data:image/svg+xml;base64,' + btoa(logoSVG);
+
+                let y = 10;
+
+                // Logo
+                try {
+                    doc.addImage(logoDataUrl, 'SVG', 10, y, 20, 20);
+                    y += 25;
+                } catch (error) {
+                    console.error('Error al agregar logo:', error);
+                    y += 5;
+                }
+
+                // Título
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('RECIBO DE ENTREGA', 40, y, { align: 'center' });
+                y += 8;
+
+                // Línea separadora
+                doc.setLineWidth(0.5);
+                doc.line(10, y, 70, y);
+                y += 6;
+
+                // Fecha y hora
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                const fecha = new Date();
+                doc.text(`Fecha: ${fecha.toLocaleDateString('es-MX')}`, 10, y);
+                y += 5;
+                doc.text(`Hora: ${fecha.toLocaleTimeString('es-MX')}`, 10, y);
+                y += 7;
+
+                // No. de guía
+                doc.setFont(undefined, 'bold');
+                doc.text(`No. de Guía:`, 10, y);
+                doc.setFont(undefined, 'normal');
+                doc.text(liberacion.codigoPaquete, 35, y);
+                y += 7;
+
+                // Tipo de paquete
+                doc.setFont(undefined, 'bold');
+                doc.text(`Tipo:`, 10, y);
+                doc.setFont(undefined, 'normal');
+                doc.text(paquete.tipoPaquete.toUpperCase(), 25, y);
+                y += 7;
+
+                // Monto
+                doc.setFont(undefined, 'bold');
+                doc.text(`Monto:`, 10, y);
+                doc.setFont(undefined, 'normal');
+                doc.text(`$${parseFloat(liberacion.monto).toFixed(2)} MXN`, 27, y);
+                y += 10;
+
+                // Línea separadora
+                doc.line(10, y, 70, y);
+                y += 6;
+
+                // Nombre de quien recibió
+                doc.setFont(undefined, 'bold');
+                doc.text('Recibió:', 10, y);
+                y += 5;
+                doc.setFont(undefined, 'normal');
+                doc.text(liberacion.nombreReceptor, 10, y);
+                y += 5;
+                doc.setFontSize(8);
+                doc.text(`ID: ${liberacion.idReceptor}`, 10, y);
+                y += 10;
+
+                // Línea separadora
+                doc.line(10, y, 70, y);
+                y += 6;
+
+                // Espacio para firma
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text('Firma:', 10, y);
+                y += 15;
+
+                // Línea de firma
+                doc.setLineWidth(0.3);
+                doc.line(10, y, 70, y);
+                y += 2;
+                doc.setFontSize(7);
+                doc.setFont(undefined, 'normal');
+                doc.text('(Firma del destinatario)', 40, y, { align: 'center' });
+
+                // Guardar PDF
+                doc.save(`Ticket-Entrega-${liberacion.codigoPaquete}.pdf`);
+            };
 
             const handleGuiaFileSelect = (e) => {
                 const file = e.target.files[0];
@@ -1302,6 +1625,74 @@
                                                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
+                                            </div>
+
+                                            {/* Gestión de Paquetes */}
+                                            <div className="mt-8 border-t pt-6">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h4 className="text-lg font-semibold text-purple-600">
+                                                        <i className="fas fa-archive mr-2"></i>Gestión de Paquetes
+                                                    </h4>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowRegistroPaqueteModal(true)}
+                                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                                    >
+                                                        <i className="fas fa-plus mr-2"></i>Registrar Paquete
+                                                    </button>
+                                                </div>
+
+                                                {/* Tabla de Paquetes */}
+                                                {paquetes.filter(p => p.estado === 'disponible').length > 0 ? (
+                                                    <div className="overflow-x-auto">
+                                                        <table className="min-w-full bg-white border rounded-lg">
+                                                            <thead className="bg-gray-100">
+                                                                <tr>
+                                                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                                                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Código</th>
+                                                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Tipo</th>
+                                                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Fecha Registro</th>
+                                                                    <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Acciones</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {paquetes.filter(p => p.estado === 'disponible').map((paquete) => (
+                                                                    <tr key={paquete.id} className="border-t hover:bg-gray-50">
+                                                                        <td className="px-4 py-3 text-sm">{paquete.nombre}</td>
+                                                                        <td className="px-4 py-3 text-sm font-mono">{paquete.codigoRastreo}</td>
+                                                                        <td className="px-4 py-3 text-sm">
+                                                                            <span className={`px-2 py-1 rounded text-xs ${
+                                                                                paquete.tipoPaquete === 'sobre'
+                                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                                    : 'bg-green-100 text-green-800'
+                                                                            }`}>
+                                                                                {paquete.tipoPaquete.toUpperCase()}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-sm">
+                                                                            {new Date(paquete.fechaRegistro).toLocaleDateString('es-MX')}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-center">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => abrirModalLiberacion(paquete)}
+                                                                                className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                                                                            >
+                                                                                <i className="fas fa-unlock mr-1"></i>Liberar
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-8 text-gray-500">
+                                                        <i className="fas fa-inbox text-4xl mb-2"></i>
+                                                        <p>No hay paquetes disponibles</p>
+                                                        <p className="text-sm">Registra un paquete para comenzar</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -2395,6 +2786,225 @@
                                         </table>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* MODAL DE REGISTRO DE PAQUETE */}
+                        {showRegistroPaqueteModal && (
+                            <div className="modal-overlay" onClick={() => setShowRegistroPaqueteModal(false)}>
+                                <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-purple-600">
+                                            <i className="fas fa-box mr-2"></i>Registrar Paquete
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowRegistroPaqueteModal(false)}
+                                            className="text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    <form onSubmit={registrarPaquete} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Nombre *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="nombre"
+                                                value={paqueteForm.nombre}
+                                                onChange={handlePaqueteInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                required
+                                                placeholder="Nombre del destinatario"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Código de Rastreo *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="codigoRastreo"
+                                                value={paqueteForm.codigoRastreo}
+                                                onChange={handlePaqueteInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                required
+                                                placeholder="Ej: FDX123456789"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Tipo de Paquete *
+                                            </label>
+                                            <select
+                                                name="tipoPaquete"
+                                                value={paqueteForm.tipoPaquete}
+                                                onChange={handlePaqueteInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                            >
+                                                <option value="sobre">Sobre</option>
+                                                <option value="paquete">Paquete</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Fecha de Registro *
+                                            </label>
+                                            <input
+                                                type="date"
+                                                name="fechaRegistro"
+                                                value={paqueteForm.fechaRegistro}
+                                                onChange={handlePaqueteInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowRegistroPaqueteModal(false)}
+                                                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                            >
+                                                <i className="fas fa-check mr-2"></i>Registrar
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MODAL DE LIBERACIÓN DE PAQUETE */}
+                        {showLiberarPaqueteModal && paqueteALiberar && (
+                            <div className="modal-overlay" onClick={() => setShowLiberarPaqueteModal(false)}>
+                                <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-green-600">
+                                            <i className="fas fa-unlock mr-2"></i>Liberar Paquete
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowLiberarPaqueteModal(false)}
+                                            className="text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                                        <p className="text-sm text-gray-600">Código: <span className="font-mono font-semibold">{paqueteALiberar.codigoRastreo}</span></p>
+                                        <p className="text-sm text-gray-600">Nombre: <span className="font-semibold">{paqueteALiberar.nombre}</span></p>
+                                        <p className="text-sm text-gray-600">Tipo: <span className="font-semibold">{paqueteALiberar.tipoPaquete.toUpperCase()}</span></p>
+                                    </div>
+
+                                    <form onSubmit={liberarPaquete} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                ¿Es Destinatario? *
+                                            </label>
+                                            <select
+                                                name="esDestinatario"
+                                                value={liberacionForm.esDestinatario}
+                                                onChange={handleLiberacionInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                            >
+                                                <option value="si">Sí</option>
+                                                <option value="no">No</option>
+                                            </select>
+                                        </div>
+
+                                        {liberacionForm.esDestinatario === 'si' ? (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    No. de Cliente o ID *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="numeroCliente"
+                                                    value={liberacionForm.numeroCliente}
+                                                    onChange={handleLiberacionInputChange}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                                    required
+                                                    placeholder="Ej: CLI-12345"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Nombre de quien recibe *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="nombreReceptor"
+                                                        value={liberacionForm.nombreReceptor}
+                                                        onChange={handleLiberacionInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                                        required
+                                                        placeholder="Nombre completo"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        ID del Receptor *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="idReceptor"
+                                                        value={liberacionForm.idReceptor}
+                                                        onChange={handleLiberacionInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                                        required
+                                                        placeholder="INE, Licencia, etc."
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Monto (Tarifa) *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="monto"
+                                                value={liberacionForm.monto}
+                                                onChange={handleLiberacionInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                                step="0.01"
+                                                min="0"
+                                                required
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowLiberarPaqueteModal(false)}
+                                                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                            >
+                                                <i className="fas fa-check mr-2"></i>Aceptar y Crear
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         )}
                     </div>
