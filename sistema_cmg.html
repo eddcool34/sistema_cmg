@@ -278,6 +278,7 @@
             const [loading, setLoading] = useState(false);
             const [syncStatus, setSyncStatus] = useState({ syncing: false, message: '' });
             const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+            const [filtroEntregas, setFiltroEntregas] = useState('todos'); // 'todos', 'bodega', 'entregados'
 
             // Estados para Balance General
             const [gastos, setGastos] = useState([]);
@@ -2045,13 +2046,68 @@
                                 {/* Lista de paquetes almacenados - solo para entregas */}
                                 {tipoOperacion === 'entrega' && (
                                     <div className="mt-8 pt-8 border-t-2 border-purple-200">
-                                        <h3 className="text-2xl font-bold text-purple-700 mb-6">
-                                            <i className="fas fa-boxes mr-2"></i>
-                                            Paquetes Almacenados
-                                        </h3>
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+                                            <h3 className="text-2xl font-bold text-purple-700">
+                                                <i className="fas fa-boxes mr-2"></i>
+                                                Paquetes Almacenados
+                                            </h3>
+
+                                            {/* Botones de filtro */}
+                                            <div className="flex gap-2 flex-wrap">
+                                                <button
+                                                    onClick={() => setFiltroEntregas('todos')}
+                                                    className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                                                        filtroEntregas === 'todos'
+                                                            ? 'bg-purple-600 text-white shadow-lg'
+                                                            : 'bg-white text-purple-600 border-2 border-purple-300 hover:bg-purple-50'
+                                                    }`}
+                                                >
+                                                    <i className="fas fa-list"></i>
+                                                    Todos
+                                                    <span className="bg-white text-purple-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa').length}
+                                                    </span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setFiltroEntregas('bodega')}
+                                                    className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                                                        filtroEntregas === 'bodega'
+                                                            ? 'bg-yellow-500 text-white shadow-lg'
+                                                            : 'bg-white text-yellow-600 border-2 border-yellow-300 hover:bg-yellow-50'
+                                                    }`}
+                                                >
+                                                    <i className="fas fa-warehouse"></i>
+                                                    En Bodega
+                                                    <span className="bg-white text-yellow-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa' && v.estadoEntrega === 'pendiente').length}
+                                                    </span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setFiltroEntregas('entregados')}
+                                                    className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                                                        filtroEntregas === 'entregados'
+                                                            ? 'bg-green-600 text-white shadow-lg'
+                                                            : 'bg-white text-green-600 border-2 border-green-300 hover:bg-green-50'
+                                                    }`}
+                                                >
+                                                    <i className="fas fa-check-circle"></i>
+                                                    Entregados
+                                                    <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa' && v.estadoEntrega === 'entregado').length}
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+
                                         <div className="space-y-3">
                                             {ventas
-                                                .filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa')
+                                                .filter(v => {
+                                                    if (v.tipoOperacion !== 'entrega' || v.estado !== 'activa') return false;
+                                                    if (filtroEntregas === 'todos') return true;
+                                                    if (filtroEntregas === 'bodega') return v.estadoEntrega === 'pendiente';
+                                                    if (filtroEntregas === 'entregados') return v.estadoEntrega === 'entregado';
+                                                    return true;
+                                                })
                                                 .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
                                                 .slice(0, 10)
                                                 .map((paquete, index) => (
@@ -2124,11 +2180,25 @@
                                                         </div>
                                                     </div>
                                                 ))}
-                                            {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa').length === 0 && (
+                                            {ventas.filter(v => {
+                                                if (v.tipoOperacion !== 'entrega' || v.estado !== 'activa') return false;
+                                                if (filtroEntregas === 'todos') return true;
+                                                if (filtroEntregas === 'bodega') return v.estadoEntrega === 'pendiente';
+                                                if (filtroEntregas === 'entregados') return v.estadoEntrega === 'entregado';
+                                                return true;
+                                            }).length === 0 && (
                                                 <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                                                     <i className="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-                                                    <p className="text-gray-500 text-lg">No hay paquetes almacenados</p>
-                                                    <p className="text-gray-400 text-sm mt-2">Los paquetes registrados aparecerán aquí</p>
+                                                    <p className="text-gray-500 text-lg">
+                                                        {filtroEntregas === 'todos' && 'No hay paquetes almacenados'}
+                                                        {filtroEntregas === 'bodega' && 'No hay paquetes en bodega'}
+                                                        {filtroEntregas === 'entregados' && 'No hay paquetes entregados'}
+                                                    </p>
+                                                    <p className="text-gray-400 text-sm mt-2">
+                                                        {filtroEntregas === 'todos' && 'Los paquetes registrados aparecerán aquí'}
+                                                        {filtroEntregas === 'bodega' && 'Los paquetes pendientes de entrega aparecerán aquí'}
+                                                        {filtroEntregas === 'entregados' && 'Los paquetes ya entregados aparecerán aquí'}
+                                                    </p>
                                                 </div>
                                             )}
                                         </div>
