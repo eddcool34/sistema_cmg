@@ -339,6 +339,19 @@
                 }, 3000);
             };
 
+            // Obtener nombres únicos para autocomplete
+            const nombresUnicos = React.useMemo(() => {
+                const nombresRemitente = [...new Set(ventas.map(v => v.nombreRemitente).filter(n => n && n.trim()))];
+                const nombresDestinatario = [...new Set(ventas.map(v => v.nombreDestinatario).filter(n => n && n.trim()))];
+                const nombresEntrega = [...new Set(ventas.map(v => v.nombreEntrega).filter(n => n && n.trim()))];
+
+                return {
+                    remitentes: nombresRemitente.sort(),
+                    destinatarios: nombresDestinatario.sort(),
+                    entregas: nombresEntrega.sort()
+                };
+            }, [ventas]);
+
             // Cargar datos al iniciar
             useEffect(() => {
                 const cargarDatos = async () => {
@@ -349,25 +362,46 @@
                     
                     if (ventasSheets.length > 0) {
                         // Convertir las ventas de Sheets al formato de la app
-                        const ventasConvertidas = ventasSheets.map(v => ({
-                            id: v.numeroGuia || `ENV-${Date.now()}`,
-                            fecha: new Date().toISOString(), // Usar fecha actual como respaldo
-                            nombreRemitente: v.remitente,
-                            telefonoRemitente: v.telRemitente,
-                            nombreDestinatario: v.destinatario,
-                            telefonoDestinatario: v.telDestinatario,
-                            direccion: v.direccion,
-                            codigoPostal: v.codigoPostal,
-                            colonia: v.ciudad,
-                            estado: v.estado,
-                            pais: v.pais,
-                            paqueteria: v.paqueteria,
-                            tipoServicio: v.servicio,
-                            precio: v.precio,
-                            costo: v.costo,
-                            tipoOperacion: 'envio',
-                            estado: 'activa'
-                        }));
+                        const ventasConvertidas = ventasSheets.map(v => {
+                            // Convertir fecha de formato DD/MM/YYYY a ISO
+                            let fechaISO;
+                            if (v.fecha && v.hora) {
+                                try {
+                                    // Parsear fecha en formato DD/MM/YYYY
+                                    const [dia, mes, año] = v.fecha.split('/');
+                                    // Parsear hora en formato HH:MM:SS
+                                    const [hora, minuto, segundo] = v.hora.split(':');
+                                    // Crear objeto Date con los componentes
+                                    const fechaObj = new Date(año, mes - 1, dia, hora, minuto, segundo || 0);
+                                    fechaISO = fechaObj.toISOString();
+                                } catch (error) {
+                                    console.error('Error al parsear fecha:', error);
+                                    fechaISO = new Date().toISOString(); // Usar fecha actual como respaldo
+                                }
+                            } else {
+                                fechaISO = new Date().toISOString(); // Usar fecha actual como respaldo
+                            }
+
+                            return {
+                                id: v.numeroGuia || `ENV-${Date.now()}`,
+                                fecha: fechaISO,
+                                nombreRemitente: v.remitente,
+                                telefonoRemitente: v.telRemitente,
+                                nombreDestinatario: v.destinatario,
+                                telefonoDestinatario: v.telDestinatario,
+                                direccion: v.direccion,
+                                codigoPostal: v.codigoPostal,
+                                colonia: v.ciudad,
+                                estado: v.estado,
+                                pais: v.pais,
+                                paqueteria: v.paqueteria,
+                                tipoServicio: v.servicio,
+                                precio: v.precio,
+                                costo: v.costo,
+                                tipoOperacion: 'envio',
+                                estado: 'activa'
+                            };
+                        });
                         
                         setVentas(ventasConvertidas);
                         localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
@@ -1322,6 +1356,7 @@
                                                     name="nombreRemitente"
                                                     value={formData.nombreRemitente}
                                                     onChange={handleInputChange}
+                                                    list="lista-remitentes"
                                                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                                 />
                                             </div>
@@ -1354,6 +1389,7 @@
                                                         value={formData.nombreEntrega}
                                                         onChange={handleInputChange}
                                                         placeholder="Nombre del destinatario"
+                                                        list="lista-entregas"
                                                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
                                                     />
                                                 </div>
@@ -1400,6 +1436,7 @@
                                                         name="nombreDestinatario"
                                                         value={formData.nombreDestinatario}
                                                         onChange={handleInputChange}
+                                                        list="lista-destinatarios"
                                                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
@@ -2637,6 +2674,25 @@
                             </div>
                         )}
                     </div>
+
+                    {/* Datalists para autocomplete de nombres */}
+                    <datalist id="lista-remitentes">
+                        {nombresUnicos.remitentes.map((nombre, index) => (
+                            <option key={`remitente-${index}`} value={nombre} />
+                        ))}
+                    </datalist>
+
+                    <datalist id="lista-destinatarios">
+                        {nombresUnicos.destinatarios.map((nombre, index) => (
+                            <option key={`destinatario-${index}`} value={nombre} />
+                        ))}
+                    </datalist>
+
+                    <datalist id="lista-entregas">
+                        {nombresUnicos.entregas.map((nombre, index) => (
+                            <option key={`entrega-${index}`} value={nombre} />
+                        ))}
+                    </datalist>
                 </div>
             );
         }
