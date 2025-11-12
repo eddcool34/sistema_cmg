@@ -349,25 +349,44 @@
                     
                     if (ventasSheets.length > 0) {
                         // Convertir las ventas de Sheets al formato de la app
-                        const ventasConvertidas = ventasSheets.map(v => ({
-                            id: v.numeroGuia || `ENV-${Date.now()}`,
-                            fecha: new Date().toISOString(), // Usar fecha actual como respaldo
-                            nombreRemitente: v.remitente,
-                            telefonoRemitente: v.telRemitente,
-                            nombreDestinatario: v.destinatario,
-                            telefonoDestinatario: v.telDestinatario,
-                            direccion: v.direccion,
-                            codigoPostal: v.codigoPostal,
-                            colonia: v.ciudad,
-                            estado: v.estado,
-                            pais: v.pais,
-                            paqueteria: v.paqueteria,
-                            tipoServicio: v.servicio,
-                            precio: v.precio,
-                            costo: v.costo,
-                            tipoOperacion: 'envio',
-                            estado: 'activa'
-                        }));
+                        const ventasConvertidas = ventasSheets.map(v => {
+                            // Reconstruir la fecha original desde los campos fecha y hora de Sheets
+                            let fechaISO;
+                            if (v.fecha) {
+                                // Combinar fecha y hora si están disponibles
+                                const fechaHoraString = v.hora ? `${v.fecha} ${v.hora}` : v.fecha;
+                                const fechaOriginal = new Date(fechaHoraString);
+
+                                // Verificar si la fecha es válida
+                                if (!isNaN(fechaOriginal.getTime())) {
+                                    fechaISO = fechaOriginal.toISOString();
+                                } else {
+                                    fechaISO = new Date().toISOString(); // Usar fecha actual como respaldo
+                                }
+                            } else {
+                                fechaISO = new Date().toISOString(); // Usar fecha actual como respaldo
+                            }
+
+                            return {
+                                id: v.numeroGuia || `ENV-${Date.now()}`,
+                                fecha: fechaISO,
+                                nombreRemitente: v.remitente,
+                                telefonoRemitente: v.telRemitente,
+                                nombreDestinatario: v.destinatario,
+                                telefonoDestinatario: v.telDestinatario,
+                                direccion: v.direccion,
+                                codigoPostal: v.codigoPostal,
+                                colonia: v.ciudad,
+                                estado: v.estado,
+                                pais: v.pais,
+                                paqueteria: v.paqueteria,
+                                tipoServicio: v.servicio,
+                                precio: v.precio,
+                                costo: v.costo,
+                                tipoOperacion: 'envio',
+                                estado: 'activa'
+                            };
+                        });
                         
                         setVentas(ventasConvertidas);
                         localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
