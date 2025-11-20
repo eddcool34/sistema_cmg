@@ -62,6 +62,11 @@
         // ========== CONFIGURACIÓN DE GOOGLE SHEETS ==========
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNs5bxqYtCOHRzYmtWJCAVTuWO6BkhzO2-L4wmth7h_NAFJPumbJu2RCSHFwP5cAsx/exec';
 
+        // ID de tu Google Sheet (reemplaza con el ID real de tu hoja)
+        // Para obtenerlo: abre tu Google Sheet y copia el ID de la URL
+        // Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit
+        const GOOGLE_SHEET_ID = '1YourSheetIdHere'; // ⚠️ REEMPLAZAR CON TU ID REAL
+
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
         const PAQUETERIAS_ENTREGA = ['mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'];
@@ -571,6 +576,26 @@
                 } catch (error) {
                     console.error('Error al exportar ventas:', error);
                     showNotification('Error al exportar las ventas', 'error');
+                }
+            };
+
+            // Abrir Google Sheets directamente
+            const abrirGoogleSheets = () => {
+                try {
+                    // Verificar si el ID de Google Sheet está configurado
+                    if (!GOOGLE_SHEET_ID || GOOGLE_SHEET_ID === '1YourSheetIdHere') {
+                        showNotification('⚠️ Debes configurar el ID de tu Google Sheet en el código', 'error');
+                        console.warn('Configura GOOGLE_SHEET_ID en la línea 68 del código');
+                        return;
+                    }
+
+                    // Abrir Google Sheets en una nueva pestaña
+                    const sheetsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/edit`;
+                    window.open(sheetsUrl, '_blank');
+                    showNotification('📊 Abriendo Google Sheets...', 'success');
+                } catch (error) {
+                    console.error('Error al abrir Google Sheets:', error);
+                    showNotification('Error al abrir Google Sheets', 'error');
                 }
             };
 
@@ -2616,19 +2641,21 @@
                                 </div>
 
                                 {/* Filtros y Exportación */}
-                                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                                        <i className="fas fa-file-export mr-2"></i>Exportar Ventas
+                                <div className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-file-export mr-2 text-blue-600"></i>Exportar y Gestionar Ventas
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+                                    {/* Filtros de fecha */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Mes
+                                                <i className="fas fa-calendar mr-1"></i> Mes
                                             </label>
                                             <select
                                                 value={filtroMes}
                                                 onChange={(e) => setFiltroMes(parseInt(e.target.value))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                                             >
                                                 <option value="1">Enero</option>
                                                 <option value="2">Febrero</option>
@@ -2646,12 +2673,12 @@
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Año
+                                                <i className="fas fa-calendar-alt mr-1"></i> Año
                                             </label>
                                             <select
                                                 value={filtroAnio}
                                                 onChange={(e) => setFiltroAnio(parseInt(e.target.value))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                                             >
                                                 <option value="2023">2023</option>
                                                 <option value="2024">2024</option>
@@ -2659,20 +2686,37 @@
                                                 <option value="2026">2026</option>
                                             </select>
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <button
-                                                onClick={exportarVentasCSV}
-                                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center"
-                                            >
-                                                <i className="fas fa-download mr-2"></i>
-                                                Descargar CSV
-                                            </button>
-                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-600 mt-3">
-                                        <i className="fas fa-info-circle mr-1"></i>
-                                        Se exportarán todas las ventas del mes seleccionado en formato CSV
-                                    </p>
+
+                                    {/* Botones de acción */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <button
+                                            onClick={exportarVentasCSV}
+                                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                        >
+                                            <i className="fas fa-download mr-2"></i>
+                                            Descargar CSV
+                                        </button>
+                                        <button
+                                            onClick={abrirGoogleSheets}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                        >
+                                            <i className="fas fa-table mr-2"></i>
+                                            Abrir Google Sheets
+                                        </button>
+                                    </div>
+
+                                    {/* Información */}
+                                    <div className="mt-4 bg-white bg-opacity-60 rounded-lg p-3 border border-blue-100">
+                                        <p className="text-sm text-gray-700">
+                                            <i className="fas fa-info-circle mr-2 text-blue-500"></i>
+                                            <strong>Descargar CSV:</strong> Exporta todas las ventas del mes seleccionado en formato Excel
+                                        </p>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                            <i className="fas fa-info-circle mr-2 text-blue-500"></i>
+                                            <strong>Abrir Google Sheets:</strong> Accede directamente a tu hoja de cálculo en línea
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {ventasFiltradas.length === 0 ? (
