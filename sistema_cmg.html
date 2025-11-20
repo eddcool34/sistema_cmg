@@ -280,6 +280,10 @@
             const [notification, setNotification] = useState({ show: false, message: '', type: '' });
             const [filtroEntregas, setFiltroEntregas] = useState('todos'); // 'todos', 'bodega', 'entregados'
 
+            // Estados para filtros de exportación
+            const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); // Mes actual (1-12)
+            const [filtroAnio, setFiltroAnio] = useState(new Date().getFullYear()); // Año actual
+
             // Estados para Balance General
             const [gastos, setGastos] = useState([]);
             const [showGastoModal, setShowGastoModal] = useState(false);
@@ -461,6 +465,112 @@
                 } catch (error) {
                     console.error('Error al descargar guía:', error);
                     showNotification('Error al descargar la guía', 'error');
+                }
+            };
+
+            // Exportar ventas a CSV
+            const exportarVentasCSV = () => {
+                try {
+                    // Filtrar ventas por mes y año seleccionados
+                    const ventasFiltradas = ventas.filter(venta => {
+                        const fecha = new Date(venta.fecha);
+                        const mes = fecha.getMonth() + 1; // 0-11 -> 1-12
+                        const anio = fecha.getFullYear();
+                        return mes === parseInt(filtroMes) && anio === parseInt(filtroAnio);
+                    });
+
+                    if (ventasFiltradas.length === 0) {
+                        showNotification('No hay ventas para exportar en el período seleccionado', 'error');
+                        return;
+                    }
+
+                    // Crear encabezados del CSV
+                    const headers = [
+                        'Folio',
+                        'Fecha',
+                        'Hora',
+                        'Tipo Operación',
+                        'Remitente',
+                        'Teléfono Remitente',
+                        'Destinatario',
+                        'Teléfono Destinatario',
+                        'Dirección',
+                        'Código Postal',
+                        'Colonia/Ciudad',
+                        'Estado',
+                        'País',
+                        'Paquetería',
+                        'Tipo Servicio',
+                        'Número Guía',
+                        'Precio',
+                        'Costo',
+                        'Ganancia',
+                        'Estado'
+                    ];
+
+                    // Convertir ventas a filas CSV
+                    const rows = ventasFiltradas.map(venta => {
+                        const fecha = new Date(venta.fecha);
+                        const paqueteria = venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion :
+                                         venta.tipoOperacion === 'entrega' ? venta.paqueteriaEntrega :
+                                         venta.paqueteria;
+                        const tipoServicio = venta.tipoOperacion === 'devolucion' ? 'Devolución' :
+                                           venta.tipoOperacion === 'entrega' ? 'Entrega' :
+                                           venta.tipoServicio || 'N/A';
+
+                        const direccion = venta.direccion ?
+                            `${venta.direccion} #${venta.numero || 'S/N'}, ${venta.colonia || ''}` :
+                            '-';
+
+                        const ganancia = venta.precio && venta.costo ?
+                            (parseFloat(venta.precio) - parseFloat(venta.costo)).toFixed(2) :
+                            '0.00';
+
+                        return [
+                            venta.id || '',
+                            fecha.toLocaleDateString('es-MX'),
+                            fecha.toLocaleTimeString('es-MX'),
+                            venta.tipoOperacion || 'envio',
+                            venta.nombreRemitente || '',
+                            venta.telefonoRemitente || '',
+                            venta.nombreDestinatario || venta.nombreEntrega || '-',
+                            venta.telefonoDestinatario || '-',
+                            direccion,
+                            venta.codigoPostal || '-',
+                            venta.colonia || '-',
+                            venta.estado || '-',
+                            venta.pais || 'México',
+                            paqueteria || '',
+                            tipoServicio,
+                            venta.numeroGuia || '-',
+                            venta.precio || '0',
+                            venta.costo || '0',
+                            ganancia,
+                            venta.estado || 'activa'
+                        ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+                    });
+
+                    // Combinar encabezados y filas
+                    const csv = [
+                        headers.map(h => `"${h}"`).join(','),
+                        ...rows
+                    ].join('\n');
+
+                    // Crear Blob y descargar
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+
+                    const nombreMes = new Date(filtroAnio, filtroMes - 1).toLocaleDateString('es-MX', { month: 'long' });
+                    link.href = url;
+                    link.download = `Ventas_${nombreMes}_${filtroAnio}.csv`;
+                    link.click();
+
+                    URL.revokeObjectURL(url);
+                    showNotification(`✅ ${ventasFiltradas.length} ventas exportadas correctamente`, 'success');
+                } catch (error) {
+                    console.error('Error al exportar ventas:', error);
+                    showNotification('Error al exportar las ventas', 'error');
                 }
             };
 
@@ -2504,7 +2614,67 @@
                                         />
                                     </div>
                                 </div>
-                                
+
+                                {/* Filtros y Exportación */}
+                                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                                        <i className="fas fa-file-export mr-2"></i>Exportar Ventas
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Mes
+                                            </label>
+                                            <select
+                                                value={filtroMes}
+                                                onChange={(e) => setFiltroMes(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="1">Enero</option>
+                                                <option value="2">Febrero</option>
+                                                <option value="3">Marzo</option>
+                                                <option value="4">Abril</option>
+                                                <option value="5">Mayo</option>
+                                                <option value="6">Junio</option>
+                                                <option value="7">Julio</option>
+                                                <option value="8">Agosto</option>
+                                                <option value="9">Septiembre</option>
+                                                <option value="10">Octubre</option>
+                                                <option value="11">Noviembre</option>
+                                                <option value="12">Diciembre</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Año
+                                            </label>
+                                            <select
+                                                value={filtroAnio}
+                                                onChange={(e) => setFiltroAnio(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="2023">2023</option>
+                                                <option value="2024">2024</option>
+                                                <option value="2025">2025</option>
+                                                <option value="2026">2026</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <button
+                                                onClick={exportarVentasCSV}
+                                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                                            >
+                                                <i className="fas fa-download mr-2"></i>
+                                                Descargar CSV
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-3">
+                                        <i className="fas fa-info-circle mr-1"></i>
+                                        Se exportarán todas las ventas del mes seleccionado en formato CSV
+                                    </p>
+                                </div>
+
                                 {ventasFiltradas.length === 0 ? (
                                     <div className="text-center py-12">
                                         <i className="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
