@@ -332,10 +332,14 @@
             const [formCierre, setFormCierre] = useState({
                 observaciones: '',
                 monedas: 0,
-                denominaciones: DENOMINACIONES.reduce((acc, denom) => {
-                    acc[denom.valor] = 0;
-                    return acc;
-                }, {})
+                denominaciones: {
+                    1000: 0,
+                    500: 0,
+                    200: 0,
+                    100: 0,
+                    50: 0,
+                    20: 0
+                }
             });
 
             // Estados para Balance General
@@ -809,10 +813,14 @@
                     setFormCierre({
                         observaciones: '',
                         monedas: 0,
-                        denominaciones: DENOMINACIONES.reduce((acc, denom) => {
-                            acc[denom.valor] = 0;
-                            return acc;
-                        }, {})
+                        denominaciones: {
+                            1000: 0,
+                            500: 0,
+                            200: 0,
+                            100: 0,
+                            50: 0,
+                            20: 0
+                        }
                     });
 
                     console.log('✅ Turno cerrado:', turnoActual.turno_id);
