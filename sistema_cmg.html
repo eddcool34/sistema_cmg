@@ -60,13 +60,48 @@
         const { jsPDF } = window.jspdf;
 
         // ========== CONFIGURACIÓN DE GOOGLE SHEETS ==========
-        const GOOGLE_SCRIPT_URL = https://script.google.com/macros/s/AKfycbzogyvznEQB286BUgsG5U_i4vF1G2G7jQR93sjbMK1se9ElYteqXaWq-yHd6hv2IQQlig/exec;
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzogyvznEQB286BUgsG5U_i4vF1G2G7jQR93sjbMK1se9ElYteqXaWq-yHd6hv2IQQlig/exec';
+
+        // ID de tu Google Sheet (reemplaza con el ID real de tu hoja)
+        // Para obtenerlo: abre tu Google Sheet y copia el ID de la URL
+        // Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit
+        const GOOGLE_SHEET_ID = '1YourSheetIdHere'; // ⚠️ REEMPLAZAR CON TU ID REAL
 
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
         const PAQUETERIAS_ENTREGA = ['mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'];
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
         const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega'];
+
+        // ========== CONFIGURACIÓN DE TURNOS Y CAJA ==========
+        const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
+        const CONTRASEÑA_SISTEMA = 'cmg2025'; // ⚠️ Cambiar por una contraseña segura
+        const FONDO_INICIAL_DEFAULT = 1000;
+
+        // Denominaciones de billetes y monedas mexicanas
+        const DENOMINACIONES = [
+            { valor: 1000, nombre: '$1000' },
+            { valor: 500, nombre: '$500' },
+            { valor: 200, nombre: '$200' },
+            { valor: 100, nombre: '$100' },
+            { valor: 50, nombre: '$50' },
+            { valor: 20, nombre: '$20' },
+        ];
+
+        // Métodos de pago y mapeo a cuentas
+        const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia'];
+        const MAPEO_CUENTA = {
+            'efectivo': 'Cash',
+            'tarjeta': 'MercadoPago',
+            'transferencia': 'Banamex'
+        };
+
+        // Horarios de turnos (para validación)
+        const HORARIOS_TURNO = {
+            turno1: { inicio: '09:00', fin: '14:00' },
+            pausa: { inicio: '14:00', fin: '15:00' },
+            turno2: { inicio: '15:00', fin: '18:00' }
+        };
 
         // Función utilitaria para formatear moneda
         const formatCurrency = (amount) => {
@@ -284,6 +319,29 @@
             const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); // Mes actual (1-12)
             const [filtroAnio, setFiltroAnio] = useState(new Date().getFullYear()); // Año actual
 
+            // ========== Estados para Turnos y Caja ==========
+            const [turnoActual, setTurnoActual] = useState(null); // Objeto con turno_id, cajero, fecha_apertura, etc.
+            const [showAperturaTurno, setShowAperturaTurno] = useState(false); // Modal de apertura
+            const [showCierreTurno, setShowCierreTurno] = useState(false); // Modal de cierre
+            const [turnos, setTurnos] = useState([]); // Historial de turnos
+            const [formApertura, setFormApertura] = useState({
+                cajero: '',
+                contraseña: '',
+                fondoInicial: FONDO_INICIAL_DEFAULT
+            });
+            const [formCierre, setFormCierre] = useState({
+                observaciones: '',
+                monedas: 0,
+                denominaciones: {
+                    1000: 0,
+                    500: 0,
+                    200: 0,
+                    100: 0,
+                    50: 0,
+                    20: 0
+                }
+            });
+
             // Estados para Balance General
             const [gastos, setGastos] = useState([]);
             const [showGastoModal, setShowGastoModal] = useState(false);
@@ -291,7 +349,8 @@
                 concepto: '',
                 monto: '',
                 tipo: 'gasto',
-                fecha: new Date().toISOString().split('T')[0]
+                fecha: new Date().toISOString().split('T')[0],
+                metodoPago: 'efectivo' // Nuevo campo
             });
             
             const [formData, setFormData] = useState({
@@ -402,6 +461,29 @@
                 };
 
                 cargarDatos();
+            }, []);
+
+            // Cargar turno actual desde localStorage
+            useEffect(() => {
+                const turnoGuardado = localStorage.getItem('turnoActual');
+                if (turnoGuardado) {
+                    try {
+                        setTurnoActual(JSON.parse(turnoGuardado));
+                        console.log('✅ Turno cargado desde localStorage');
+                    } catch (error) {
+                        console.error('Error al cargar turno:', error);
+                    }
+                }
+
+                // Cargar gastos desde localStorage
+                const gastosGuardados = localStorage.getItem('gastos');
+                if (gastosGuardados) {
+                    try {
+                        setGastos(JSON.parse(gastosGuardados));
+                    } catch (error) {
+                        console.error('Error al cargar gastos:', error);
+                    }
+                }
             }, []);
 
             // Guardar en localStorage cuando cambian las ventas
@@ -571,6 +653,244 @@
                 } catch (error) {
                     console.error('Error al exportar ventas:', error);
                     showNotification('Error al exportar las ventas', 'error');
+                }
+            };
+
+            // Abrir Google Sheets directamente
+            const abrirGoogleSheets = () => {
+                try {
+                    // Verificar si el ID de Google Sheet está configurado
+                    if (!GOOGLE_SHEET_ID || GOOGLE_SHEET_ID === '1YourSheetIdHere') {
+                        showNotification('⚠️ Debes configurar el ID de tu Google Sheet en el código', 'error');
+                        console.warn('Configura GOOGLE_SHEET_ID en la línea 68 del código');
+                        return;
+                    }
+
+                    // Abrir Google Sheets en una nueva pestaña
+                    const sheetsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/edit`;
+                    window.open(sheetsUrl, '_blank');
+                    showNotification('📊 Abriendo Google Sheets...', 'success');
+                } catch (error) {
+                    console.error('Error al abrir Google Sheets:', error);
+                    showNotification('Error al abrir Google Sheets', 'error');
+                }
+            };
+
+            // ========== FUNCIONES DE TURNOS ==========
+
+            // Abrir turno
+            const abrirTurno = async () => {
+                try {
+                    // Validaciones
+                    if (!formApertura.cajero) {
+                        showNotification('Selecciona un cajero', 'error');
+                        return;
+                    }
+
+                    if (formApertura.contraseña !== CONTRASEÑA_SISTEMA) {
+                        showNotification('❌ Contraseña incorrecta', 'error');
+                        // Registrar intento fallido
+                        console.warn(`Intento de apertura fallido - Cajero: ${formApertura.cajero}`);
+                        return;
+                    }
+
+                    if (turnoActual) {
+                        showNotification('⚠️ Ya hay un turno abierto', 'error');
+                        return;
+                    }
+
+                    // Crear turno_id
+                    const fechaActual = new Date();
+                    const fechaStr = fechaActual.toISOString().split('T')[0].replace(/-/g, '');
+                    const horaStr = fechaActual.toTimeString().split(':').slice(0, 2).join('');
+                    const turno_id = `TURN-${fechaStr}-${horaStr}-${formApertura.cajero}`;
+
+                    const nuevoTurno = {
+                        turno_id,
+                        fecha: fechaActual.toLocaleDateString('es-MX'),
+                        hora_apertura: fechaActual.toLocaleTimeString('es-MX'),
+                        cajero: formApertura.cajero,
+                        fondo_inicial: parseFloat(formApertura.fondoInicial),
+                        estado: 'abierto'
+                    };
+
+                    setSyncStatus({ syncing: true, message: 'Abriendo turno...' });
+
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'openTurno',
+                            ...nuevoTurno
+                        })
+                    });
+
+                    // Guardar localmente
+                    setTurnoActual(nuevoTurno);
+                    localStorage.setItem('turnoActual', JSON.stringify(nuevoTurno));
+
+                    setSyncStatus({ syncing: false, message: '' });
+                    setShowAperturaTurno(false);
+                    showNotification(`✅ Turno abierto - ${formApertura.cajero}`, 'success');
+
+                    // Resetear formulario
+                    setFormApertura({
+                        cajero: '',
+                        contraseña: '',
+                        fondoInicial: FONDO_INICIAL_DEFAULT
+                    });
+
+                    console.log('✅ Turno abierto:', turno_id);
+
+                } catch (error) {
+                    console.error('Error al abrir turno:', error);
+                    setSyncStatus({ syncing: false, message: '' });
+                    showNotification('Error al abrir turno', 'error');
+                }
+            };
+
+            // Cerrar turno
+            const cerrarTurno = async () => {
+                try {
+                    if (!turnoActual) {
+                        showNotification('⚠️ No hay turno abierto', 'error');
+                        return;
+                    }
+
+                    // Calcular monto reportado por cajero
+                    const montoContado = Object.entries(formCierre.denominaciones).reduce((total, [denominacion, cantidad]) => {
+                        return total + (parseFloat(denominacion) * parseFloat(cantidad || 0));
+                    }, 0) + parseFloat(formCierre.monedas || 0);
+
+                    const fechaActual = new Date();
+                    const corte = {
+                        corte_id: `CORTE-${Date.now()}-${turnoActual.turno_id}`,
+                        turno_id: turnoActual.turno_id,
+                        cajero: turnoActual.cajero,
+                        fecha_cierre: fechaActual.toLocaleDateString('es-MX'),
+                        hora_cierre: fechaActual.toLocaleTimeString('es-MX'),
+                        conteo_denominaciones: JSON.stringify(formCierre.denominaciones),
+                        monedas: parseFloat(formCierre.monedas || 0),
+                        monto_reportado_por_cajero: montoContado,
+                        observaciones: formCierre.observaciones || '',
+                        estado_corte: 'presentado'
+                    };
+
+                    setSyncStatus({ syncing: true, message: 'Cerrando turno...' });
+
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'cerrarTurno',
+                            ...corte,
+                            turno_id: turnoActual.turno_id
+                        })
+                    });
+
+                    // Guardar en historial local
+                    const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                    turnosCerrados.push({...turnoActual, ...corte});
+                    localStorage.setItem('turnosCerrados', JSON.stringify(turnosCerrados));
+
+                    // Limpiar turno actual
+                    setTurnoActual(null);
+                    localStorage.removeItem('turnoActual');
+
+                    setSyncStatus({ syncing: false, message: '' });
+                    setShowCierreTurno(false);
+                    showNotification('✅ Turno cerrado correctamente', 'success');
+
+                    // Resetear formulario
+                    setFormCierre({
+                        observaciones: '',
+                        monedas: 0,
+                        denominaciones: {
+                            1000: 0,
+                            500: 0,
+                            200: 0,
+                            100: 0,
+                            50: 0,
+                            20: 0
+                        }
+                    });
+
+                    console.log('✅ Turno cerrado:', turnoActual.turno_id);
+
+                } catch (error) {
+                    console.error('Error al cerrar turno:', error);
+                    setSyncStatus({ syncing: false, message: '' });
+                    showNotification('Error al cerrar turno', 'error');
+                }
+            };
+
+            // Guardar gasto actualizado (con turno y método de pago)
+            const guardarGastoActualizado = async () => {
+                try {
+                    if (!gastoForm.concepto || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
+                        showNotification('Completa todos los campos del gasto', 'error');
+                        return;
+                    }
+
+                    const fechaActual = new Date();
+                    const gasto = {
+                        gasto_id: `GASTO-${Date.now()}`,
+                        fecha: gastoForm.fecha,
+                        hora: fechaActual.toLocaleTimeString('es-MX'),
+                        turno_id: turnoActual ? turnoActual.turno_id : 'N/A',
+                        cajero: turnoActual ? turnoActual.cajero : 'Sin turno',
+                        concepto: gastoForm.concepto,
+                        monto: parseFloat(gastoForm.monto),
+                        tipo: gastoForm.tipo,
+                        metodo_pago: gastoForm.metodoPago,
+                        cuenta_afectada: MAPEO_CUENTA[gastoForm.metodoPago] || 'Cash'
+                    };
+
+                    setSyncStatus({ syncing: true, message: 'Guardando gasto...' });
+
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'guardarGasto',
+                            ...gasto
+                        })
+                    });
+
+                    // Actualizar gastos localmente
+                    const nuevosGastos = [...gastos, gasto];
+                    setGastos(nuevosGastos);
+                    localStorage.setItem('gastos', JSON.stringify(nuevosGastos));
+
+                    setSyncStatus({ syncing: false, message: '✅ Sincronizado' });
+                    setShowGastoModal(false);
+                    showNotification('✅ Gasto registrado correctamente', 'success');
+
+                    // Resetear formulario
+                    setGastoForm({
+                        concepto: '',
+                        monto: '',
+                        tipo: 'gasto',
+                        fecha: new Date().toISOString().split('T')[0],
+                        metodoPago: 'efectivo'
+                    });
+
+                } catch (error) {
+                    console.error('Error al guardar gasto:', error);
+                    setSyncStatus({ syncing: false, message: '' });
+                    showNotification('Error al guardar gasto', 'error');
                 }
             };
 
@@ -958,7 +1278,11 @@
                     id: tipoOperacion === 'entrega' ? `ENT-${Date.now()}` : `ENV-${Date.now()}`,
                     fecha: fechaActual.toISOString(),
                     tipoOperacion: tipoOperacion,
-                    estado: 'activa'
+                    estado: 'activa',
+                    // Campos de turno
+                    turno_id: turnoActual ? turnoActual.turno_id : 'N/A',
+                    cajero: turnoActual ? turnoActual.cajero : 'Sin turno',
+                    cuenta_destino: MAPEO_CUENTA[formData.metodoPago] || 'Cash'
                 };
 
                 // Para entregas, establecer fecha y hora de registro automáticamente
@@ -1619,17 +1943,56 @@
                     <div className="container mx-auto px-4 py-8">
                         {/* Header con Logo */}
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                            <div className="flex items-center justify-center gap-4">
-                                <div dangerouslySetInnerHTML={{ __html: logoSVG }} />
-                                <div>
-                                    <h1 className="text-3xl font-bold text-gray-800">
-                                        Sistema CMG
-                                    </h1>
-                                    <p className="text-lg text-gray-600">Paquetería CMG</p>
-                                    <p className="text-xs text-green-600 mt-1">
-                                        <i className="fas fa-cloud mr-1"></i>
-                                        Conectado a Google Sheets
-                                    </p>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div dangerouslySetInnerHTML={{ __html: logoSVG }} />
+                                    <div>
+                                        <h1 className="text-3xl font-bold text-gray-800">
+                                            Sistema CMG
+                                        </h1>
+                                        <p className="text-lg text-gray-600">Paquetería CMG</p>
+                                        <p className="text-xs text-green-600 mt-1">
+                                            <i className="fas fa-cloud mr-1"></i>
+                                            Conectado a Google Sheets
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Indicador de Turno */}
+                                <div className="text-right">
+                                    {turnoActual ? (
+                                        <div className="bg-green-100 border border-green-300 rounded-lg p-4">
+                                            <p className="text-sm font-semibold text-green-800">
+                                                <i className="fas fa-user-check mr-1"></i>
+                                                Turno Activo
+                                            </p>
+                                            <p className="text-lg font-bold text-green-900">{turnoActual.cajero}</p>
+                                            <p className="text-xs text-green-700">
+                                                Apertura: {turnoActual.hora_apertura}
+                                            </p>
+                                            <button
+                                                onClick={() => setShowCierreTurno(true)}
+                                                className="mt-2 bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-1 rounded transition-colors"
+                                            >
+                                                <i className="fas fa-sign-out-alt mr-1"></i>
+                                                Cerrar Turno
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4">
+                                            <p className="text-sm font-semibold text-yellow-800 mb-2">
+                                                <i className="fas fa-exclamation-triangle mr-1"></i>
+                                                Sin Turno Abierto
+                                            </p>
+                                            <button
+                                                onClick={() => setShowAperturaTurno(true)}
+                                                className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded transition-colors"
+                                            >
+                                                <i className="fas fa-door-open mr-1"></i>
+                                                Abrir Turno
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2616,19 +2979,21 @@
                                 </div>
 
                                 {/* Filtros y Exportación */}
-                                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                                        <i className="fas fa-file-export mr-2"></i>Exportar Ventas
+                                <div className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-file-export mr-2 text-blue-600"></i>Exportar y Gestionar Ventas
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+                                    {/* Filtros de fecha */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Mes
+                                                <i className="fas fa-calendar mr-1"></i> Mes
                                             </label>
                                             <select
                                                 value={filtroMes}
                                                 onChange={(e) => setFiltroMes(parseInt(e.target.value))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                                             >
                                                 <option value="1">Enero</option>
                                                 <option value="2">Febrero</option>
@@ -2646,12 +3011,12 @@
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Año
+                                                <i className="fas fa-calendar-alt mr-1"></i> Año
                                             </label>
                                             <select
                                                 value={filtroAnio}
                                                 onChange={(e) => setFiltroAnio(parseInt(e.target.value))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                                             >
                                                 <option value="2023">2023</option>
                                                 <option value="2024">2024</option>
@@ -2659,20 +3024,37 @@
                                                 <option value="2026">2026</option>
                                             </select>
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <button
-                                                onClick={exportarVentasCSV}
-                                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center"
-                                            >
-                                                <i className="fas fa-download mr-2"></i>
-                                                Descargar CSV
-                                            </button>
-                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-600 mt-3">
-                                        <i className="fas fa-info-circle mr-1"></i>
-                                        Se exportarán todas las ventas del mes seleccionado en formato CSV
-                                    </p>
+
+                                    {/* Botones de acción */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <button
+                                            onClick={exportarVentasCSV}
+                                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                        >
+                                            <i className="fas fa-download mr-2"></i>
+                                            Descargar CSV
+                                        </button>
+                                        <button
+                                            onClick={abrirGoogleSheets}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                        >
+                                            <i className="fas fa-table mr-2"></i>
+                                            Abrir Google Sheets
+                                        </button>
+                                    </div>
+
+                                    {/* Información */}
+                                    <div className="mt-4 bg-white bg-opacity-60 rounded-lg p-3 border border-blue-100">
+                                        <p className="text-sm text-gray-700">
+                                            <i className="fas fa-info-circle mr-2 text-blue-500"></i>
+                                            <strong>Descargar CSV:</strong> Exporta todas las ventas del mes seleccionado en formato Excel
+                                        </p>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                            <i className="fas fa-info-circle mr-2 text-blue-500"></i>
+                                            <strong>Abrir Google Sheets:</strong> Accede directamente a tu hoja de cálculo en línea
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {ventasFiltradas.length === 0 ? (
@@ -2806,6 +3188,184 @@
                                 )}
                             </div>
                         )}
+
+                        {/* Modal - Apertura de Turno */}
+                        {showAperturaTurno && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-door-open mr-2 text-blue-500"></i>
+                                        Apertura de Turno
+                                    </h2>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Cajero
+                                            </label>
+                                            <select
+                                                value={formApertura.cajero}
+                                                onChange={(e) => setFormApertura(prev => ({...prev, cajero: e.target.value}))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Seleccionar cajero...</option>
+                                                {CAJEROS.map(cajero => (
+                                                    <option key={cajero} value={cajero}>{cajero}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Contraseña del Sistema
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={formApertura.contraseña}
+                                                onChange={(e) => setFormApertura(prev => ({...prev, contraseña: e.target.value}))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Ingresa la contraseña"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Fondo Inicial
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={formApertura.fondoInicial}
+                                                onChange={(e) => setFormApertura(prev => ({...prev, fondoInicial: e.target.value}))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Fondo estándar: $1,000</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 mt-6">
+                                        <button
+                                            onClick={abrirTurno}
+                                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-check mr-2"></i>
+                                            Abrir Turno
+                                        </button>
+                                        <button
+                                            onClick={() => setShowAperturaTurno(false)}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-times mr-2"></i>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal - Cierre de Turno */}
+                        {showCierreTurno && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                                <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-cash-register mr-2 text-orange-500"></i>
+                                        Cierre de Turno - Conteo de Caja
+                                    </h2>
+
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                        <p className="text-sm text-blue-800">
+                                            <i className="fas fa-info-circle mr-2"></i>
+                                            Cuenta los billetes y monedas que tienes en caja. El sistema calculará automáticamente el total.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-3 mb-4">
+                                        <h3 className="font-semibold text-gray-700">Conteo por Denominación:</h3>
+                                        {DENOMINACIONES.map(denom => (
+                                            <div key={denom.valor} className="flex items-center gap-4">
+                                                <label className="w-20 text-sm font-medium text-gray-700">
+                                                    {denom.nombre}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={formCierre.denominaciones[denom.valor] || 0}
+                                                    onChange={(e) => setFormCierre(prev => ({
+                                                        ...prev,
+                                                        denominaciones: {
+                                                            ...prev.denominaciones,
+                                                            [denom.valor]: parseInt(e.target.value) || 0
+                                                        }
+                                                    }))}
+                                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Cantidad"
+                                                />
+                                                <span className="w-32 text-sm text-gray-600">
+                                                    = ${((formCierre.denominaciones[denom.valor] || 0) * denom.valor).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        ))}
+
+                                        <div className="flex items-center gap-4">
+                                            <label className="w-20 text-sm font-medium text-gray-700">
+                                                Monedas
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={formCierre.monedas || 0}
+                                                onChange={(e) => setFormCierre(prev => ({...prev, monedas: parseFloat(e.target.value) || 0}))}
+                                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Total en monedas"
+                                            />
+                                            <span className="w-32 text-sm text-gray-600">
+                                                = ${(formCierre.monedas || 0).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                                        <p className="text-lg font-bold text-green-800">
+                                            Total Contado: ${(
+                                                Object.entries(formCierre.denominaciones).reduce((total, [denom, cant]) =>
+                                                    total + (parseFloat(denom) * parseFloat(cant || 0)), 0
+                                                ) + parseFloat(formCierre.monedas || 0)
+                                            ).toFixed(2)}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Observaciones (opcional)
+                                        </label>
+                                        <textarea
+                                            value={formCierre.observaciones}
+                                            onChange={(e) => setFormCierre(prev => ({...prev, observaciones: e.target.value}))}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            rows="3"
+                                            placeholder="Notas sobre el cierre..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div className="flex gap-4 mt-6">
+                                        <button
+                                            onClick={cerrarTurno}
+                                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-check mr-2"></i>
+                                            Cerrar Turno
+                                        </button>
+                                        <button
+                                            onClick={() => setShowCierreTurno(false)}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-times mr-2"></i>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -2815,4 +3375,3 @@
     </script>
 </body>
 </html>
-
