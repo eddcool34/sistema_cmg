@@ -73,6 +73,36 @@
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
         const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega'];
 
+        // ========== CONFIGURACIÓN DE TURNOS Y CAJA ==========
+        const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
+        const CONTRASEÑA_SISTEMA = 'cmg2025'; // ⚠️ Cambiar por una contraseña segura
+        const FONDO_INICIAL_DEFAULT = 1000;
+
+        // Denominaciones de billetes y monedas mexicanas
+        const DENOMINACIONES = [
+            { valor: 1000, nombre: '$1000' },
+            { valor: 500, nombre: '$500' },
+            { valor: 200, nombre: '$200' },
+            { valor: 100, nombre: '$100' },
+            { valor: 50, nombre: '$50' },
+            { valor: 20, nombre: '$20' },
+        ];
+
+        // Métodos de pago y mapeo a cuentas
+        const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia'];
+        const MAPEO_CUENTA = {
+            'efectivo': 'Cash',
+            'tarjeta': 'MercadoPago',
+            'transferencia': 'Banamex'
+        };
+
+        // Horarios de turnos (para validación)
+        const HORARIOS_TURNO = {
+            turno1: { inicio: '09:00', fin: '14:00' },
+            pausa: { inicio: '14:00', fin: '15:00' },
+            turno2: { inicio: '15:00', fin: '18:00' }
+        };
+
         // Función utilitaria para formatear moneda
         const formatCurrency = (amount) => {
             return `$${parseFloat(amount).toFixed(2)}`;
@@ -289,6 +319,25 @@
             const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); // Mes actual (1-12)
             const [filtroAnio, setFiltroAnio] = useState(new Date().getFullYear()); // Año actual
 
+            // ========== Estados para Turnos y Caja ==========
+            const [turnoActual, setTurnoActual] = useState(null); // Objeto con turno_id, cajero, fecha_apertura, etc.
+            const [showAperturaTurno, setShowAperturaTurno] = useState(false); // Modal de apertura
+            const [showCierreTurno, setShowCierreTurno] = useState(false); // Modal de cierre
+            const [turnos, setTurnos] = useState([]); // Historial de turnos
+            const [formApertura, setFormApertura] = useState({
+                cajero: '',
+                contraseña: '',
+                fondoInicial: FONDO_INICIAL_DEFAULT
+            });
+            const [formCierre, setFormCierre] = useState({
+                observaciones: '',
+                monedas: 0,
+                denominaciones: DENOMINACIONES.reduce((acc, denom) => {
+                    acc[denom.valor] = 0;
+                    return acc;
+                }, {})
+            });
+
             // Estados para Balance General
             const [gastos, setGastos] = useState([]);
             const [showGastoModal, setShowGastoModal] = useState(false);
@@ -296,7 +345,8 @@
                 concepto: '',
                 monto: '',
                 tipo: 'gasto',
-                fecha: new Date().toISOString().split('T')[0]
+                fecha: new Date().toISOString().split('T')[0],
+                metodoPago: 'efectivo' // Nuevo campo
             });
             
             const [formData, setFormData] = useState({
@@ -407,6 +457,29 @@
                 };
 
                 cargarDatos();
+            }, []);
+
+            // Cargar turno actual desde localStorage
+            useEffect(() => {
+                const turnoGuardado = localStorage.getItem('turnoActual');
+                if (turnoGuardado) {
+                    try {
+                        setTurnoActual(JSON.parse(turnoGuardado));
+                        console.log('✅ Turno cargado desde localStorage');
+                    } catch (error) {
+                        console.error('Error al cargar turno:', error);
+                    }
+                }
+
+                // Cargar gastos desde localStorage
+                const gastosGuardados = localStorage.getItem('gastos');
+                if (gastosGuardados) {
+                    try {
+                        setGastos(JSON.parse(gastosGuardados));
+                    } catch (error) {
+                        console.error('Error al cargar gastos:', error);
+                    }
+                }
             }, []);
 
             // Guardar en localStorage cuando cambian las ventas
@@ -596,6 +669,220 @@
                 } catch (error) {
                     console.error('Error al abrir Google Sheets:', error);
                     showNotification('Error al abrir Google Sheets', 'error');
+                }
+            };
+
+            // ========== FUNCIONES DE TURNOS ==========
+
+            // Abrir turno
+            const abrirTurno = async () => {
+                try {
+                    // Validaciones
+                    if (!formApertura.cajero) {
+                        showNotification('Selecciona un cajero', 'error');
+                        return;
+                    }
+
+                    if (formApertura.contraseña !== CONTRASEÑA_SISTEMA) {
+                        showNotification('❌ Contraseña incorrecta', 'error');
+                        // Registrar intento fallido
+                        console.warn(`Intento de apertura fallido - Cajero: ${formApertura.cajero}`);
+                        return;
+                    }
+
+                    if (turnoActual) {
+                        showNotification('⚠️ Ya hay un turno abierto', 'error');
+                        return;
+                    }
+
+                    // Crear turno_id
+                    const fechaActual = new Date();
+                    const fechaStr = fechaActual.toISOString().split('T')[0].replace(/-/g, '');
+                    const horaStr = fechaActual.toTimeString().split(':').slice(0, 2).join('');
+                    const turno_id = `TURN-${fechaStr}-${horaStr}-${formApertura.cajero}`;
+
+                    const nuevoTurno = {
+                        turno_id,
+                        fecha: fechaActual.toLocaleDateString('es-MX'),
+                        hora_apertura: fechaActual.toLocaleTimeString('es-MX'),
+                        cajero: formApertura.cajero,
+                        fondo_inicial: parseFloat(formApertura.fondoInicial),
+                        estado: 'abierto'
+                    };
+
+                    setSyncStatus({ syncing: true, message: 'Abriendo turno...' });
+
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'openTurno',
+                            ...nuevoTurno
+                        })
+                    });
+
+                    // Guardar localmente
+                    setTurnoActual(nuevoTurno);
+                    localStorage.setItem('turnoActual', JSON.stringify(nuevoTurno));
+
+                    setSyncStatus({ syncing: false, message: '' });
+                    setShowAperturaTurno(false);
+                    showNotification(`✅ Turno abierto - ${formApertura.cajero}`, 'success');
+
+                    // Resetear formulario
+                    setFormApertura({
+                        cajero: '',
+                        contraseña: '',
+                        fondoInicial: FONDO_INICIAL_DEFAULT
+                    });
+
+                    console.log('✅ Turno abierto:', turno_id);
+
+                } catch (error) {
+                    console.error('Error al abrir turno:', error);
+                    setSyncStatus({ syncing: false, message: '' });
+                    showNotification('Error al abrir turno', 'error');
+                }
+            };
+
+            // Cerrar turno
+            const cerrarTurno = async () => {
+                try {
+                    if (!turnoActual) {
+                        showNotification('⚠️ No hay turno abierto', 'error');
+                        return;
+                    }
+
+                    // Calcular monto reportado por cajero
+                    const montoContado = Object.entries(formCierre.denominaciones).reduce((total, [denominacion, cantidad]) => {
+                        return total + (parseFloat(denominacion) * parseFloat(cantidad || 0));
+                    }, 0) + parseFloat(formCierre.monedas || 0);
+
+                    const fechaActual = new Date();
+                    const corte = {
+                        corte_id: `CORTE-${Date.now()}-${turnoActual.turno_id}`,
+                        turno_id: turnoActual.turno_id,
+                        cajero: turnoActual.cajero,
+                        fecha_cierre: fechaActual.toLocaleDateString('es-MX'),
+                        hora_cierre: fechaActual.toLocaleTimeString('es-MX'),
+                        conteo_denominaciones: JSON.stringify(formCierre.denominaciones),
+                        monedas: parseFloat(formCierre.monedas || 0),
+                        monto_reportado_por_cajero: montoContado,
+                        observaciones: formCierre.observaciones || '',
+                        estado_corte: 'presentado'
+                    };
+
+                    setSyncStatus({ syncing: true, message: 'Cerrando turno...' });
+
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'cerrarTurno',
+                            ...corte,
+                            turno_id: turnoActual.turno_id
+                        })
+                    });
+
+                    // Guardar en historial local
+                    const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                    turnosCerrados.push({...turnoActual, ...corte});
+                    localStorage.setItem('turnosCerrados', JSON.stringify(turnosCerrados));
+
+                    // Limpiar turno actual
+                    setTurnoActual(null);
+                    localStorage.removeItem('turnoActual');
+
+                    setSyncStatus({ syncing: false, message: '' });
+                    setShowCierreTurno(false);
+                    showNotification('✅ Turno cerrado correctamente', 'success');
+
+                    // Resetear formulario
+                    setFormCierre({
+                        observaciones: '',
+                        monedas: 0,
+                        denominaciones: DENOMINACIONES.reduce((acc, denom) => {
+                            acc[denom.valor] = 0;
+                            return acc;
+                        }, {})
+                    });
+
+                    console.log('✅ Turno cerrado:', turnoActual.turno_id);
+
+                } catch (error) {
+                    console.error('Error al cerrar turno:', error);
+                    setSyncStatus({ syncing: false, message: '' });
+                    showNotification('Error al cerrar turno', 'error');
+                }
+            };
+
+            // Guardar gasto actualizado (con turno y método de pago)
+            const guardarGastoActualizado = async () => {
+                try {
+                    if (!gastoForm.concepto || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
+                        showNotification('Completa todos los campos del gasto', 'error');
+                        return;
+                    }
+
+                    const fechaActual = new Date();
+                    const gasto = {
+                        gasto_id: `GASTO-${Date.now()}`,
+                        fecha: gastoForm.fecha,
+                        hora: fechaActual.toLocaleTimeString('es-MX'),
+                        turno_id: turnoActual ? turnoActual.turno_id : 'N/A',
+                        cajero: turnoActual ? turnoActual.cajero : 'Sin turno',
+                        concepto: gastoForm.concepto,
+                        monto: parseFloat(gastoForm.monto),
+                        tipo: gastoForm.tipo,
+                        metodo_pago: gastoForm.metodoPago,
+                        cuenta_afectada: MAPEO_CUENTA[gastoForm.metodoPago] || 'Cash'
+                    };
+
+                    setSyncStatus({ syncing: true, message: 'Guardando gasto...' });
+
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'guardarGasto',
+                            ...gasto
+                        })
+                    });
+
+                    // Actualizar gastos localmente
+                    const nuevosGastos = [...gastos, gasto];
+                    setGastos(nuevosGastos);
+                    localStorage.setItem('gastos', JSON.stringify(nuevosGastos));
+
+                    setSyncStatus({ syncing: false, message: '✅ Sincronizado' });
+                    setShowGastoModal(false);
+                    showNotification('✅ Gasto registrado correctamente', 'success');
+
+                    // Resetear formulario
+                    setGastoForm({
+                        concepto: '',
+                        monto: '',
+                        tipo: 'gasto',
+                        fecha: new Date().toISOString().split('T')[0],
+                        metodoPago: 'efectivo'
+                    });
+
+                } catch (error) {
+                    console.error('Error al guardar gasto:', error);
+                    setSyncStatus({ syncing: false, message: '' });
+                    showNotification('Error al guardar gasto', 'error');
                 }
             };
 
@@ -983,7 +1270,11 @@
                     id: tipoOperacion === 'entrega' ? `ENT-${Date.now()}` : `ENV-${Date.now()}`,
                     fecha: fechaActual.toISOString(),
                     tipoOperacion: tipoOperacion,
-                    estado: 'activa'
+                    estado: 'activa',
+                    // Campos de turno
+                    turno_id: turnoActual ? turnoActual.turno_id : 'N/A',
+                    cajero: turnoActual ? turnoActual.cajero : 'Sin turno',
+                    cuenta_destino: MAPEO_CUENTA[formData.metodoPago] || 'Cash'
                 };
 
                 // Para entregas, establecer fecha y hora de registro automáticamente
