@@ -327,7 +327,8 @@
             const [formApertura, setFormApertura] = useState({
                 cajero: '',
                 contraseña: '',
-                fondoInicial: FONDO_INICIAL_DEFAULT
+                fondoInicial: FONDO_INICIAL_DEFAULT,
+                saldo: 0
             });
             const [formCierre, setFormCierre] = useState({
                 observaciones: '',
@@ -384,7 +385,9 @@
                 horaLiberacion: '',
                 estadoEntrega: 'pendiente',
                 // Tabla de declaración
-                declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }]
+                declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
+                // Paquetería de pago (Sky/DHL)
+                paqueteriaPago: 'dhl'
             });
 
             // Estados para modal de edición
@@ -711,6 +714,8 @@
                         hora_apertura: fechaActual.toLocaleTimeString('es-MX'),
                         cajero: formApertura.cajero,
                         fondo_inicial: parseFloat(formApertura.fondoInicial),
+                        saldo_inicial: parseFloat(formApertura.saldo),
+                        saldo_actual: parseFloat(formApertura.saldo),
                         estado: 'abierto'
                     };
 
@@ -741,7 +746,8 @@
                     setFormApertura({
                         cajero: '',
                         contraseña: '',
-                        fondoInicial: FONDO_INICIAL_DEFAULT
+                        fondoInicial: FONDO_INICIAL_DEFAULT,
+                        saldo: 0
                     });
 
                     console.log('✅ Turno abierto:', turno_id);
@@ -1321,6 +1327,22 @@
                 // Actualizar estado local
                 setVentas(prev => [...prev, nuevaVenta]);
 
+                // Descontar del saldo si es Sky (solo para envíos y devoluciones)
+                if (tipoOperacion !== 'entrega' && formData.paqueteriaPago === 'sky' && turnoActual) {
+                    const costoGuia = parseFloat(formData.costo);
+                    const nuevoSaldo = turnoActual.saldo_actual - costoGuia;
+
+                    const turnoActualizado = {
+                        ...turnoActual,
+                        saldo_actual: nuevoSaldo
+                    };
+
+                    setTurnoActual(turnoActualizado);
+                    localStorage.setItem('turnoActual', JSON.stringify(turnoActualizado));
+
+                    console.log(`💰 Saldo descontado: ${formatCurrency(costoGuia)}, Nuevo saldo: ${formatCurrency(nuevoSaldo)}`);
+                }
+
                 if (guardadoExitoso) {
                     setSyncStatus({ syncing: false, message: '✅ Guardado en Google Sheets' });
                 } else {
@@ -1362,7 +1384,8 @@
                     fechaLiberacion: '',
                     horaLiberacion: '',
                     estadoEntrega: 'pendiente',
-                    declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }]
+                    declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
+                    paqueteriaPago: 'dhl'
                 });
 
                 showNotification('Venta registrada exitosamente');
@@ -2006,6 +2029,10 @@
                                             <p className="text-xs text-green-700">
                                                 Apertura: {turnoActual.hora_apertura}
                                             </p>
+                                            <p className="text-xs font-semibold text-green-800 mt-2">
+                                                <i className="fas fa-wallet mr-1"></i>
+                                                Saldo Sky: {formatCurrency(turnoActual.saldo_actual || 0)}
+                                            </p>
                                             <button
                                                 onClick={() => setShowCierreTurno(true)}
                                                 className="mt-2 bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-1 rounded transition-colors"
@@ -2101,6 +2128,29 @@
                                         <option value="entrega">Entrega</option>
                                     </select>
                                 </div>
+
+                                {/* Selector Sky/DHL - Solo para envíos y devoluciones */}
+                                {tipoOperacion !== 'entrega' && (
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <i className="fas fa-plane mr-2"></i>Paquetería de Pago *
+                                    </label>
+                                    <select
+                                        name="paqueteriaPago"
+                                        value={formData.paqueteriaPago}
+                                        onChange={handleInputChange}
+                                        className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                        <option value="dhl">DHL</option>
+                                        <option value="sky">Sky</option>
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {formData.paqueteriaPago === 'sky'
+                                            ? '⚠️ El costo se descontará del saldo del turno'
+                                            : 'El costo NO afectará el saldo del turno'}
+                                    </p>
+                                </div>
+                                )}
 
                                 <form>
                                     {/* Remitente - NO para entregas */}
@@ -3277,6 +3327,21 @@
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                             <p className="text-xs text-gray-500 mt-1">Fondo estándar: $1,000</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Saldo Inicial (Sky)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={formApertura.saldo}
+                                                onChange={(e) => setFormApertura(prev => ({...prev, saldo: e.target.value}))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                step="0.01"
+                                                min="0"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Saldo disponible para guías Sky</p>
                                         </div>
                                     </div>
 
