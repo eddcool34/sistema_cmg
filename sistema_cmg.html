@@ -354,6 +354,19 @@
                 metodoPago: 'efectivo' // Nuevo campo
             });
             
+            // Estados para pago en efectivo
+            const [montoPagado, setMontoPagado] = useState('');
+            const [showDenominacionesModal, setShowDenominacionesModal] = useState(false);
+            const [denominacionesRecibidas, setDenominacionesRecibidas] = useState({
+                1000: 0,
+                500: 0,
+                200: 0,
+                100: 0,
+                50: 0,
+                20: 0,
+                monedas: 0
+            });
+
             const [formData, setFormData] = useState({
                 nombreRemitente: '',
                 telefonoRemitente: '',
@@ -1288,7 +1301,13 @@
                     // Campos de turno
                     turno_id: turnoActual ? turnoActual.turno_id : 'N/A',
                     cajero: turnoActual ? turnoActual.cajero : 'Sin turno',
-                    cuenta_destino: MAPEO_CUENTA[formData.metodoPago] || 'Cash'
+                    cuenta_destino: MAPEO_CUENTA[formData.metodoPago] || 'Cash',
+                    // Campos de pago en efectivo
+                    montoPagado: formData.metodoPago === 'efectivo' ? montoPagado : null,
+                    cambio: formData.metodoPago === 'efectivo' && montoPagado
+                        ? (parseFloat(montoPagado) - (parseFloat(formData.precio) + parseFloat(formData.impuesto || 0)))
+                        : null,
+                    denominacionesRecibidas: formData.metodoPago === 'efectivo' ? JSON.stringify(denominacionesRecibidas) : null
                 };
 
                 // Para entregas, establecer fecha y hora de registro automáticamente
@@ -1386,6 +1405,18 @@
                     estadoEntrega: 'pendiente',
                     declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
                     paqueteriaPago: 'dhl'
+                });
+
+                // Resetear campos de pago en efectivo
+                setMontoPagado('');
+                setDenominacionesRecibidas({
+                    1000: 0,
+                    500: 0,
+                    200: 0,
+                    100: 0,
+                    50: 0,
+                    20: 0,
+                    monedas: 0
                 });
 
                 showNotification('Venta registrada exitosamente');
@@ -2103,6 +2134,26 @@
                                 >
                                     <i className="fas fa-history mr-2"></i>Historial
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('cortes')}
+                                    className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
+                                        activeTab === 'cortes'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <i className="fas fa-calculator mr-2"></i>Cortes
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('resumen-cortes')}
+                                    className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
+                                        activeTab === 'resumen-cortes'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <i className="fas fa-list-alt mr-2"></i>Resumen de Cortes
+                                </button>
                             </div>
                         </div>
 
@@ -2562,6 +2613,63 @@
                                                 </select>
                                             </div>
                                         </div>
+
+                                        {/* Campos adicionales para pago en efectivo */}
+                                        {tipoOperacion !== 'entrega' && formData.metodoPago === 'efectivo' && formData.precio && (
+                                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                                <h4 className="text-md font-semibold text-blue-700 mb-3">
+                                                    <i className="fas fa-money-bill-alt mr-2"></i>
+                                                    Detalles del Pago en Efectivo
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Total a Pagar
+                                                        </label>
+                                                        <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg font-semibold text-lg">
+                                                            {formatCurrency(parseFloat(formData.precio) + parseFloat(formData.impuesto || 0))}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Con cuánto paga *
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={montoPagado}
+                                                            onChange={(e) => setMontoPagado(e.target.value)}
+                                                            step="0.01"
+                                                            min="0"
+                                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Cambio
+                                                        </label>
+                                                        <div className={`w-full px-4 py-2 border rounded-lg font-semibold text-lg ${
+                                                            montoPagado && parseFloat(montoPagado) >= (parseFloat(formData.precio) + parseFloat(formData.impuesto || 0))
+                                                                ? 'bg-green-100 border-green-300 text-green-700'
+                                                                : 'bg-red-100 border-red-300 text-red-700'
+                                                        }`}>
+                                                            {montoPagado
+                                                                ? formatCurrency(parseFloat(montoPagado) - (parseFloat(formData.precio) + parseFloat(formData.impuesto || 0)))
+                                                                : '$0.00'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowDenominacionesModal(true)}
+                                                    className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                                                >
+                                                    <i className="fas fa-list mr-2"></i>
+                                                    Registrar Denominaciones Recibidas
+                                                </button>
+                                            </div>
+                                        )}
+
                                         {formData.precio && formData.costo && (
                                             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                                                 <p className="text-lg font-semibold text-green-700">
@@ -3277,6 +3385,483 @@
                             </div>
                         )}
 
+                        {/* Contenido - Cortes */}
+                        {activeTab === 'cortes' && (
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                    <i className="fas fa-calculator mr-2"></i>Cortes Diarios
+                                </h2>
+
+                                <div className="mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Mes
+                                            </label>
+                                            <select
+                                                value={filtroMes}
+                                                onChange={(e) => setFiltroMes(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                {[1,2,3,4,5,6,7,8,9,10,11,12].map(mes => (
+                                                    <option key={mes} value={mes}>
+                                                        {new Date(2024, mes - 1).toLocaleDateString('es-MX', { month: 'long' })}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Año
+                                            </label>
+                                            <select
+                                                value={filtroAnio}
+                                                onChange={(e) => setFiltroAnio(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                {[2024, 2025, 2026].map(anio => (
+                                                    <option key={anio} value={anio}>{anio}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    // Calcular cortes diarios
+                                    const cortesMap = new Map();
+
+                                    // Procesar ventas
+                                    ventas.filter(v => v.estado === 'activa' && v.tipoOperacion !== 'entrega').forEach(venta => {
+                                        const fecha = new Date(venta.fecha);
+                                        const fechaStr = fecha.toLocaleDateString('es-MX');
+                                        const mes = fecha.getMonth() + 1;
+                                        const anio = fecha.getFullYear();
+
+                                        if (mes === filtroMes && anio === filtroAnio) {
+                                            if (!cortesMap.has(fechaStr)) {
+                                                cortesMap.set(fechaStr, {
+                                                    fecha: fechaStr,
+                                                    ingresoEfectivo: 0,
+                                                    ingresoTarjeta: 0,
+                                                    ingresoTransferencia: 0,
+                                                    egresoEfectivo: 0,
+                                                    egresoTarjeta: 0,
+                                                    egresoTransferencia: 0,
+                                                    denominaciones: {}
+                                                });
+                                            }
+
+                                            const corte = cortesMap.get(fechaStr);
+                                            const monto = parseFloat(venta.precio) + parseFloat(venta.impuesto || 0);
+
+                                            if (venta.metodoPago === 'efectivo') {
+                                                corte.ingresoEfectivo += monto;
+
+                                                // Agregar denominaciones si existen
+                                                if (venta.denominacionesRecibidas) {
+                                                    try {
+                                                        const denoms = JSON.parse(venta.denominacionesRecibidas);
+                                                        Object.entries(denoms).forEach(([denom, cant]) => {
+                                                            if (!corte.denominaciones[denom]) {
+                                                                corte.denominaciones[denom] = 0;
+                                                            }
+                                                            corte.denominaciones[denom] += parseInt(cant) || 0;
+                                                        });
+                                                    } catch (e) {}
+                                                }
+                                            } else if (venta.metodoPago === 'tarjeta') {
+                                                corte.ingresoTarjeta += monto;
+                                            } else if (venta.metodoPago === 'transferencia') {
+                                                corte.ingresoTransferencia += monto;
+                                            }
+                                        }
+                                    });
+
+                                    // Procesar gastos
+                                    gastos.forEach(gasto => {
+                                        const fecha = new Date(gasto.fecha);
+                                        const fechaStr = fecha.toLocaleDateString('es-MX');
+                                        const mes = fecha.getMonth() + 1;
+                                        const anio = fecha.getFullYear();
+
+                                        if (mes === filtroMes && anio === filtroAnio) {
+                                            if (!cortesMap.has(fechaStr)) {
+                                                cortesMap.set(fechaStr, {
+                                                    fecha: fechaStr,
+                                                    ingresoEfectivo: 0,
+                                                    ingresoTarjeta: 0,
+                                                    ingresoTransferencia: 0,
+                                                    egresoEfectivo: 0,
+                                                    egresoTarjeta: 0,
+                                                    egresoTransferencia: 0,
+                                                    denominaciones: {}
+                                                });
+                                            }
+
+                                            const corte = cortesMap.get(fechaStr);
+                                            const monto = parseFloat(gasto.monto);
+
+                                            if (gasto.metodoPago === 'efectivo') {
+                                                corte.egresoEfectivo += monto;
+                                            } else if (gasto.metodoPago === 'tarjeta') {
+                                                corte.egresoTarjeta += monto;
+                                            } else if (gasto.metodoPago === 'transferencia') {
+                                                corte.egresoTransferencia += monto;
+                                            }
+                                        }
+                                    });
+
+                                    const cortesArray = Array.from(cortesMap.values()).sort((a, b) =>
+                                        new Date(b.fecha.split('/').reverse().join('-')) - new Date(a.fecha.split('/').reverse().join('-'))
+                                    );
+
+                                    return (
+                                        <>
+                                            {cortesArray.length === 0 ? (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <i className="fas fa-inbox text-4xl mb-2"></i>
+                                                    <p>No hay cortes para mostrar en este mes</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-6">
+                                                    {cortesArray.map((corte, index) => {
+                                                        const totalIngreso = corte.ingresoEfectivo + corte.ingresoTarjeta + corte.ingresoTransferencia;
+                                                        const totalEgreso = corte.egresoEfectivo + corte.egresoTarjeta + corte.egresoTransferencia;
+                                                        const diferencia = totalIngreso - totalEgreso;
+
+                                                        return (
+                                                            <div key={index} className="border border-gray-200 rounded-lg p-6">
+                                                                <div className="flex justify-between items-center mb-4">
+                                                                    <h3 className="text-xl font-bold text-gray-800">
+                                                                        <i className="fas fa-calendar-day mr-2"></i>
+                                                                        {corte.fecha}
+                                                                    </h3>
+                                                                    <div className={`text-xl font-bold ${diferencia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                        <i className={`fas fa-${diferencia >= 0 ? 'arrow-up' : 'arrow-down'} mr-2`}></i>
+                                                                        {formatCurrency(diferencia)}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                                                    {/* Ingresos */}
+                                                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                                        <h4 className="font-semibold text-green-800 mb-2">
+                                                                            <i className="fas fa-plus-circle mr-2"></i>Ingresos
+                                                                        </h4>
+                                                                        <div className="space-y-1 text-sm">
+                                                                            <div className="flex justify-between">
+                                                                                <span>Efectivo:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoEfectivo)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between">
+                                                                                <span>Tarjeta:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTarjeta)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between">
+                                                                                <span>Transferencia:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTransferencia)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between pt-2 border-t border-green-300">
+                                                                                <span className="font-bold">Total:</span>
+                                                                                <span className="font-bold">{formatCurrency(totalIngreso)}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Egresos */}
+                                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                                        <h4 className="font-semibold text-red-800 mb-2">
+                                                                            <i className="fas fa-minus-circle mr-2"></i>Egresos
+                                                                        </h4>
+                                                                        <div className="space-y-1 text-sm">
+                                                                            <div className="flex justify-between">
+                                                                                <span>Efectivo:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.egresoEfectivo)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between">
+                                                                                <span>Tarjeta:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.egresoTarjeta)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between">
+                                                                                <span>Transferencia:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.egresoTransferencia)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between pt-2 border-t border-red-300">
+                                                                                <span className="font-bold">Total:</span>
+                                                                                <span className="font-bold">{formatCurrency(totalEgreso)}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Balance */}
+                                                                    <div className={`${diferencia >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}>
+                                                                        <h4 className={`font-semibold ${diferencia >= 0 ? 'text-blue-800' : 'text-orange-800'} mb-2`}>
+                                                                            <i className="fas fa-balance-scale mr-2"></i>Balance
+                                                                        </h4>
+                                                                        <div className="space-y-1 text-sm">
+                                                                            <div className="flex justify-between">
+                                                                                <span>Efectivo:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoEfectivo - corte.egresoEfectivo)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between">
+                                                                                <span>Tarjeta:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTarjeta - corte.egresoTarjeta)}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between">
+                                                                                <span>Transferencia:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTransferencia - corte.egresoTransferencia)}</span>
+                                                                            </div>
+                                                                            <div className={`flex justify-between pt-2 border-t ${diferencia >= 0 ? 'border-blue-300' : 'border-orange-300'}`}>
+                                                                                <span className="font-bold">Diferencia:</span>
+                                                                                <span className={`font-bold ${diferencia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                                    {formatCurrency(diferencia)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Denominaciones */}
+                                                                {Object.keys(corte.denominaciones).length > 0 && (
+                                                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                                                        <h4 className="font-semibold text-gray-800 mb-3">
+                                                                            <i className="fas fa-money-bill mr-2"></i>
+                                                                            Billetes y Monedas Recibidos en Efectivo
+                                                                        </h4>
+                                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                                            {Object.entries(corte.denominaciones).map(([denom, cant]) => {
+                                                                                if (cant === 0) return null;
+                                                                                return (
+                                                                                    <div key={denom} className="bg-white border border-gray-300 rounded p-2">
+                                                                                        <div className="text-sm text-gray-600">
+                                                                                            {denom === 'monedas' ? 'Monedas' : `$${denom}`}
+                                                                                        </div>
+                                                                                        <div className="text-lg font-bold text-gray-800">
+                                                                                            {denom === 'monedas' ? formatCurrency(cant) : `${cant} pzas`}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
+
+                        {/* Contenido - Resumen de Cortes */}
+                        {activeTab === 'resumen-cortes' && (
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                    <i className="fas fa-list-alt mr-2"></i>Resumen de Cortes
+                                </h2>
+
+                                <div className="mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Mes
+                                            </label>
+                                            <select
+                                                value={filtroMes}
+                                                onChange={(e) => setFiltroMes(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                {[1,2,3,4,5,6,7,8,9,10,11,12].map(mes => (
+                                                    <option key={mes} value={mes}>
+                                                        {new Date(2024, mes - 1).toLocaleDateString('es-MX', { month: 'long' })}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Año
+                                            </label>
+                                            <select
+                                                value={filtroAnio}
+                                                onChange={(e) => setFiltroAnio(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                {[2024, 2025, 2026].map(anio => (
+                                                    <option key={anio} value={anio}>{anio}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    // Calcular cortes diarios
+                                    const cortesMap = new Map();
+
+                                    // Procesar ventas
+                                    ventas.filter(v => v.estado === 'activa' && v.tipoOperacion !== 'entrega').forEach(venta => {
+                                        const fecha = new Date(venta.fecha);
+                                        const fechaStr = fecha.toLocaleDateString('es-MX');
+                                        const mes = fecha.getMonth() + 1;
+                                        const anio = fecha.getFullYear();
+
+                                        if (mes === filtroMes && anio === filtroAnio) {
+                                            if (!cortesMap.has(fechaStr)) {
+                                                cortesMap.set(fechaStr, {
+                                                    fecha: fechaStr,
+                                                    ingresos: 0,
+                                                    egresos: 0
+                                                });
+                                            }
+
+                                            const corte = cortesMap.get(fechaStr);
+                                            const monto = parseFloat(venta.precio) + parseFloat(venta.impuesto || 0);
+                                            corte.ingresos += monto;
+                                        }
+                                    });
+
+                                    // Procesar gastos
+                                    gastos.forEach(gasto => {
+                                        const fecha = new Date(gasto.fecha);
+                                        const fechaStr = fecha.toLocaleDateString('es-MX');
+                                        const mes = fecha.getMonth() + 1;
+                                        const anio = fecha.getFullYear();
+
+                                        if (mes === filtroMes && anio === filtroAnio) {
+                                            if (!cortesMap.has(fechaStr)) {
+                                                cortesMap.set(fechaStr, {
+                                                    fecha: fechaStr,
+                                                    ingresos: 0,
+                                                    egresos: 0
+                                                });
+                                            }
+
+                                            const corte = cortesMap.get(fechaStr);
+                                            const monto = parseFloat(gasto.monto);
+                                            corte.egresos += monto;
+                                        }
+                                    });
+
+                                    const cortesArray = Array.from(cortesMap.values()).sort((a, b) =>
+                                        new Date(b.fecha.split('/').reverse().join('-')) - new Date(a.fecha.split('/').reverse().join('-'))
+                                    );
+
+                                    // Calcular totales del mes
+                                    const totalIngresosDelMes = cortesArray.reduce((sum, c) => sum + c.ingresos, 0);
+                                    const totalEgresosDelMes = cortesArray.reduce((sum, c) => sum + c.egresos, 0);
+                                    const totalDiferenciaDelMes = totalIngresosDelMes - totalEgresosDelMes;
+
+                                    return (
+                                        <>
+                                            {/* Tarjetas de resumen del mes */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-sm text-green-600 font-medium">Total Ingresado</p>
+                                                            <p className="text-2xl font-bold text-green-700">{formatCurrency(totalIngresosDelMes)}</p>
+                                                        </div>
+                                                        <i className="fas fa-arrow-up text-3xl text-green-500"></i>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-sm text-red-600 font-medium">Total Gastado</p>
+                                                            <p className="text-2xl font-bold text-red-700">{formatCurrency(totalEgresosDelMes)}</p>
+                                                        </div>
+                                                        <i className="fas fa-arrow-down text-3xl text-red-500"></i>
+                                                    </div>
+                                                </div>
+                                                <div className={`${totalDiferenciaDelMes >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className={`text-sm font-medium ${totalDiferenciaDelMes >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Diferencia Total</p>
+                                                            <p className={`text-2xl font-bold ${totalDiferenciaDelMes >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{formatCurrency(totalDiferenciaDelMes)}</p>
+                                                        </div>
+                                                        <i className={`fas fa-${totalDiferenciaDelMes >= 0 ? 'check-circle' : 'exclamation-circle'} text-3xl ${totalDiferenciaDelMes >= 0 ? 'text-blue-500' : 'text-orange-500'}`}></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Tabla de cortes */}
+                                            {cortesArray.length === 0 ? (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <i className="fas fa-inbox text-4xl mb-2"></i>
+                                                    <p>No hay cortes para mostrar en este mes</p>
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                                                        <thead className="bg-gray-50">
+                                                            <tr>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                                    <i className="fas fa-calendar mr-2"></i>Fecha
+                                                                </th>
+                                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                                    <i className="fas fa-plus-circle mr-2"></i>Ingresado
+                                                                </th>
+                                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                                    <i className="fas fa-minus-circle mr-2"></i>Gastado
+                                                                </th>
+                                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                                    <i className="fas fa-balance-scale mr-2"></i>Diferencia
+                                                                </th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-200">
+                                                            {cortesArray.map((corte, index) => {
+                                                                const diferencia = corte.ingresos - corte.egresos;
+                                                                return (
+                                                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                                            {corte.fecha}
+                                                                        </td>
+                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-green-600">
+                                                                            {formatCurrency(corte.ingresos)}
+                                                                        </td>
+                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-red-600">
+                                                                            {formatCurrency(corte.egresos)}
+                                                                        </td>
+                                                                        <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${diferencia >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                                            <i className={`fas fa-${diferencia >= 0 ? 'arrow-up' : 'arrow-down'} mr-1`}></i>
+                                                                            {formatCurrency(diferencia)}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                        <tfoot className="bg-gray-100 font-bold">
+                                                            <tr>
+                                                                <td className="px-6 py-4 text-sm text-gray-900">
+                                                                    TOTAL DEL MES
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-right text-green-700">
+                                                                    {formatCurrency(totalIngresosDelMes)}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-right text-red-700">
+                                                                    {formatCurrency(totalEgresosDelMes)}
+                                                                </td>
+                                                                <td className={`px-6 py-4 text-sm text-right ${totalDiferenciaDelMes >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                                                                    <i className={`fas fa-${totalDiferenciaDelMes >= 0 ? 'arrow-up' : 'arrow-down'} mr-1`}></i>
+                                                                    {formatCurrency(totalDiferenciaDelMes)}
+                                                                </td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
+
                         {/* Modal - Apertura de Turno */}
                         {showAperturaTurno && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -3460,6 +4045,107 @@
                                         </button>
                                         <button
                                             onClick={() => setShowCierreTurno(false)}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-times mr-2"></i>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal - Registro de Denominaciones Recibidas */}
+                        {showDenominacionesModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                                <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-money-bill-wave mr-2 text-green-500"></i>
+                                        Denominaciones Recibidas
+                                    </h2>
+
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                        <p className="text-sm text-blue-800">
+                                            <i className="fas fa-info-circle mr-2"></i>
+                                            Registra los billetes y monedas que recibiste del cliente. Esto ayudará al corte de caja.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-3 mb-4">
+                                        <h3 className="font-semibold text-gray-700">Billetes Recibidos:</h3>
+                                        {DENOMINACIONES.map(denom => (
+                                            <div key={denom.valor} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                                                <span className="font-medium text-gray-700">{denom.nombre}</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={denominacionesRecibidas[denom.valor]}
+                                                    onChange={(e) => setDenominacionesRecibidas(prev => ({
+                                                        ...prev,
+                                                        [denom.valor]: parseInt(e.target.value) || 0
+                                                    }))}
+                                                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <span className="font-semibold text-gray-700">
+                                                    = {formatCurrency(denom.valor * (denominacionesRecibidas[denom.valor] || 0))}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                                            <span className="font-medium text-gray-700">Monedas</span>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={denominacionesRecibidas.monedas}
+                                                onChange={(e) => setDenominacionesRecibidas(prev => ({
+                                                    ...prev,
+                                                    monedas: parseFloat(e.target.value) || 0
+                                                }))}
+                                                className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500"
+                                                placeholder="0.00"
+                                            />
+                                            <span className="font-semibold text-gray-700">
+                                                = {formatCurrency(denominacionesRecibidas.monedas || 0)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-lg font-semibold text-green-800">Total Registrado:</span>
+                                            <span className="text-2xl font-bold text-green-900">
+                                                {formatCurrency(
+                                                    Object.entries(denominacionesRecibidas).reduce((total, [denom, cantidad]) => {
+                                                        if (denom === 'monedas') return total + parseFloat(cantidad || 0);
+                                                        return total + (parseFloat(denom) * parseFloat(cantidad || 0));
+                                                    }, 0)
+                                                )}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => setShowDenominacionesModal(false)}
+                                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-check mr-2"></i>
+                                            Guardar
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setDenominacionesRecibidas({
+                                                    1000: 0,
+                                                    500: 0,
+                                                    200: 0,
+                                                    100: 0,
+                                                    50: 0,
+                                                    20: 0,
+                                                    monedas: 0
+                                                });
+                                                setShowDenominacionesModal(false);
+                                            }}
                                             className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
                                         >
                                             <i className="fas fa-times mr-2"></i>
