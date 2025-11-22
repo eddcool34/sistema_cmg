@@ -327,8 +327,7 @@
             const [formApertura, setFormApertura] = useState({
                 cajero: '',
                 contraseña: '',
-                fondoInicial: FONDO_INICIAL_DEFAULT,
-                saldo: 0
+                fondoInicial: FONDO_INICIAL_DEFAULT
             });
             const [formCierre, setFormCierre] = useState({
                 observaciones: '',
@@ -727,8 +726,6 @@
                         hora_apertura: fechaActual.toLocaleTimeString('es-MX'),
                         cajero: formApertura.cajero,
                         fondo_inicial: parseFloat(formApertura.fondoInicial),
-                        saldo_inicial: parseFloat(formApertura.saldo),
-                        saldo_actual: parseFloat(formApertura.saldo),
                         estado: 'abierto'
                     };
 
@@ -759,8 +756,7 @@
                     setFormApertura({
                         cajero: '',
                         contraseña: '',
-                        fondoInicial: FONDO_INICIAL_DEFAULT,
-                        saldo: 0
+                        fondoInicial: FONDO_INICIAL_DEFAULT
                     });
 
                     console.log('✅ Turno abierto:', turno_id);
@@ -1345,22 +1341,6 @@
 
                 // Actualizar estado local
                 setVentas(prev => [...prev, nuevaVenta]);
-
-                // Descontar del saldo si es Sky (solo para envíos y devoluciones)
-                if (tipoOperacion !== 'entrega' && formData.paqueteriaPago === 'sky' && turnoActual) {
-                    const costoGuia = parseFloat(formData.costo);
-                    const nuevoSaldo = turnoActual.saldo_actual - costoGuia;
-
-                    const turnoActualizado = {
-                        ...turnoActual,
-                        saldo_actual: nuevoSaldo
-                    };
-
-                    setTurnoActual(turnoActualizado);
-                    localStorage.setItem('turnoActual', JSON.stringify(turnoActualizado));
-
-                    console.log(`💰 Saldo descontado: ${formatCurrency(costoGuia)}, Nuevo saldo: ${formatCurrency(nuevoSaldo)}`);
-                }
 
                 if (guardadoExitoso) {
                     setSyncStatus({ syncing: false, message: '✅ Guardado en Google Sheets' });
@@ -2060,10 +2040,6 @@
                                             <p className="text-xs text-green-700">
                                                 Apertura: {turnoActual.hora_apertura}
                                             </p>
-                                            <p className="text-xs font-semibold text-green-800 mt-2">
-                                                <i className="fas fa-wallet mr-1"></i>
-                                                Saldo Sky: {formatCurrency(turnoActual.saldo_actual || 0)}
-                                            </p>
                                             <button
                                                 onClick={() => setShowCierreTurno(true)}
                                                 className="mt-2 bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-1 rounded transition-colors"
@@ -2179,29 +2155,6 @@
                                         <option value="entrega">Entrega</option>
                                     </select>
                                 </div>
-
-                                {/* Selector Sky/DHL - Solo para envíos y devoluciones */}
-                                {tipoOperacion !== 'entrega' && (
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        <i className="fas fa-plane mr-2"></i>Paquetería de Pago *
-                                    </label>
-                                    <select
-                                        name="paqueteriaPago"
-                                        value={formData.paqueteriaPago}
-                                        onChange={handleInputChange}
-                                        className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        <option value="dhl">DHL</option>
-                                        <option value="sky">Sky</option>
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        {formData.paqueteriaPago === 'sky'
-                                            ? '⚠️ El costo se descontará del saldo del turno'
-                                            : 'El costo NO afectará el saldo del turno'}
-                                    </p>
-                                </div>
-                                )}
 
                                 <form>
                                     {/* Remitente - NO para entregas */}
@@ -3428,91 +3381,69 @@
                                 </div>
 
                                 {(() => {
-                                    // Calcular cortes diarios
-                                    const cortesMap = new Map();
+                                    // Obtener turnos cerrados del localStorage
+                                    const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
 
-                                    // Procesar ventas
-                                    ventas.filter(v => v.estado === 'activa' && v.tipoOperacion !== 'entrega').forEach(venta => {
-                                        const fecha = new Date(venta.fecha);
-                                        const fechaStr = fecha.toLocaleDateString('es-MX');
-                                        const mes = fecha.getMonth() + 1;
-                                        const anio = fecha.getFullYear();
-
-                                        if (mes === filtroMes && anio === filtroAnio) {
-                                            if (!cortesMap.has(fechaStr)) {
-                                                cortesMap.set(fechaStr, {
-                                                    fecha: fechaStr,
-                                                    ingresoEfectivo: 0,
-                                                    ingresoTarjeta: 0,
-                                                    ingresoTransferencia: 0,
-                                                    egresoEfectivo: 0,
-                                                    egresoTarjeta: 0,
-                                                    egresoTransferencia: 0,
-                                                    denominaciones: {}
-                                                });
-                                            }
-
-                                            const corte = cortesMap.get(fechaStr);
-                                            const monto = parseFloat(venta.precio) + parseFloat(venta.impuesto || 0);
-
-                                            if (venta.metodoPago === 'efectivo') {
-                                                corte.ingresoEfectivo += monto;
-
-                                                // Agregar denominaciones si existen
-                                                if (venta.denominacionesRecibidas) {
-                                                    try {
-                                                        const denoms = JSON.parse(venta.denominacionesRecibidas);
-                                                        Object.entries(denoms).forEach(([denom, cant]) => {
-                                                            if (!corte.denominaciones[denom]) {
-                                                                corte.denominaciones[denom] = 0;
-                                                            }
-                                                            corte.denominaciones[denom] += parseInt(cant) || 0;
-                                                        });
-                                                    } catch (e) {}
-                                                }
-                                            } else if (venta.metodoPago === 'tarjeta') {
-                                                corte.ingresoTarjeta += monto;
-                                            } else if (venta.metodoPago === 'transferencia') {
-                                                corte.ingresoTransferencia += monto;
-                                            }
-                                        }
+                                    // Filtrar turnos por mes y año
+                                    const turnosFiltrados = turnosCerrados.filter(turno => {
+                                        if (!turno.fecha_cierre) return false;
+                                        const partesFecha = turno.fecha_cierre.split('/');
+                                        if (partesFecha.length !== 3) return false;
+                                        const dia = parseInt(partesFecha[0]);
+                                        const mes = parseInt(partesFecha[1]);
+                                        const anio = parseInt(partesFecha[2]);
+                                        return mes === filtroMes && anio === filtroAnio;
                                     });
 
-                                    // Procesar gastos
-                                    gastos.forEach(gasto => {
-                                        const fecha = new Date(gasto.fecha);
-                                        const fechaStr = fecha.toLocaleDateString('es-MX');
-                                        const mes = fecha.getMonth() + 1;
-                                        const anio = fecha.getFullYear();
+                                    // Procesar cada turno cerrado
+                                    const cortesArray = turnosFiltrados.map(turno => {
+                                        // Calcular ventas del turno
+                                        const ventasTurno = ventas.filter(v =>
+                                            v.estado === 'activa' &&
+                                            v.tipoOperacion !== 'entrega' &&
+                                            v.turno_id === turno.turno_id
+                                        );
 
-                                        if (mes === filtroMes && anio === filtroAnio) {
-                                            if (!cortesMap.has(fechaStr)) {
-                                                cortesMap.set(fechaStr, {
-                                                    fecha: fechaStr,
-                                                    ingresoEfectivo: 0,
-                                                    ingresoTarjeta: 0,
-                                                    ingresoTransferencia: 0,
-                                                    egresoEfectivo: 0,
-                                                    egresoTarjeta: 0,
-                                                    egresoTransferencia: 0,
-                                                    denominaciones: {}
-                                                });
-                                            }
+                                        const totalVentas = ventasTurno.reduce((sum, v) =>
+                                            sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0
+                                        );
 
-                                            const corte = cortesMap.get(fechaStr);
-                                            const monto = parseFloat(gasto.monto);
+                                        // Calcular gastos del turno
+                                        const gastosTurno = gastos.filter(g => g.turno_id === turno.turno_id);
+                                        const totalGastos = gastosTurno.reduce((sum, g) => sum + parseFloat(g.monto), 0);
 
-                                            if (gasto.metodoPago === 'efectivo') {
-                                                corte.egresoEfectivo += monto;
-                                            } else if (gasto.metodoPago === 'tarjeta') {
-                                                corte.egresoTarjeta += monto;
-                                            } else if (gasto.metodoPago === 'transferencia') {
-                                                corte.egresoTransferencia += monto;
-                                            }
-                                        }
-                                    });
+                                        // Ingresos en caja (fondo inicial)
+                                        const ingresosCaja = parseFloat(turno.fondo_inicial || 0);
 
-                                    const cortesArray = Array.from(cortesMap.values()).sort((a, b) =>
+                                        // Balance Real = fondo inicial + ventas - gastos
+                                        const balanceReal = ingresosCaja + totalVentas - totalGastos;
+
+                                        // Balance Declarado = monto reportado por cajero
+                                        const balanceDeclarado = parseFloat(turno.monto_reportado_por_cajero || 0);
+
+                                        // Diferencia = Declarado - Real (positivo = sobrante, negativo = faltante)
+                                        const diferencia = balanceDeclarado - balanceReal;
+
+                                        // Parsear denominaciones del cierre
+                                        let denominaciones = {};
+                                        try {
+                                            denominaciones = JSON.parse(turno.conteo_denominaciones || '{}');
+                                        } catch (e) {}
+
+                                        return {
+                                            fecha: turno.fecha_cierre,
+                                            turno_id: turno.turno_id,
+                                            cajero: turno.cajero,
+                                            ingresosCaja,
+                                            totalVentas,
+                                            totalGastos,
+                                            balanceReal,
+                                            balanceDeclarado,
+                                            diferencia,
+                                            monedas: parseFloat(turno.monedas || 0),
+                                            denominaciones
+                                        };
+                                    }).sort((a, b) =>
                                         new Date(b.fecha.split('/').reverse().join('-')) - new Date(a.fecha.split('/').reverse().join('-'))
                                     );
 
@@ -3525,130 +3456,148 @@
                                                 </div>
                                             ) : (
                                                 <div className="space-y-6">
-                                                    {cortesArray.map((corte, index) => {
-                                                        const totalIngreso = corte.ingresoEfectivo + corte.ingresoTarjeta + corte.ingresoTransferencia;
-                                                        const totalEgreso = corte.egresoEfectivo + corte.egresoTarjeta + corte.egresoTransferencia;
-                                                        const diferencia = totalIngreso - totalEgreso;
-
-                                                        return (
-                                                            <div key={index} className="border border-gray-200 rounded-lg p-6">
-                                                                <div className="flex justify-between items-center mb-4">
+                                                    {cortesArray.map((corte, index) => (
+                                                        <div key={index} className="border border-gray-200 rounded-lg p-6">
+                                                            <div className="flex justify-between items-center mb-4">
+                                                                <div>
                                                                     <h3 className="text-xl font-bold text-gray-800">
                                                                         <i className="fas fa-calendar-day mr-2"></i>
                                                                         {corte.fecha}
                                                                     </h3>
-                                                                    <div className={`text-xl font-bold ${diferencia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                        <i className={`fas fa-${diferencia >= 0 ? 'arrow-up' : 'arrow-down'} mr-2`}></i>
-                                                                        {formatCurrency(diferencia)}
-                                                                    </div>
+                                                                    <p className="text-sm text-gray-600">Cajero: {corte.cajero}</p>
                                                                 </div>
-
-                                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                                                    {/* Ingresos */}
-                                                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                                                        <h4 className="font-semibold text-green-800 mb-2">
-                                                                            <i className="fas fa-plus-circle mr-2"></i>Ingresos
-                                                                        </h4>
-                                                                        <div className="space-y-1 text-sm">
-                                                                            <div className="flex justify-between">
-                                                                                <span>Efectivo:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoEfectivo)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span>Tarjeta:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTarjeta)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span>Transferencia:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTransferencia)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between pt-2 border-t border-green-300">
-                                                                                <span className="font-bold">Total:</span>
-                                                                                <span className="font-bold">{formatCurrency(totalIngreso)}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Egresos */}
-                                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                                                        <h4 className="font-semibold text-red-800 mb-2">
-                                                                            <i className="fas fa-minus-circle mr-2"></i>Egresos
-                                                                        </h4>
-                                                                        <div className="space-y-1 text-sm">
-                                                                            <div className="flex justify-between">
-                                                                                <span>Efectivo:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.egresoEfectivo)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span>Tarjeta:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.egresoTarjeta)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span>Transferencia:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.egresoTransferencia)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between pt-2 border-t border-red-300">
-                                                                                <span className="font-bold">Total:</span>
-                                                                                <span className="font-bold">{formatCurrency(totalEgreso)}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Balance */}
-                                                                    <div className={`${diferencia >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}>
-                                                                        <h4 className={`font-semibold ${diferencia >= 0 ? 'text-blue-800' : 'text-orange-800'} mb-2`}>
-                                                                            <i className="fas fa-balance-scale mr-2"></i>Balance
-                                                                        </h4>
-                                                                        <div className="space-y-1 text-sm">
-                                                                            <div className="flex justify-between">
-                                                                                <span>Efectivo:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoEfectivo - corte.egresoEfectivo)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span>Tarjeta:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTarjeta - corte.egresoTarjeta)}</span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span>Transferencia:</span>
-                                                                                <span className="font-semibold">{formatCurrency(corte.ingresoTransferencia - corte.egresoTransferencia)}</span>
-                                                                            </div>
-                                                                            <div className={`flex justify-between pt-2 border-t ${diferencia >= 0 ? 'border-blue-300' : 'border-orange-300'}`}>
-                                                                                <span className="font-bold">Diferencia:</span>
-                                                                                <span className={`font-bold ${diferencia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                                    {formatCurrency(diferencia)}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Denominaciones */}
-                                                                {Object.keys(corte.denominaciones).length > 0 && (
-                                                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                                                        <h4 className="font-semibold text-gray-800 mb-3">
-                                                                            <i className="fas fa-money-bill mr-2"></i>
-                                                                            Billetes y Monedas Recibidos en Efectivo
-                                                                        </h4>
-                                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                                            {Object.entries(corte.denominaciones).map(([denom, cant]) => {
-                                                                                if (cant === 0) return null;
-                                                                                return (
-                                                                                    <div key={denom} className="bg-white border border-gray-300 rounded p-2">
-                                                                                        <div className="text-sm text-gray-600">
-                                                                                            {denom === 'monedas' ? 'Monedas' : `$${denom}`}
-                                                                                        </div>
-                                                                                        <div className="text-lg font-bold text-gray-800">
-                                                                                            {denom === 'monedas' ? formatCurrency(cant) : `${cant} pzas`}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
                                                             </div>
-                                                        );
-                                                    })}
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                                {/* Ingresos */}
+                                                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                                    <h4 className="font-semibold text-green-800 mb-2">
+                                                                        <i className="fas fa-plus-circle mr-2"></i>Ingresos
+                                                                    </h4>
+                                                                    <div className="space-y-1 text-sm">
+                                                                        <div className="flex justify-between">
+                                                                            <span>Ingreso en Caja (Fondo Inicial):</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.ingresosCaja)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>Ventas Realizadas:</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.totalVentas)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pt-2 border-t border-green-300">
+                                                                            <span className="font-bold">Total Ingresos:</span>
+                                                                            <span className="font-bold">{formatCurrency(corte.ingresosCaja + corte.totalVentas)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Egresos */}
+                                                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                                    <h4 className="font-semibold text-red-800 mb-2">
+                                                                        <i className="fas fa-minus-circle mr-2"></i>Egresos
+                                                                    </h4>
+                                                                    <div className="space-y-1 text-sm">
+                                                                        <div className="flex justify-between">
+                                                                            <span>Gastos Totales:</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.totalGastos)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pt-2 border-t border-red-300">
+                                                                            <span className="font-bold">Total Egresos:</span>
+                                                                            <span className="font-bold">{formatCurrency(corte.totalGastos)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Balance Real vs Declarado */}
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                                    <h4 className="font-semibold text-blue-800 mb-2">
+                                                                        <i className="fas fa-calculator mr-2"></i>Balance Real
+                                                                    </h4>
+                                                                    <div className="space-y-1 text-sm">
+                                                                        <div className="flex justify-between text-xs text-gray-600">
+                                                                            <span>Fondo + Ventas - Gastos</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pt-2">
+                                                                            <span className="font-bold">Total Real:</span>
+                                                                            <span className="font-bold text-lg text-blue-900">{formatCurrency(corte.balanceReal)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                                                    <h4 className="font-semibold text-purple-800 mb-2">
+                                                                        <i className="fas fa-hand-holding-usd mr-2"></i>Balance Declarado
+                                                                    </h4>
+                                                                    <div className="space-y-1 text-sm">
+                                                                        <div className="flex justify-between text-xs text-gray-600">
+                                                                            <span>Suma de billetes declarados</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pt-2">
+                                                                            <span className="font-bold">Total Declarado:</span>
+                                                                            <span className="font-bold text-lg text-purple-900">{formatCurrency(corte.balanceDeclarado)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Aviso de diferencia */}
+                                                            {Math.abs(corte.diferencia) > 0.01 && (
+                                                                <div className={`${corte.diferencia > 0 ? 'bg-yellow-50 border-yellow-300' : 'bg-red-50 border-red-300'} border-2 rounded-lg p-4 mb-4`}>
+                                                                    <div className="flex items-center gap-3">
+                                                                        <i className={`fas fa-exclamation-triangle text-2xl ${corte.diferencia > 0 ? 'text-yellow-600' : 'text-red-600'}`}></i>
+                                                                        <div className="flex-1">
+                                                                            <h4 className={`font-bold text-lg ${corte.diferencia > 0 ? 'text-yellow-800' : 'text-red-800'}`}>
+                                                                                {corte.diferencia > 0 ? '⚠️ SOBRANTE DETECTADO' : '⚠️ FALTANTE DETECTADO'}
+                                                                            </h4>
+                                                                            <p className="text-sm text-gray-700">
+                                                                                Diferencia: <span className="font-bold">{formatCurrency(Math.abs(corte.diferencia))}</span>
+                                                                                {corte.diferencia > 0
+                                                                                    ? ' - Se declaró más de lo que debería haber en caja'
+                                                                                    : ' - Falta dinero en caja según lo declarado'}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Declaración de billetes */}
+                                                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                                                <h4 className="font-semibold text-gray-800 mb-3">
+                                                                    <i className="fas fa-money-bill mr-2"></i>
+                                                                    Declaración de Billetes y Monedas
+                                                                </h4>
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                                    {Object.entries(corte.denominaciones).map(([denom, cant]) => {
+                                                                        if (parseInt(cant) === 0) return null;
+                                                                        return (
+                                                                            <div key={denom} className="bg-white border border-gray-300 rounded p-2">
+                                                                                <div className="text-sm text-gray-600">
+                                                                                    ${denom}
+                                                                                </div>
+                                                                                <div className="text-lg font-bold text-gray-800">
+                                                                                    {cant} pzas
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-500">
+                                                                                    = {formatCurrency(parseInt(denom) * parseInt(cant))}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                    {corte.monedas > 0 && (
+                                                                        <div className="bg-white border border-gray-300 rounded p-2">
+                                                                            <div className="text-sm text-gray-600">
+                                                                                Monedas
+                                                                            </div>
+                                                                            <div className="text-lg font-bold text-gray-800">
+                                                                                {formatCurrency(corte.monedas)}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
                                         </>
@@ -3912,21 +3861,6 @@
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                             <p className="text-xs text-gray-500 mt-1">Fondo estándar: $1,000</p>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Saldo Inicial (Sky)
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={formApertura.saldo}
-                                                onChange={(e) => setFormApertura(prev => ({...prev, saldo: e.target.value}))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                step="0.01"
-                                                min="0"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Saldo disponible para guías Sky</p>
                                         </div>
                                     </div>
 
