@@ -68,7 +68,7 @@
         const GOOGLE_SHEET_ID = '1YourSheetIdHere'; // ⚠️ REEMPLAZAR CON TU ID REAL
 
         // Constantes para evitar "magic numbers" y strings repetitivos
-        const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
+        const PAQUETERIAS = ['fedex', 'estafeta'];
         const PAQUETERIAS_ENTREGA = ['mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'];
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
         const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega'];
@@ -399,7 +399,7 @@
                 // Tabla de declaración
                 declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
                 // Paquetería de pago
-                paqueteriaPago: 'dhl'
+                paqueteriaPago: 'fedex'
             });
 
             // Estados para modal de edición
@@ -1384,7 +1384,7 @@
                     horaLiberacion: '',
                     estadoEntrega: 'pendiente',
                     declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
-                    paqueteriaPago: 'dhl'
+                    paqueteriaPago: 'fedex'
                 });
 
                 // Resetear campos de pago en efectivo
