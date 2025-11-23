@@ -551,6 +551,8 @@
                 costo: '',
                 impuesto: '0',
                 metodoPago: 'efectivo',
+                vendedor: 'Mariana', // Vendedor por defecto
+                comision: '0', // Comisión calculada automáticamente
                 // Campos para devolución
                 paqueteriaDevolucion: 'fedex',
                 numeroGuia: '',
@@ -1076,12 +1078,47 @@
                 }
             };
 
+            // Función para calcular la comisión del vendedor
+            const calcularComision = (precio, tipoServicio) => {
+                const precioNum = parseFloat(precio) || 0;
+
+                if (precioNum <= 0) return 0;
+
+                // Para envíos internacionales: 13% fijo
+                if (tipoServicio === 'internacional') {
+                    return (precioNum * 0.13).toFixed(2);
+                }
+
+                // Para envíos nacionales: porcentaje según rango
+                if (precioNum >= 200 && precioNum <= 400) {
+                    return (precioNum * 0.10).toFixed(2); // 10%
+                } else if (precioNum >= 401 && precioNum <= 900) {
+                    return (precioNum * 0.15).toFixed(2); // 15%
+                } else if (precioNum >= 901) {
+                    return (precioNum * 0.25).toFixed(2); // 25%
+                }
+
+                // Si es menor a 200, no hay comisión
+                return 0;
+            };
+
             const handleInputChange = (e) => {
                 const { name, value } = e.target;
-                setFormData(prev => ({
-                    ...prev,
-                    [name]: value
-                }));
+                setFormData(prev => {
+                    const newData = {
+                        ...prev,
+                        [name]: value
+                    };
+
+                    // Recalcular comisión si cambia el precio o el tipo de servicio
+                    if (name === 'precio' || name === 'tipoServicio') {
+                        const precio = name === 'precio' ? value : prev.precio;
+                        const tipoServicio = name === 'tipoServicio' ? value : prev.tipoServicio;
+                        newData.comision = calcularComision(precio, tipoServicio);
+                    }
+
+                    return newData;
+                });
             };
 
             // Manejar selección de cliente desde autocompletado
@@ -1684,8 +1721,37 @@
             };
 
             const getGananciasHoy = () => {
-                return getVentasHoy().reduce((sum, v) => 
+                return getVentasHoy().reduce((sum, v) =>
                     sum + (parseFloat(v.precio) - parseFloat(v.costo)), 0);
+            };
+
+            // Función para obtener estadísticas de ventas por vendedor
+            const getEstadisticasVendedores = () => {
+                const vendedores = ['Mariana', 'Cris', 'Edgar'];
+                const ventasActivas = ventas.filter(v => v.estado !== 'cancelada' && v.tipoOperacion !== 'entrega');
+
+                const estadisticas = vendedores.map(vendedor => {
+                    const ventasVendedor = ventasActivas.filter(v => v.vendedor === vendedor);
+                    const cantidadVentas = ventasVendedor.length;
+                    const totalVentas = ventasVendedor.reduce((sum, v) => sum + parseFloat(v.precio || 0), 0);
+                    const comisionTotal = ventasVendedor.reduce((sum, v) => sum + parseFloat(v.comision || 0), 0);
+
+                    return {
+                        nombre: vendedor,
+                        cantidadVentas,
+                        totalVentas,
+                        comisionTotal
+                    };
+                });
+
+                // Ordenar por cantidad de ventas (mayor a menor)
+                return estadisticas.sort((a, b) => b.cantidadVentas - a.cantidadVentas);
+            };
+
+            // Función para obtener el vendedor del mes
+            const getVendedorDelMes = () => {
+                const estadisticas = getEstadisticasVendedores();
+                return estadisticas[0] || { nombre: 'N/A', cantidadVentas: 0, totalVentas: 0, comisionTotal: 0 };
             };
 
             const ventasFiltradas = ventas.filter(v => 
@@ -1965,20 +2031,37 @@
                                 </div>
 
                                 <form className="space-y-6">
-                                    {/* Selector Envío/Devolución/Entrega */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            <i className="fas fa-truck mr-2"></i>Tipo de Operación *
-                                        </label>
-                                        <select
-                                            value={tipoOperacion}
-                                            onChange={(e) => setTipoOperacion(e.target.value)}
-                                            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="envio">Envío</option>
-                                            <option value="devolucion">Devolución</option>
-                                            <option value="entrega">Entrega</option>
-                                        </select>
+                                    {/* Selector Envío/Devolución/Entrega y Vendedor */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-truck mr-2"></i>Tipo de Operación *
+                                            </label>
+                                            <select
+                                                value={tipoOperacion}
+                                                onChange={(e) => setTipoOperacion(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="envio">Envío</option>
+                                                <option value="devolucion">Devolución</option>
+                                                <option value="entrega">Entrega</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-user-tie mr-2"></i>Vendedor *
+                                            </label>
+                                            <select
+                                                name="vendedor"
+                                                value={formData.vendedor}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="Mariana">Mariana</option>
+                                                <option value="Cris">Cris</option>
+                                                <option value="Edgar">Edgar</option>
+                                            </select>
+                                        </div>
                                     </div>
 
                                     {/* Remitente - NO para entregas */}
@@ -2150,7 +2233,7 @@
                                         <h3 className="text-xl font-semibold text-orange-600 mb-4">
                                             <i className="fas fa-money-bill-wave mr-2"></i>Información Financiera
                                         </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Precio *</label>
                                                 <input
@@ -2184,6 +2267,19 @@
                                                     min="0"
                                                     placeholder="0.00"
                                                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    <i className="fas fa-percentage mr-2"></i>Comisión ($)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="comision"
+                                                    value={formData.comision ? `$${formData.comision}` : '$0.00'}
+                                                    readOnly
+                                                    className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                                                    title="Calculada automáticamente según el precio y tipo de servicio"
                                                 />
                                             </div>
                                         </div>
@@ -2343,20 +2439,37 @@
                                     <i className="fas fa-edit mr-2"></i>Registrar Nueva Venta
                                 </h2>
                                 
-                                {/* Selector Envío/Devolución/Entrega */}
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        <i className="fas fa-truck mr-2"></i>Tipo de Operación *
-                                    </label>
-                                    <select
-                                        value={tipoOperacion}
-                                        onChange={(e) => setTipoOperacion(e.target.value)}
-                                        className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        <option value="envio">Envío</option>
-                                        <option value="devolucion">Devolución</option>
-                                        <option value="entrega">Entrega</option>
-                                    </select>
+                                {/* Selector Envío/Devolución/Entrega y Vendedor */}
+                                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <i className="fas fa-truck mr-2"></i>Tipo de Operación *
+                                        </label>
+                                        <select
+                                            value={tipoOperacion}
+                                            onChange={(e) => setTipoOperacion(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        >
+                                            <option value="envio">Envío</option>
+                                            <option value="devolucion">Devolución</option>
+                                            <option value="entrega">Entrega</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <i className="fas fa-user-tie mr-2"></i>Vendedor *
+                                        </label>
+                                        <select
+                                            name="vendedor"
+                                            value={formData.vendedor}
+                                            onChange={handleInputChange}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        >
+                                            <option value="Mariana">Mariana</option>
+                                            <option value="Cris">Cris</option>
+                                            <option value="Edgar">Edgar</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <form>
@@ -2711,7 +2824,7 @@
                                         <h3 className="text-xl font-semibold text-orange-600 mb-4">
                                             <i className="fas fa-money-bill-wave mr-2"></i>Información Financiera
                                         </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Precio (venta al cliente) *</label>
                                                 <input
@@ -2750,6 +2863,19 @@
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     placeholder="0.00"
                                                     required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    <i className="fas fa-percentage mr-2"></i>Comisión ($)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="comision"
+                                                    value={formData.comision ? `$${formData.comision}` : '$0.00'}
+                                                    readOnly
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                                                    title="Calculada automáticamente según el precio y tipo de servicio"
                                                 />
                                             </div>
                                             <div>
@@ -3292,7 +3418,7 @@
                                         </div>
                                         <div className="space-y-2">
                                             {TIPOS_OPERACION.map(tipo => {
-                                                const count = ventas.filter(v => 
+                                                const count = ventas.filter(v =>
                                                     v.estado !== 'cancelada' &&
                                                     (v.tipoOperacion || 'envio') === tipo
                                                 ).length;
@@ -3304,6 +3430,109 @@
                                                 );
                                             })}
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Top de Ventas por Vendedor */}
+                                <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+                                    <h3 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-trophy mr-2 text-yellow-500"></i>Top de Ventas por Vendedor
+                                    </h3>
+
+                                    {/* Vendedor del mes destacado */}
+                                    <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg shadow-lg p-6 mb-6">
+                                        <div className="flex items-center justify-between text-white">
+                                            <div className="flex items-center">
+                                                <i className="fas fa-crown text-6xl opacity-30 mr-4"></i>
+                                                <div>
+                                                    <h4 className="text-lg font-semibold mb-1">Vendedor del Mes</h4>
+                                                    <p className="text-4xl font-bold">{getVendedorDelMes().nombre}</p>
+                                                    <p className="text-xl mt-2">{getVendedorDelMes().cantidadVentas} ventas realizadas</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-semibold mb-1">Comisión del Mes</p>
+                                                <p className="text-3xl font-bold">{formatCurrency(getVendedorDelMes().comisionTotal)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Tabla de estadísticas de vendedores */}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                                                        <i className="fas fa-medal mr-2"></i>Posición
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                                                        <i className="fas fa-user mr-2"></i>Vendedor
+                                                    </th>
+                                                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">
+                                                        <i className="fas fa-shopping-bag mr-2"></i>Ventas
+                                                    </th>
+                                                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
+                                                        <i className="fas fa-dollar-sign mr-2"></i>Total Vendido
+                                                    </th>
+                                                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
+                                                        <i className="fas fa-percentage mr-2"></i>Comisión Total
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200">
+                                                {getEstadisticasVendedores().map((vendedor, index) => (
+                                                    <tr key={vendedor.nombre} className={`hover:bg-gray-50 ${index === 0 ? 'bg-yellow-50' : ''}`}>
+                                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                                            {index === 0 && <i className="fas fa-trophy text-yellow-500 mr-2"></i>}
+                                                            {index === 1 && <i className="fas fa-medal text-gray-400 mr-2"></i>}
+                                                            {index === 2 && <i className="fas fa-medal text-orange-600 mr-2"></i>}
+                                                            <span className="font-bold">{index + 1}°</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                                            {vendedor.nombre}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-center">
+                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                                                                {vendedor.cantidadVentas}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">
+                                                            {formatCurrency(vendedor.totalVentas)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-right">
+                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                                                                {formatCurrency(vendedor.comisionTotal)}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                                                <tr>
+                                                    <td colSpan="2" className="px-4 py-3 text-sm font-bold text-gray-900">TOTALES</td>
+                                                    <td className="px-4 py-3 text-sm text-center font-bold text-blue-800">
+                                                        {getEstadisticasVendedores().reduce((sum, v) => sum + v.cantidadVentas, 0)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                                                        {formatCurrency(getEstadisticasVendedores().reduce((sum, v) => sum + v.totalVentas, 0))}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-bold text-green-800">
+                                                        {formatCurrency(getEstadisticasVendedores().reduce((sum, v) => sum + v.comisionTotal, 0))}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+
+                                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                        <p className="text-sm text-blue-700">
+                                            <i className="fas fa-info-circle mr-2"></i>
+                                            <strong>Nota:</strong> Las comisiones se calculan automáticamente según el tipo de servicio:
+                                        </p>
+                                        <ul className="text-sm text-blue-700 mt-2 ml-6 list-disc">
+                                            <li>Envíos Nacionales: 10% ($200-$400), 15% ($401-$900), 25% ($901+)</li>
+                                            <li>Envíos Internacionales: 13% (cualquier monto)</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
