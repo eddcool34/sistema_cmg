@@ -318,7 +318,7 @@
             // Estados para filtros de exportación
             const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); // Mes actual (1-12)
             const [filtroAnio, setFiltroAnio] = useState(new Date().getFullYear()); // Año actual
-            const [fechaSeleccionadaCorte, setFechaSeleccionadaCorte] = useState(null); // Fecha seleccionada para ver corte
+            const [fechaSeleccionadaCorte, setFechaSeleccionadaCorte] = useState(new Date().toLocaleDateString('es-MX')); // Fecha seleccionada para ver corte - por defecto hoy
 
             // ========== Estados para Turnos y Caja ==========
             const [turnoActual, setTurnoActual] = useState(null); // Objeto con turno_id, cajero, fecha_apertura, etc.
@@ -3386,34 +3386,33 @@
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Fecha del Corte
+                                                <i className="fas fa-calendar-day mr-2"></i>Fecha del Corte
                                             </label>
-                                            <select
-                                                value={fechaSeleccionadaCorte || ''}
-                                                onChange={(e) => setFechaSeleccionadaCorte(e.target.value)}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value="">Selecciona una fecha</option>
-                                                {(() => {
-                                                    const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
-                                                    const fechasDisponibles = turnosCerrados
-                                                        .filter(turno => {
-                                                            if (!turno.fecha_cierre) return false;
-                                                            const partesFecha = turno.fecha_cierre.split('/');
-                                                            if (partesFecha.length !== 3) return false;
-                                                            const mes = parseInt(partesFecha[1]);
-                                                            const anio = parseInt(partesFecha[2]);
-                                                            return mes === filtroMes && anio === filtroAnio;
-                                                        })
-                                                        .map(turno => turno.fecha_cierre)
-                                                        .filter((value, index, self) => self.indexOf(value) === index)
-                                                        .sort((a, b) => new Date(b.split('/').reverse().join('-')) - new Date(a.split('/').reverse().join('-')));
-
-                                                    return fechasDisponibles.map(fecha => (
-                                                        <option key={fecha} value={fecha}>{fecha}</option>
-                                                    ));
-                                                })()}
-                                            </select>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="date"
+                                                    value={(() => {
+                                                        // Convertir de formato es-MX (dd/mm/yyyy) a formato ISO (yyyy-mm-dd)
+                                                        if (!fechaSeleccionadaCorte) return '';
+                                                        const partes = fechaSeleccionadaCorte.split('/');
+                                                        if (partes.length !== 3) return '';
+                                                        return `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+                                                    })()}
+                                                    onChange={(e) => {
+                                                        // Convertir de formato ISO (yyyy-mm-dd) a formato es-MX (dd/mm/yyyy)
+                                                        const fecha = new Date(e.target.value + 'T00:00:00');
+                                                        setFechaSeleccionadaCorte(fecha.toLocaleDateString('es-MX'));
+                                                    }}
+                                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <button
+                                                    onClick={() => setFechaSeleccionadaCorte(new Date().toLocaleDateString('es-MX'))}
+                                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors whitespace-nowrap"
+                                                    title="Ver corte de hoy"
+                                                >
+                                                    <i className="fas fa-calendar-day mr-2"></i>Hoy
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3492,15 +3491,11 @@
 
                                     return (
                                         <>
-                                            {!fechaSeleccionadaCorte ? (
+                                            {cortesFiltrados.length === 0 ? (
                                                 <div className="text-center py-12 text-gray-500">
-                                                    <i className="fas fa-calendar-alt text-5xl mb-4"></i>
-                                                    <p className="text-lg">Selecciona una fecha para ver el corte del día</p>
-                                                </div>
-                                            ) : cortesFiltrados.length === 0 ? (
-                                                <div className="text-center py-8 text-gray-500">
-                                                    <i className="fas fa-inbox text-4xl mb-2"></i>
-                                                    <p>No hay cortes para mostrar en esta fecha</p>
+                                                    <i className="fas fa-calendar-times text-5xl mb-4"></i>
+                                                    <p className="text-lg font-medium mb-2">No hay cortes registrados para el {fechaSeleccionadaCorte}</p>
+                                                    <p className="text-sm">Las ventas y gastos de este día se registrarán al cerrar el turno</p>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-6">
