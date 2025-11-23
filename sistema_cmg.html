@@ -318,6 +318,7 @@
             // Estados para filtros de exportación
             const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); // Mes actual (1-12)
             const [filtroAnio, setFiltroAnio] = useState(new Date().getFullYear()); // Año actual
+            const [fechaSeleccionadaCorte, setFechaSeleccionadaCorte] = useState(null); // Fecha seleccionada para ver corte
 
             // ========== Estados para Turnos y Caja ==========
             const [turnoActual, setTurnoActual] = useState(null); // Objeto con turno_id, cajero, fecha_apertura, etc.
@@ -3346,14 +3347,17 @@
                                 </h2>
 
                                 <div className="mb-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Mes
                                             </label>
                                             <select
                                                 value={filtroMes}
-                                                onChange={(e) => setFiltroMes(parseInt(e.target.value))}
+                                                onChange={(e) => {
+                                                    setFiltroMes(parseInt(e.target.value));
+                                                    setFechaSeleccionadaCorte(null);
+                                                }}
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             >
                                                 {[1,2,3,4,5,6,7,8,9,10,11,12].map(mes => (
@@ -3369,12 +3373,46 @@
                                             </label>
                                             <select
                                                 value={filtroAnio}
-                                                onChange={(e) => setFiltroAnio(parseInt(e.target.value))}
+                                                onChange={(e) => {
+                                                    setFiltroAnio(parseInt(e.target.value));
+                                                    setFechaSeleccionadaCorte(null);
+                                                }}
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             >
                                                 {[2024, 2025, 2026].map(anio => (
                                                     <option key={anio} value={anio}>{anio}</option>
                                                 ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Fecha del Corte
+                                            </label>
+                                            <select
+                                                value={fechaSeleccionadaCorte || ''}
+                                                onChange={(e) => setFechaSeleccionadaCorte(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Selecciona una fecha</option>
+                                                {(() => {
+                                                    const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                                                    const fechasDisponibles = turnosCerrados
+                                                        .filter(turno => {
+                                                            if (!turno.fecha_cierre) return false;
+                                                            const partesFecha = turno.fecha_cierre.split('/');
+                                                            if (partesFecha.length !== 3) return false;
+                                                            const mes = parseInt(partesFecha[1]);
+                                                            const anio = parseInt(partesFecha[2]);
+                                                            return mes === filtroMes && anio === filtroAnio;
+                                                        })
+                                                        .map(turno => turno.fecha_cierre)
+                                                        .filter((value, index, self) => self.indexOf(value) === index)
+                                                        .sort((a, b) => new Date(b.split('/').reverse().join('-')) - new Date(a.split('/').reverse().join('-')));
+
+                                                    return fechasDisponibles.map(fecha => (
+                                                        <option key={fecha} value={fecha}>{fecha}</option>
+                                                    ));
+                                                })()}
                                             </select>
                                         </div>
                                     </div>
@@ -3447,16 +3485,26 @@
                                         new Date(b.fecha.split('/').reverse().join('-')) - new Date(a.fecha.split('/').reverse().join('-'))
                                     );
 
+                                    // Filtrar por fecha seleccionada si hay una
+                                    const cortesFiltrados = fechaSeleccionadaCorte
+                                        ? cortesArray.filter(corte => corte.fecha === fechaSeleccionadaCorte)
+                                        : [];
+
                                     return (
                                         <>
-                                            {cortesArray.length === 0 ? (
+                                            {!fechaSeleccionadaCorte ? (
+                                                <div className="text-center py-12 text-gray-500">
+                                                    <i className="fas fa-calendar-alt text-5xl mb-4"></i>
+                                                    <p className="text-lg">Selecciona una fecha para ver el corte del día</p>
+                                                </div>
+                                            ) : cortesFiltrados.length === 0 ? (
                                                 <div className="text-center py-8 text-gray-500">
                                                     <i className="fas fa-inbox text-4xl mb-2"></i>
-                                                    <p>No hay cortes para mostrar en este mes</p>
+                                                    <p>No hay cortes para mostrar en esta fecha</p>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-6">
-                                                    {cortesArray.map((corte, index) => (
+                                                    {cortesFiltrados.map((corte, index) => (
                                                         <div key={index} className="border border-gray-200 rounded-lg p-6">
                                                             <div className="flex justify-between items-center mb-4">
                                                                 <div>
