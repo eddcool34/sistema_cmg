@@ -108,6 +108,39 @@
             return `$${parseFloat(amount).toFixed(2)}`;
         };
 
+        // ========== SISTEMA DE CLIENTES GUARDADOS ==========
+
+        // Guardar cliente en localStorage
+        const guardarCliente = (cliente) => {
+            const clientesGuardados = JSON.parse(localStorage.getItem('clientes') || '[]');
+
+            // Verificar si el cliente ya existe (por nombre y teléfono)
+            const existeCliente = clientesGuardados.find(c =>
+                c.nombre.toLowerCase() === cliente.nombre.toLowerCase() &&
+                c.telefono === cliente.telefono
+            );
+
+            if (!existeCliente && cliente.nombre.trim() && cliente.telefono.trim()) {
+                clientesGuardados.push({
+                    ...cliente,
+                    fechaRegistro: new Date().toISOString()
+                });
+                localStorage.setItem('clientes', JSON.stringify(clientesGuardados));
+            }
+        };
+
+        // Buscar clientes por nombre
+        const buscarClientes = (query) => {
+            if (!query || query.trim().length < 2) return [];
+
+            const clientesGuardados = JSON.parse(localStorage.getItem('clientes') || '[]');
+            const queryLower = query.toLowerCase();
+
+            return clientesGuardados.filter(cliente =>
+                cliente.nombre.toLowerCase().includes(queryLower)
+            ).slice(0, 5); // Limitar a 5 resultados
+        };
+
         // Función para validar campos requeridos
         const validarCampos = (formData, tipoOperacion) => {
             const errores = [];
@@ -303,6 +336,139 @@
                 return false;
             }
         };
+
+        // ========== COMPONENTE DE AUTOCOMPLETADO ==========
+        function AutocompleteInput({
+            label,
+            name,
+            value,
+            onChange,
+            onSelectCliente,
+            tipo,
+            placeholder = ""
+        }) {
+            const [sugerencias, setSugerencias] = useState([]);
+            const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+            const [indiceSugerencia, setIndiceSugerencia] = useState(-1);
+            const inputRef = useRef(null);
+            const sugerenciasRef = useRef(null);
+
+            // Buscar clientes al escribir
+            useEffect(() => {
+                if (value.length >= 2) {
+                    const resultados = buscarClientes(value);
+                    setSugerencias(resultados);
+                    setMostrarSugerencias(resultados.length > 0);
+                } else {
+                    setSugerencias([]);
+                    setMostrarSugerencias(false);
+                }
+                setIndiceSugerencia(-1);
+            }, [value]);
+
+            // Cerrar sugerencias al hacer clic fuera
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (
+                        sugerenciasRef.current &&
+                        !sugerenciasRef.current.contains(event.target) &&
+                        inputRef.current &&
+                        !inputRef.current.contains(event.target)
+                    ) {
+                        setMostrarSugerencias(false);
+                    }
+                };
+
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            // Manejar teclas de navegación
+            const handleKeyDown = (e) => {
+                if (!mostrarSugerencias || sugerencias.length === 0) return;
+
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        setIndiceSugerencia(prev =>
+                            prev < sugerencias.length - 1 ? prev + 1 : prev
+                        );
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        setIndiceSugerencia(prev => prev > 0 ? prev - 1 : -1);
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if (indiceSugerencia >= 0) {
+                            seleccionarCliente(sugerencias[indiceSugerencia]);
+                        }
+                        break;
+                    case 'Escape':
+                        setMostrarSugerencias(false);
+                        setIndiceSugerencia(-1);
+                        break;
+                }
+            };
+
+            // Seleccionar cliente de las sugerencias
+            const seleccionarCliente = (cliente) => {
+                if (onSelectCliente) {
+                    onSelectCliente(cliente, tipo);
+                }
+                setMostrarSugerencias(false);
+                setIndiceSugerencia(-1);
+            };
+
+            return (
+                <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {label}
+                    </label>
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        name={name}
+                        value={value}
+                        onChange={onChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder={placeholder}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        autoComplete="off"
+                    />
+                    {mostrarSugerencias && sugerencias.length > 0 && (
+                        <div
+                            ref={sugerenciasRef}
+                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                        >
+                            {sugerencias.map((cliente, index) => (
+                                <div
+                                    key={index}
+                                    onClick={() => seleccionarCliente(cliente)}
+                                    className={`px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 ${
+                                        index === indiceSugerencia ? 'bg-blue-100' : ''
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-medium text-gray-900">
+                                                <i className="fas fa-user mr-2 text-blue-500"></i>
+                                                {cliente.nombre}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                <i className="fas fa-phone mr-2"></i>
+                                                {cliente.telefono}
+                                            </p>
+                                        </div>
+                                        <i className="fas fa-arrow-right text-gray-400"></i>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
 
         function App() {
             const [activeTab, setActiveTab] = useState('registro');
@@ -918,6 +1084,23 @@
                 }));
             };
 
+            // Manejar selección de cliente desde autocompletado
+            const handleSelectCliente = (cliente, tipo) => {
+                if (tipo === 'remitente') {
+                    setFormData(prev => ({
+                        ...prev,
+                        nombreRemitente: cliente.nombre,
+                        telefonoRemitente: cliente.telefono
+                    }));
+                } else if (tipo === 'destinatario') {
+                    setFormData(prev => ({
+                        ...prev,
+                        nombreDestinatario: cliente.nombre,
+                        telefonoDestinatario: cliente.telefono
+                    }));
+                }
+            };
+
             const agregarDeclaracion = () => {
                 setFormData(prev => ({
                     ...prev,
@@ -1312,6 +1495,27 @@
                     nuevaVenta.fechaRegistro = fechaActual.toLocaleDateString('es-MX');
                     nuevaVenta.horaRegistro = fechaActual.toLocaleTimeString('es-MX');
                     nuevaVenta.estadoEntrega = 'pendiente';
+                }
+
+                // Guardar clientes en localStorage para autocompletado
+                if (tipoOperacion !== 'entrega') {
+                    // Guardar remitente
+                    if (formData.nombreRemitente && formData.telefonoRemitente) {
+                        guardarCliente({
+                            nombre: formData.nombreRemitente,
+                            telefono: formData.telefonoRemitente,
+                            tipo: 'remitente'
+                        });
+                    }
+
+                    // Guardar destinatario si es envío
+                    if (tipoOperacion === 'envio' && formData.nombreDestinatario && formData.telefonoDestinatario) {
+                        guardarCliente({
+                            nombre: formData.nombreDestinatario,
+                            telefono: formData.telefonoDestinatario,
+                            tipo: 'destinatario'
+                        });
+                    }
                 }
 
                 let guardadoExitoso = false;
@@ -1784,16 +1988,15 @@
                                             <i className="fas fa-user mr-2"></i>Datos del Remitente
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
-                                                <input
-                                                    type="text"
-                                                    name="nombreRemitente"
-                                                    value={formData.nombreRemitente}
-                                                    onChange={handleInputChange}
-                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            </div>
+                                            <AutocompleteInput
+                                                label="Nombre *"
+                                                name="nombreRemitente"
+                                                value={formData.nombreRemitente}
+                                                onChange={handleInputChange}
+                                                onSelectCliente={handleSelectCliente}
+                                                tipo="remitente"
+                                                placeholder="Escribe el nombre..."
+                                            />
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
                                                 <input
@@ -1862,16 +2065,15 @@
                                                 <i className="fas fa-user-friends mr-2"></i>Datos del Destinatario
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
-                                                    <input
-                                                        type="text"
-                                                        name="nombreDestinatario"
-                                                        value={formData.nombreDestinatario}
-                                                        onChange={handleInputChange}
-                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                </div>
+                                                <AutocompleteInput
+                                                    label="Nombre *"
+                                                    name="nombreDestinatario"
+                                                    value={formData.nombreDestinatario}
+                                                    onChange={handleInputChange}
+                                                    onSelectCliente={handleSelectCliente}
+                                                    tipo="destinatario"
+                                                    placeholder="Escribe el nombre..."
+                                                />
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
                                                     <input
