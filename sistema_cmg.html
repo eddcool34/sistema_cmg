@@ -71,7 +71,19 @@
         const PAQUETERIAS = ['fedex', 'estafeta'];
         const PAQUETERIAS_ENTREGA = ['mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'];
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
-        const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega'];
+        const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega', 'servicio'];
+
+        // Servicios disponibles con precios
+        const SERVICIOS_DISPONIBLES = [
+            { id: 'localizacion', nombre: 'SERVICIO DE LOCALIZACION POR COORDENADAS MUNICIPAL', precio: 100, precioFijo: true },
+            { id: 'visa', nombre: 'VISA AMERICANA', precio: 6200, precioFijo: true },
+            { id: 'pasaporte', nombre: 'PASAPORTE MEX', precio: 6000, precioFijo: true },
+            { id: 'paquete_visa_pasaporte', nombre: 'PAQUETE DE VIAJE VISA Y PASAPORTE', precio: 10000, precioFijo: true },
+            { id: 'documentos', nombre: 'DOCUMENTOS DE IDENTIDAD', precio: 200, precioFijo: true },
+            { id: 'boleto_viva', nombre: 'BOLETO DE VIVA AEROBUS', precio: 0, precioFijo: false },
+            { id: 'boleto_volaris', nombre: 'BOLETO DE VOLARIS', precio: 0, precioFijo: false },
+            { id: 'boleto_autobus', nombre: 'BOLETOS DE AUTOBUS', precio: 0, precioFijo: false }
+        ];
 
         // ========== CONFIGURACIÓN DE TURNOS Y CAJA ==========
         const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
@@ -149,6 +161,13 @@
                 // Validaciones para entregas (solo nombre y paquetería)
                 if (!formData.nombreEntrega.trim()) errores.push('Nombre');
                 if (!formData.paqueteriaEntrega) errores.push('Paquetería');
+            } else if (tipoOperacion === 'servicio') {
+                // Validaciones para servicios
+                if (!formData.tipoServicioSeleccionado) errores.push('Tipo de servicio');
+                if (!formData.nombreCliente.trim()) errores.push('Nombre del cliente');
+                if (!formData.telefonoCliente.trim()) errores.push('Teléfono del cliente');
+                if (!formData.precio || parseFloat(formData.precio) <= 0) errores.push('Precio válido');
+                if (!formData.costo || parseFloat(formData.costo) <= 0) errores.push('Costo válido');
             } else {
                 // Campos comunes para envío y devolución
                 if (!formData.nombreRemitente.trim()) errores.push('Nombre del remitente');
@@ -174,6 +193,29 @@
         // Guardar venta en Google Sheets
         const guardarVentaEnSheets = async (venta) => {
             try {
+                // Preparar datos según tipo de operación
+                let remitente, telRemitente, destinatario, telDestinatario, paqueteria, servicio;
+
+                if (venta.tipoOperacion === 'servicio') {
+                    // Para servicios, usar datos del cliente
+                    remitente = venta.nombreCliente;
+                    telRemitente = venta.telefonoCliente;
+                    destinatario = '-';
+                    telDestinatario = '-';
+                    // Obtener el nombre del servicio
+                    const servicioInfo = SERVICIOS_DISPONIBLES.find(s => s.id === venta.tipoServicioSeleccionado);
+                    paqueteria = servicioInfo ? servicioInfo.nombre : 'Servicio';
+                    servicio = 'Servicio';
+                } else {
+                    // Para envíos, devoluciones y entregas
+                    remitente = venta.nombreRemitente;
+                    telRemitente = venta.telefonoRemitente;
+                    destinatario = venta.nombreDestinatario || '-';
+                    telDestinatario = venta.telefonoDestinatario || '-';
+                    paqueteria = venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria;
+                    servicio = venta.tipoOperacion === 'devolucion' ? 'Devolución' : venta.tipoServicio;
+                }
+
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -184,24 +226,24 @@
                         action: 'guardarVenta',
                         fecha: new Date(venta.fecha).toLocaleDateString('es-MX'),
                         hora: new Date(venta.fecha).toLocaleTimeString('es-MX'),
-                        remitente: venta.nombreRemitente,
-                        telRemitente: venta.telefonoRemitente,
-                        destinatario: venta.nombreDestinatario || '-',
-                        telDestinatario: venta.telefonoDestinatario || '-',
+                        remitente: remitente,
+                        telRemitente: telRemitente,
+                        destinatario: destinatario,
+                        telDestinatario: telDestinatario,
                         direccion: venta.direccion ? `${venta.direccion} #${venta.numero}, ${venta.colonia}` : '-',
                         codigoPostal: venta.codigoPostal || '-',
                         ciudad: venta.colonia || '-',
                         estado: venta.estado || '-',
                         pais: venta.pais || 'México',
-                        paqueteria: venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria,
-                        servicio: venta.tipoOperacion === 'devolucion' ? 'Devolución' : venta.tipoServicio,
+                        paqueteria: paqueteria,
+                        servicio: servicio,
                         precio: venta.precio,
                         costo: venta.costo,
                         ganancia: parseFloat(venta.precio) - parseFloat(venta.costo),
                         numeroGuia: venta.numeroGuia || venta.id
                     })
                 });
-                
+
                 console.log('✅ Venta guardada en Google Sheets');
                 return true;
             } catch (error) {
@@ -568,7 +610,12 @@
                 // Tabla de declaración
                 declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
                 // Paquetería de pago
-                paqueteriaPago: 'fedex'
+                paqueteriaPago: 'fedex',
+                // Campos para servicios
+                tipoServicioSeleccionado: '',
+                nombreCliente: '',
+                telefonoCliente: '',
+                precioServicio: ''
             });
 
             // Estados para modal de edición
@@ -1509,9 +1556,20 @@
                 setSyncStatus({ syncing: true, message: 'Guardando en Google Sheets...' });
 
                 const fechaActual = new Date();
+
+                // Generar ID según tipo de operación
+                let id;
+                if (tipoOperacion === 'entrega') {
+                    id = `ENT-${Date.now()}`;
+                } else if (tipoOperacion === 'servicio') {
+                    id = `SRV-${Date.now()}`;
+                } else {
+                    id = `ENV-${Date.now()}`;
+                }
+
                 const nuevaVenta = {
                     ...formData,
-                    id: tipoOperacion === 'entrega' ? `ENT-${Date.now()}` : `ENV-${Date.now()}`,
+                    id: id,
                     fecha: fechaActual.toISOString(),
                     tipoOperacion: tipoOperacion,
                     estado: 'activa',
@@ -1535,7 +1593,16 @@
                 }
 
                 // Guardar clientes en localStorage para autocompletado
-                if (tipoOperacion !== 'entrega') {
+                if (tipoOperacion === 'servicio') {
+                    // Guardar cliente del servicio
+                    if (formData.nombreCliente && formData.telefonoCliente) {
+                        guardarCliente({
+                            nombre: formData.nombreCliente,
+                            telefono: formData.telefonoCliente,
+                            tipo: 'cliente'
+                        });
+                    }
+                } else if (tipoOperacion !== 'entrega') {
                     // Guardar remitente
                     if (formData.nombreRemitente && formData.telefonoRemitente) {
                         guardarCliente({
@@ -2045,6 +2112,7 @@
                                                 <option value="envio">Envío</option>
                                                 <option value="devolucion">Devolución</option>
                                                 <option value="entrega">Entrega</option>
+                                                <option value="servicio">Servicio</option>
                                             </select>
                                         </div>
                                         <div>
@@ -2137,6 +2205,113 @@
                                                     <i className="fas fa-clock mr-2"></i>
                                                     <strong>Fecha de liberación:</strong> Se registrará cuando el paquete sea entregado
                                                 </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Formulario de Servicios - solo si es servicio */}
+                                    {tipoOperacion === 'servicio' && (
+                                        <div>
+                                            <h3 className="text-xl font-semibold text-indigo-600 mb-4">
+                                                <i className="fas fa-concierge-bell mr-2"></i>Seleccionar Servicio
+                                            </h3>
+
+                                            {/* Selector de Servicio */}
+                                            <div className="mb-6">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Servicio *</label>
+                                                <select
+                                                    name="tipoServicioSeleccionado"
+                                                    value={formData.tipoServicioSeleccionado}
+                                                    onChange={(e) => {
+                                                        const servicioSeleccionado = SERVICIOS_DISPONIBLES.find(s => s.id === e.target.value);
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            tipoServicioSeleccionado: e.target.value,
+                                                            precio: servicioSeleccionado?.precioFijo ? servicioSeleccionado.precio.toString() : '',
+                                                            precioServicio: servicioSeleccionado?.precioFijo ? servicioSeleccionado.precio.toString() : ''
+                                                        }));
+                                                    }}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                >
+                                                    <option value="">-- Selecciona un servicio --</option>
+                                                    {SERVICIOS_DISPONIBLES.map(servicio => (
+                                                        <option key={servicio.id} value={servicio.id}>
+                                                            {servicio.nombre} {servicio.precioFijo ? `- $${servicio.precio}` : '- Precio abierto'}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Información del servicio seleccionado */}
+                                            {formData.tipoServicioSeleccionado && (
+                                                <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                                                    <h4 className="font-semibold text-indigo-700 mb-2">
+                                                        {SERVICIOS_DISPONIBLES.find(s => s.id === formData.tipoServicioSeleccionado)?.nombre}
+                                                    </h4>
+                                                    {SERVICIOS_DISPONIBLES.find(s => s.id === formData.tipoServicioSeleccionado)?.precioFijo ? (
+                                                        <p className="text-indigo-600">
+                                                            <i className="fas fa-dollar-sign mr-2"></i>
+                                                            Precio fijo: ${SERVICIOS_DISPONIBLES.find(s => s.id === formData.tipoServicioSeleccionado)?.precio}
+                                                        </p>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="text-indigo-600 mb-2">
+                                                                <i className="fas fa-edit mr-2"></i>
+                                                                Precio abierto - Ingresa el monto
+                                                            </p>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">Precio del Servicio *</label>
+                                                            <input
+                                                                type="number"
+                                                                name="precioServicio"
+                                                                value={formData.precioServicio}
+                                                                onChange={(e) => {
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        precioServicio: e.target.value,
+                                                                        precio: e.target.value
+                                                                    }));
+                                                                }}
+                                                                placeholder="Ingresa el precio"
+                                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                                min="0"
+                                                                step="0.01"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Datos del Cliente */}
+                                            <h3 className="text-xl font-semibold text-indigo-600 mb-4 mt-6">
+                                                <i className="fas fa-user mr-2"></i>Datos del Cliente
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <AutocompleteInput
+                                                    label="Nombre del Cliente *"
+                                                    name="nombreCliente"
+                                                    value={formData.nombreCliente}
+                                                    onChange={handleInputChange}
+                                                    onSelectCliente={(cliente) => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            nombreCliente: cliente.nombre,
+                                                            telefonoCliente: cliente.telefono
+                                                        }));
+                                                    }}
+                                                    tipo="cliente"
+                                                    placeholder="Escribe el nombre del cliente..."
+                                                />
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono del Cliente *</label>
+                                                    <input
+                                                        type="tel"
+                                                        name="telefonoCliente"
+                                                        value={formData.telefonoCliente}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                        placeholder="10 dígitos"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     )}
