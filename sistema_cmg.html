@@ -2132,8 +2132,8 @@
                                         </div>
                                     </div>
 
-                                    {/* Remitente - NO para entregas */}
-                                    {tipoOperacion !== 'entrega' && (
+                                    {/* Remitente - NO para entregas ni servicios */}
+                                    {tipoOperacion !== 'entrega' && tipoOperacion !== 'servicio' && (
                                     <div>
                                         <h3 className="text-xl font-semibold text-blue-600 mb-4">
                                             <i className="fas fa-user mr-2"></i>Datos del Remitente
@@ -2628,6 +2628,7 @@
                                             <option value="envio">Envío</option>
                                             <option value="devolucion">Devolución</option>
                                             <option value="entrega">Entrega</option>
+                                            <option value="servicio">Servicio</option>
                                         </select>
                                     </div>
                                     <div>
@@ -2648,8 +2649,8 @@
                                 </div>
 
                                 <form>
-                                    {/* Remitente - NO para entregas */}
-                                    {tipoOperacion !== 'entrega' && (
+                                    {/* Remitente - NO para entregas ni servicios */}
+                                    {tipoOperacion !== 'entrega' && tipoOperacion !== 'servicio' && (
                                     <div className="mb-6">
                                         <h3 className="text-xl font-semibold text-blue-600 mb-4">
                                             <i className="fas fa-user mr-2"></i>Datos del Remitente
@@ -2772,6 +2773,109 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    ) : tipoOperacion === 'servicio' ? (
+                                        <>
+                                            {/* Formulario de Servicios */}
+                                            <div className="mb-6">
+                                                <h3 className="text-xl font-semibold text-indigo-600 mb-4">
+                                                    <i className="fas fa-concierge-bell mr-2"></i>Seleccionar Servicio
+                                                </h3>
+
+                                                {/* Selector de Servicio */}
+                                                <div className="mb-6">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Servicio *</label>
+                                                    <select
+                                                        name="tipoServicioSeleccionado"
+                                                        value={formData.tipoServicioSeleccionado}
+                                                        onChange={(e) => {
+                                                            const servicioSeleccionado = SERVICIOS_DISPONIBLES.find(s => s.id === e.target.value);
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                tipoServicioSeleccionado: e.target.value,
+                                                                precio: servicioSeleccionado?.precioFijo ? servicioSeleccionado.precio.toString() : '',
+                                                                precioServicio: servicioSeleccionado?.precioFijo ? servicioSeleccionado.precio.toString() : ''
+                                                            }));
+                                                        }}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">-- Selecciona un servicio --</option>
+                                                        {SERVICIOS_DISPONIBLES.map(servicio => (
+                                                            <option key={servicio.id} value={servicio.id}>
+                                                                {servicio.nombre} {servicio.precioFijo ? `- $${servicio.precio}` : '- Precio abierto'}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                {/* Información del servicio seleccionado */}
+                                                {formData.tipoServicioSeleccionado && (
+                                                    <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                                                        <h4 className="font-semibold text-indigo-700 mb-2">
+                                                            {SERVICIOS_DISPONIBLES.find(s => s.id === formData.tipoServicioSeleccionado)?.nombre}
+                                                        </h4>
+                                                        {SERVICIOS_DISPONIBLES.find(s => s.id === formData.tipoServicioSeleccionado)?.precioFijo ? (
+                                                            <p className="text-indigo-600">
+                                                                <i className="fas fa-dollar-sign mr-2"></i>
+                                                                Precio fijo: ${SERVICIOS_DISPONIBLES.find(s => s.id === formData.tipoServicioSeleccionado)?.precio}
+                                                            </p>
+                                                        ) : (
+                                                            <div>
+                                                                <p className="text-indigo-600 mb-2">
+                                                                    <i className="fas fa-edit mr-2"></i>
+                                                                    Precio abierto - Ingresa el monto
+                                                                </p>
+                                                                <label className="block text-sm font-medium text-gray-700 mb-2">Precio del Servicio *</label>
+                                                                <input
+                                                                    type="number"
+                                                                    name="precioServicio"
+                                                                    value={formData.precioServicio}
+                                                                    onChange={(e) => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            precioServicio: e.target.value,
+                                                                            precio: e.target.value
+                                                                        }));
+                                                                    }}
+                                                                    placeholder="Ingresa el precio"
+                                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Datos del Cliente */}
+                                                <h3 className="text-xl font-semibold text-indigo-600 mb-4 mt-6">
+                                                    <i className="fas fa-user mr-2"></i>Datos del Cliente
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">Nombre del Cliente *</label>
+                                                        <input
+                                                            type="text"
+                                                            name="nombreCliente"
+                                                            value={formData.nombreCliente}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Escribe el nombre del cliente..."
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono del Cliente *</label>
+                                                        <input
+                                                            type="tel"
+                                                            name="telefonoCliente"
+                                                            value={formData.telefonoCliente}
+                                                            onChange={handleInputChange}
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                            placeholder="10 dígitos"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
                                     ) : (
                                         <>
                                             {/* Destinatario */}
