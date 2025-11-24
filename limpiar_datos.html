@@ -96,6 +96,7 @@
         </div>
 
         <button class="btn-info" onclick="mostrarDatos()">🔍 Ver Datos Almacenados</button>
+        <button class="btn-danger" onclick="limpiarVentas()">💰 Eliminar Solo Ventas</button>
         <button class="btn-danger" onclick="limpiarTodo()">🗑️ Eliminar Todos los Datos</button>
 
         <div class="success" id="successMessage">
@@ -124,6 +125,29 @@
             dataContent.innerHTML = html;
         }
 
+        function limpiarVentas() {
+            const ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+            if (confirm(`¿Estás seguro de que deseas eliminar las ${ventas.length} ventas registradas? Esta acción no se puede deshacer.`)) {
+                // Eliminar solo las ventas
+                localStorage.removeItem('ventas');
+
+                // Mostrar mensaje de éxito
+                const successMsg = document.getElementById('successMessage');
+                successMsg.innerHTML = `✅ Se eliminaron ${ventas.length} ventas exitosamente.`;
+                successMsg.style.display = 'block';
+
+                // Actualizar la lista de datos
+                mostrarDatos();
+
+                console.log(`✅ ${ventas.length} ventas han sido eliminadas del localStorage`);
+
+                // Ocultar mensaje después de 5 segundos
+                setTimeout(() => {
+                    successMsg.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         function limpiarTodo() {
             if (confirm('¿Estás seguro de que deseas eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
                 // Eliminar todos los datos del localStorage
@@ -137,12 +161,19 @@
                 // localStorage.clear();
 
                 // Mostrar mensaje de éxito
-                document.getElementById('successMessage').style.display = 'block';
+                const successMsg = document.getElementById('successMessage');
+                successMsg.innerHTML = '✅ Todos los datos han sido eliminados exitosamente.';
+                successMsg.style.display = 'block';
 
                 // Actualizar la lista de datos
                 mostrarDatos();
 
                 console.log('✅ Todos los datos han sido eliminados del localStorage');
+
+                // Ocultar mensaje después de 5 segundos
+                setTimeout(() => {
+                    successMsg.style.display = 'none';
+                }, 5000);
             }
         }
 
