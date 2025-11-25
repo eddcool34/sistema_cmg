@@ -697,26 +697,35 @@
 
             // Cargar turno actual desde localStorage
             useEffect(() => {
+                console.log('🔄 Verificando estado del turno...');
                 const turnoGuardado = localStorage.getItem('turnoActual');
+
                 if (turnoGuardado) {
                     try {
                         const turno = JSON.parse(turnoGuardado);
 
                         // Validar que el turno sea del día actual
                         const fechaHoy = new Date().toLocaleDateString('es-MX');
+                        console.log('📅 Fecha de hoy:', fechaHoy);
+                        console.log('📅 Fecha del turno:', turno.fecha);
 
                         if (turno.fecha === fechaHoy) {
                             setTurnoActual(turno);
                             console.log('✅ Turno cargado desde localStorage:', turno.turno_id);
+                            console.log('👤 Cajero:', turno.cajero);
                         } else {
                             // El turno es de otro día, eliminarlo y requerir nueva apertura
                             localStorage.removeItem('turnoActual');
                             console.log('⚠️ Turno expirado eliminado. Se requiere nueva apertura de turno.');
+                            console.log('🔓 Mostrando pantalla de apertura de turno...');
                         }
                     } catch (error) {
-                        console.error('Error al cargar turno:', error);
+                        console.error('❌ Error al cargar turno:', error);
                         localStorage.removeItem('turnoActual');
                     }
+                } else {
+                    console.log('⚠️ No hay turno guardado en localStorage');
+                    console.log('🔓 Mostrando pantalla de apertura de turno...');
                 }
 
                 // Cargar gastos desde localStorage
