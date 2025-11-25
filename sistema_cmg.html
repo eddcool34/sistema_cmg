@@ -712,7 +712,6 @@
                             // El turno es de otro día, eliminarlo y requerir nueva apertura
                             localStorage.removeItem('turnoActual');
                             console.log('⚠️ Turno expirado eliminado. Se requiere nueva apertura de turno.');
-                            showNotification('⚠️ Sesión anterior expirada. Por favor abre un nuevo turno.', 'warning');
                         }
                     } catch (error) {
                         console.error('Error al cargar turno:', error);
