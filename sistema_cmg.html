@@ -1302,12 +1302,7 @@
                         day: 'numeric'
                     });
                     doc.text(fechaActual, 190, 10, { align: 'right' });
-                    
-                    // Dirección en la parte superior derecha
-                    doc.setFontSize(8);
-                    doc.text('AVENIDA FRANCISCO I. MADERO #200-A', 190, 15, { align: 'right' });
-                    doc.text('ACATZINGO PUEBLA CP75150', 190, 19, { align: 'right' });
-                    
+
                     doc.setFontSize(20);
                     doc.setFont(undefined, 'bold');
                     doc.text('COMPROBANTE DE ENVÍO - CMG', 105, 30, { align: 'center' });
@@ -1370,18 +1365,16 @@
                             doc.setFontSize(10);
                             doc.setFont(undefined, 'bold');
                             doc.text('No.', 20, yPos);
-                            doc.text('Cant.', 30, yPos);
-                            doc.text('Producto', 50, yPos);
-                            doc.text('Costo', 120, yPos);
+                            doc.text('Cant.', 35, yPos);
+                            doc.text('Producto', 60, yPos);
                             doc.text('Peso', 160, yPos);
 
                             doc.setFont(undefined, 'normal');
                             venta.declaraciones.forEach((dec, index) => {
                                 yPos += 6;
                                 doc.text(`${index + 1}`, 20, yPos);
-                                doc.text(dec.cantidad || '1', 30, yPos);
-                                doc.text(dec.producto || '-', 50, yPos);
-                                doc.text(dec.costo ? formatCurrency(dec.costo) : '-', 120, yPos);
+                                doc.text(dec.cantidad || '1', 35, yPos);
+                                doc.text(dec.producto || '-', 60, yPos);
                                 doc.text(dec.peso ? `${dec.peso} kg` : '-', 160, yPos);
                             });
                             yPos += 10;
@@ -1390,28 +1383,11 @@
                         }
                     }
 
-                    const subtotal = parseFloat(venta.precio);
-                    const montoImpuesto = parseFloat(venta.impuesto || 0);
-                    const total = subtotal + montoImpuesto;
-
-                    doc.setFontSize(14);
-                    doc.setFont(undefined, 'bold');
-                    doc.text('INFORMACIÓN FINANCIERA', 20, 200);
-
-                    doc.setFontSize(11);
-                    doc.setFont(undefined, 'normal');
-                    doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 20, 207);
-                    doc.text(`Impuesto: ${formatCurrency(montoImpuesto)}`, 20, 213);
-                    doc.setFont(undefined, 'bold');
-                    doc.text(`Total: ${formatCurrency(total)}`, 20, 219);
-
-                    // Pie de página con teléfonos
+                    // Pie de página
                     doc.setFontSize(9);
                     doc.setFont(undefined, 'normal');
-                    doc.text(`Folio: ${venta.id}`, 20, 270);
-                    doc.text('WhatsApp: 222-852-5274', 75, 270);
-                    doc.text('Llamadas: 249-424-1364', 130, 270);
-                    
+                    doc.text(`Folio: ${venta.id}`, 105, 270, { align: 'center' });
+
                     doc.setFontSize(8);
                     doc.text(`Fecha de emisión: ${new Date(venta.fecha).toLocaleString('es-MX')}`, 105, 280, { align: 'center' });
 
@@ -1479,8 +1455,6 @@
                         doc.text('------------------------', 40, 91, { align: 'center' });
                         doc.setFontSize(7);
                         doc.text('¡Gracias!', 40, 96, { align: 'center' });
-                        doc.text('WhatsApp: 222-852-5274', 40, 101, { align: 'center' });
-                        doc.text('Llamadas: 249-424-1364', 40, 106, { align: 'center' });
                     } else {
                         // Código original para envíos y devoluciones
                         doc.setFont(undefined, 'bold');
@@ -1507,24 +1481,9 @@
 
                         doc.text('------------------------', 40, 86, { align: 'center' });
 
-                        const subtotal = parseFloat(venta.precio);
-                        const montoImpuesto = parseFloat(venta.impuesto || 0);
-                        const total = subtotal + montoImpuesto;
-
-                        doc.setFontSize(8);
-                        doc.text(`Subtotal: ${formatCurrency(subtotal)}`, 5, 91);
-                        doc.text(`Impuesto: ${formatCurrency(montoImpuesto)}`, 5, 96);
-
-                        doc.setFont(undefined, 'bold');
-                        doc.setFontSize(10);
-                        doc.text(`TOTAL: ${formatCurrency(total)}`, 5, 104);
-
                         doc.setFontSize(7);
                         doc.setFont(undefined, 'normal');
-                        doc.text('------------------------', 40, 109, { align: 'center' });
-                        doc.text('¡Gracias por su compra!', 40, 114, { align: 'center' });
-                        doc.text('WhatsApp: 222-852-5274', 40, 119, { align: 'center' });
-                        doc.text('Llamadas: 249-424-1364', 40, 124, { align: 'center' });
+                        doc.text('¡Gracias por su compra!', 40, 91, { align: 'center' });
                     }
 
                     doc.save(`Ticket-${venta.id}.pdf`);
@@ -4112,10 +4071,6 @@
                                                     </p>
                                                 </div>
                                                 <div className="bg-gray-50 p-3 rounded">
-                                                    <p className="text-sm text-gray-600">Vendedor</p>
-                                                    <p className="font-bold">{ventaDetalle.vendedor}</p>
-                                                </div>
-                                                <div className="bg-gray-50 p-3 rounded">
                                                     <p className="text-sm text-gray-600">Precio</p>
                                                     <p className="font-bold text-green-600 text-xl">{formatCurrency(ventaDetalle.precio)}</p>
                                                 </div>
@@ -4286,7 +4241,6 @@
                                                                         <th className="px-3 py-2 text-left text-sm font-semibold">No.</th>
                                                                         <th className="px-3 py-2 text-left text-sm font-semibold">Cantidad</th>
                                                                         <th className="px-3 py-2 text-left text-sm font-semibold">Producto</th>
-                                                                        <th className="px-3 py-2 text-left text-sm font-semibold">Costo</th>
                                                                         <th className="px-3 py-2 text-left text-sm font-semibold">Peso (kg)</th>
                                                                     </tr>
                                                                 </thead>
@@ -4296,7 +4250,6 @@
                                                                             <td className="px-3 py-2 text-sm">{idx + 1}</td>
                                                                             <td className="px-3 py-2 text-sm">{dec.cantidad}</td>
                                                                             <td className="px-3 py-2 text-sm">{dec.producto}</td>
-                                                                            <td className="px-3 py-2 text-sm">{formatCurrency(dec.costo)}</td>
                                                                             <td className="px-3 py-2 text-sm">{dec.peso} kg</td>
                                                                         </tr>
                                                                     ))}
@@ -4323,20 +4276,14 @@
                                                 <i className="fas fa-edit mr-2"></i>Editar
                                             </button>
                                             <button
-                                                onClick={() => {
-                                                    generarPDF(ventaDetalle);
-                                                    setVentaDetalle(null);
-                                                }}
+                                                onClick={() => generarPDF(ventaDetalle)}
                                                 disabled={ventaDetalle.estado === 'cancelada'}
                                                 className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
                                                 <i className="fas fa-file-pdf mr-2"></i>PDF
                                             </button>
                                             <button
-                                                onClick={() => {
-                                                    generarTicket(ventaDetalle);
-                                                    setVentaDetalle(null);
-                                                }}
+                                                onClick={() => generarTicket(ventaDetalle)}
                                                 disabled={ventaDetalle.estado === 'cancelada'}
                                                 className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
