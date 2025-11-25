@@ -126,15 +126,11 @@
 
         function limpiarTodo() {
             if (confirm('¿Estás seguro de que deseas eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
-                // Eliminar todos los datos del localStorage
-                localStorage.removeItem('clientes');
-                localStorage.removeItem('ventas');
-                localStorage.removeItem('gastos');
-                localStorage.removeItem('turnoActual');
-                localStorage.removeItem('turnosCerrados');
+                // Limpiar completamente el localStorage (elimina TODA la cache)
+                localStorage.clear();
 
-                // Opcionalmente, limpiar todo el localStorage
-                // localStorage.clear();
+                // También limpiar sessionStorage por si acaso
+                sessionStorage.clear();
 
                 // Mostrar mensaje de éxito
                 document.getElementById('successMessage').style.display = 'block';
@@ -142,7 +138,15 @@
                 // Actualizar la lista de datos
                 mostrarDatos();
 
-                console.log('✅ Todos los datos han sido eliminados del localStorage');
+                console.log('✅ Todos los datos han sido eliminados del localStorage y sessionStorage');
+                console.log('🔄 Recarga la página para ver la pantalla de apertura de turno');
+
+                // Opcionalmente recargar la página después de 2 segundos
+                setTimeout(() => {
+                    if (confirm('¿Deseas recargar la página ahora para ver la pantalla de apertura de turno?')) {
+                        window.location.href = 'sistema_cmg.html';
+                    }
+                }, 1000);
             }
         }
 
