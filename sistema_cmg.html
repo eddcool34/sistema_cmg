@@ -700,10 +700,22 @@
                 const turnoGuardado = localStorage.getItem('turnoActual');
                 if (turnoGuardado) {
                     try {
-                        setTurnoActual(JSON.parse(turnoGuardado));
-                        console.log('✅ Turno cargado desde localStorage');
+                        const turno = JSON.parse(turnoGuardado);
+
+                        // Validar que el turno sea del día actual
+                        const fechaHoy = new Date().toLocaleDateString('es-MX');
+
+                        if (turno.fecha === fechaHoy) {
+                            setTurnoActual(turno);
+                            console.log('✅ Turno cargado desde localStorage:', turno.turno_id);
+                        } else {
+                            // El turno es de otro día, eliminarlo y requerir nueva apertura
+                            localStorage.removeItem('turnoActual');
+                            console.log('⚠️ Turno expirado eliminado. Se requiere nueva apertura de turno.');
+                        }
                     } catch (error) {
                         console.error('Error al cargar turno:', error);
+                        localStorage.removeItem('turnoActual');
                     }
                 }
 
@@ -5219,6 +5231,38 @@
         }
 
         ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+
+    <!-- Script de depuración para limpiar turno -->
+    <script>
+        // Funciones globales de depuración
+        window.limpiarTurno = function() {
+            localStorage.removeItem('turnoActual');
+            console.log('✅ Turno eliminado del localStorage. Recarga la página para ver la pantalla de apertura.');
+            alert('Turno eliminado. Recarga la página (F5 o Ctrl+R)');
+        };
+
+        window.verTurno = function() {
+            const turno = localStorage.getItem('turnoActual');
+            if (turno) {
+                console.log('📋 Turno actual:', JSON.parse(turno));
+                return JSON.parse(turno);
+            } else {
+                console.log('⚠️ No hay turno guardado');
+                return null;
+            }
+        };
+
+        window.limpiarTodo = function() {
+            localStorage.clear();
+            console.log('🗑️ localStorage completamente limpiado. Recarga la página.');
+            alert('localStorage limpiado. Recarga la página (F5 o Ctrl+R)');
+        };
+
+        console.log('%c🔧 Funciones de depuración disponibles:', 'font-weight: bold; font-size: 14px; color: #4CAF50;');
+        console.log('%c  limpiarTurno() - Elimina el turno actual', 'font-size: 12px; color: #2196F3;');
+        console.log('%c  verTurno() - Muestra el turno guardado', 'font-size: 12px; color: #2196F3;');
+        console.log('%c  limpiarTodo() - Limpia todo el localStorage', 'font-size: 12px; color: #FF5722;');
     </script>
 </body>
 </html>
