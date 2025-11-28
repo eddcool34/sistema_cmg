@@ -1811,8 +1811,8 @@
                     };
                 });
 
-                // Ordenar por cantidad de ventas (mayor a menor)
-                return estadisticas.sort((a, b) => b.cantidadVentas - a.cantidadVentas);
+                // Ordenar por total vendido (mayor a menor) para reflejar el rendimiento real
+                return estadisticas.sort((a, b) => b.totalVentas - a.totalVentas);
             };
 
             // Función para obtener el vendedor del mes
