@@ -1386,18 +1386,37 @@
                             doc.setFontSize(10);
                             doc.setFont(undefined, 'bold');
                             doc.text('No.', 20, yPos);
-                            doc.text('Cant.', 35, yPos);
-                            doc.text('Producto', 60, yPos);
-                            doc.text('Peso', 160, yPos);
+                            doc.text('Cant.', 32, yPos);
+                            doc.text('Producto', 50, yPos);
+                            doc.text('Precio', 120, yPos);
+                            doc.text('Valor', 150, yPos);
+                            doc.text('Peso', 175, yPos);
 
                             doc.setFont(undefined, 'normal');
+                            let totalGeneral = 0;
                             venta.declaraciones.forEach((dec, index) => {
                                 yPos += 6;
+                                const cantidad = parseFloat(dec.cantidad) || 1;
+                                const precio = parseFloat(dec.costo) || 0;
+                                const valor = cantidad * precio;
+                                totalGeneral += valor;
+
                                 doc.text(`${index + 1}`, 20, yPos);
-                                doc.text(dec.cantidad || '1', 35, yPos);
-                                doc.text(dec.producto || '-', 60, yPos);
-                                doc.text(dec.peso ? `${dec.peso} kg` : '-', 160, yPos);
+                                doc.text(dec.cantidad || '1', 32, yPos);
+                                doc.text(dec.producto || '-', 50, yPos);
+                                doc.text(precio > 0 ? `$${precio.toFixed(2)}` : '-', 120, yPos);
+                                doc.text(valor > 0 ? `$${valor.toFixed(2)}` : '-', 150, yPos);
+                                doc.text(dec.peso ? `${dec.peso} kg` : '-', 175, yPos);
                             });
+
+                            // Agregar línea separadora y total
+                            if (totalGeneral > 0) {
+                                yPos += 8;
+                                doc.setFont(undefined, 'bold');
+                                doc.text('TOTAL:', 120, yPos);
+                                doc.text(`$${totalGeneral.toFixed(2)}`, 150, yPos);
+                            }
+
                             yPos += 10;
                         } else {
                             yPos = 150;
