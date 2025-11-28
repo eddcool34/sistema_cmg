@@ -646,7 +646,7 @@
                         // Convertir las ventas de Sheets al formato de la app
                         const ventasConvertidas = ventasSheets.map(v => ({
                             id: v.numeroGuia || `ENV-${Date.now()}`,
-                            fecha: new Date().toISOString(), // Usar fecha actual como respaldo
+                            fecha: v.fecha || v.fechaRegistro || new Date().toISOString(), // Usar fecha original de Sheets
                             nombreRemitente: v.remitente,
                             telefonoRemitente: v.telRemitente,
                             nombreDestinatario: v.destinatario,
