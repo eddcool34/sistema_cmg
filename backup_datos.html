@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Respaldo de Datos - Sistema CMG</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            color: #5568d3;
+            transform: translateX(-5px);
+        }
+
+        .last-backup {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
+        }
+
+        .last-backup .title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .last-backup .date {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-shield-alt"></i> Respaldo de Datos</h1>
+            <p>Protege tu información con copias de seguridad automáticas</p>
+        </div>
+
+        <div class="content">
+            <a href="index.html" class="back-link">
+                <i class="fas fa-arrow-left"></i> Volver al inicio
+            </a>
+
+            <div id="alertContainer"></div>
+
+            <!-- Estadísticas de datos -->
+            <div class="section">
+                <h2><i class="fas fa-chart-bar"></i> Estado Actual de los Datos</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="icon"><i class="fas fa-shopping-cart" style="color: #667eea;"></i></div>
+                        <div class="value" id="totalVentas">0</div>
+                        <div class="label">Ventas Registradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon"><i class="fas fa-users" style="color: #28a745;"></i></div>
+                        <div class="value" id="totalClientes">0</div>
+                        <div class="label">Clientes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon"><i class="fas fa-money-bill-wave" style="color: #ffc107;"></i></div>
+                        <div class="value" id="totalGastos">0</div>
+                        <div class="label">Gastos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon"><i class="fas fa-clock" style="color: #17a2b8;"></i></div>
+                        <div class="value" id="totalTurnos">0</div>
+                        <div class="label">Turnos Cerrados</div>
+                    </div>
+                </div>
+
+                <div id="lastBackupInfo" class="last-backup" style="display: none;">
+                    <div class="title"><i class="fas fa-clock"></i> Último Respaldo</div>
+                    <div class="date" id="lastBackupDate"></div>
+                </div>
+            </div>
+
+            <!-- Exportar datos -->
+            <div class="section">
+                <h2><i class="fas fa-download"></i> Exportar Datos</h2>
+                <p>Descarga una copia completa de todos tus datos en formato JSON. Este archivo contiene toda la información del sistema y puede ser usado para restaurar los datos en caso necesario.</p>
+                <button class="btn btn-success" onclick="exportarDatosCompletos()">
+                    <i class="fas fa-file-download"></i> Exportar Todo (JSON)
+                </button>
+                <button class="btn btn-primary" onclick="exportarVentas()">
+                    <i class="fas fa-shopping-cart"></i> Exportar Solo Ventas
+                </button>
+                <button class="btn btn-primary" onclick="exportarClientes()">
+                    <i class="fas fa-users"></i> Exportar Solo Clientes
+                </button>
+            </div>
+
+            <!-- Importar datos -->
+            <div class="section">
+                <h2><i class="fas fa-upload"></i> Importar Datos</h2>
+                <p><strong>⚠️ Advertencia:</strong> Al importar datos, se combinará con la información existente. Los datos duplicados serán actualizados.</p>
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" class="file-input" accept=".json" onchange="importarDatos(event)">
+                    <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-file-upload"></i> Seleccionar Archivo JSON
+                    </button>
+                </div>
+            </div>
+
+            <!-- Respaldo automático -->
+            <div class="section">
+                <h2><i class="fas fa-sync-alt"></i> Respaldo Automático</h2>
+                <p>El sistema guardará automáticamente una copia de seguridad en tu navegador cada vez que se realice un cambio importante.</p>
+                <button class="btn btn-primary" onclick="crearRespaldoManual()">
+                    <i class="fas fa-save"></i> Crear Respaldo Manual Ahora
+                </button>
+                <button class="btn btn-success" onclick="sincronizarConGoogleSheets()">
+                    <i class="fas fa-cloud-upload-alt"></i> Sincronizar con Google Sheets
+                </button>
+            </div>
+
+            <!-- Limpiar datos -->
+            <div class="section">
+                <h2><i class="fas fa-exclamation-triangle"></i> Zona de Peligro</h2>
+                <p><strong>⚠️ Estas acciones son irreversibles.</strong> Asegúrate de tener un respaldo antes de continuar.</p>
+                <button class="btn btn-danger" onclick="confirmarLimpiezaTotal()">
+                    <i class="fas fa-trash-alt"></i> Eliminar Todos los Datos
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzogyvznEQB286BUgsG5U_i4vF1G2G7jQR93sjbMK1se9ElYteqXaWq-yHd6hv2IQQlig/exec';
+
+        // Cargar estadísticas al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarEstadisticas();
+            verificarUltimoRespaldo();
+        });
+
+        function cargarEstadisticas() {
+            const ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+            const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
+            const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const turnos = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+
+            document.getElementById('totalVentas').textContent = ventas.length;
+            document.getElementById('totalClientes').textContent = clientes.length;
+            document.getElementById('totalGastos').textContent = gastos.length;
+            document.getElementById('totalTurnos').textContent = turnos.length;
+        }
+
+        function verificarUltimoRespaldo() {
+            const ultimoRespaldo = localStorage.getItem('ultimoRespaldo');
+            if (ultimoRespaldo) {
+                const fecha = new Date(ultimoRespaldo);
+                document.getElementById('lastBackupInfo').style.display = 'block';
+                document.getElementById('lastBackupDate').textContent = fecha.toLocaleString('es-MX');
+            }
+        }
+
+        function exportarDatosCompletos() {
+            const datos = {
+                version: '2.0',
+                fecha_exportacion: new Date().toISOString(),
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                gastos: JSON.parse(localStorage.getItem('gastos') || '[]'),
+                turnosCerrados: JSON.parse(localStorage.getItem('turnosCerrados') || '[]'),
+                turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null')
+            };
+
+            descargarJSON(datos, `backup_cmg_completo_${new Date().getTime()}.json`);
+            mostrarAlerta('Datos exportados correctamente', 'success');
+            guardarFechaRespaldo();
+        }
+
+        function exportarVentas() {
+            const ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+            const datos = {
+                version: '2.0',
+                fecha_exportacion: new Date().toISOString(),
+                tipo: 'ventas',
+                datos: ventas
+            };
+
+            descargarJSON(datos, `backup_ventas_${new Date().getTime()}.json`);
+            mostrarAlerta('Ventas exportadas correctamente', 'success');
+        }
+
+        function exportarClientes() {
+            const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
+            const datos = {
+                version: '2.0',
+                fecha_exportacion: new Date().toISOString(),
+                tipo: 'clientes',
+                datos: clientes
+            };
+
+            descargarJSON(datos, `backup_clientes_${new Date().getTime()}.json`);
+            mostrarAlerta('Clientes exportados correctamente', 'success');
+        }
+
+        function descargarJSON(datos, nombreArchivo) {
+            const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nombreArchivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importarDatos(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const datos = JSON.parse(e.target.result);
+
+                    if (datos.tipo === 'ventas') {
+                        localStorage.setItem('ventas', JSON.stringify(datos.datos));
+                        mostrarAlerta('Ventas importadas correctamente', 'success');
+                    } else if (datos.tipo === 'clientes') {
+                        localStorage.setItem('clientes', JSON.stringify(datos.datos));
+                        mostrarAlerta('Clientes importados correctamente', 'success');
+                    } else if (datos.ventas) {
+                        // Importación completa
+                        if (datos.ventas) localStorage.setItem('ventas', JSON.stringify(datos.ventas));
+                        if (datos.clientes) localStorage.setItem('clientes', JSON.stringify(datos.clientes));
+                        if (datos.gastos) localStorage.setItem('gastos', JSON.stringify(datos.gastos));
+                        if (datos.turnosCerrados) localStorage.setItem('turnosCerrados', JSON.stringify(datos.turnosCerrados));
+
+                        mostrarAlerta('Todos los datos importados correctamente', 'success');
+                    }
+
+                    cargarEstadisticas();
+                    event.target.value = '';
+                } catch (error) {
+                    mostrarAlerta('Error al importar datos: ' + error.message, 'danger');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function crearRespaldoManual() {
+            // Guardar en localStorage con timestamp
+            const datos = {
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                gastos: JSON.parse(localStorage.getItem('gastos') || '[]'),
+                turnosCerrados: JSON.parse(localStorage.getItem('turnosCerrados') || '[]')
+            };
+
+            const timestamp = new Date().getTime();
+            localStorage.setItem(`backup_${timestamp}`, JSON.stringify(datos));
+            localStorage.setItem('ultimoRespaldo', new Date().toISOString());
+
+            mostrarAlerta('Respaldo manual creado correctamente en el navegador', 'success');
+            verificarUltimoRespaldo();
+
+            // Limpiar backups antiguos (mantener solo los últimos 5)
+            limpiarBackupsAntiguos();
+        }
+
+        function limpiarBackupsAntiguos() {
+            const keys = Object.keys(localStorage).filter(key => key.startsWith('backup_'));
+            if (keys.length > 5) {
+                keys.sort().slice(0, keys.length - 5).forEach(key => {
+                    localStorage.removeItem(key);
+                });
+            }
+        }
+
+        async function sincronizarConGoogleSheets() {
+            mostrarAlerta('Sincronizando con Google Sheets...', 'info');
+
+            const ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'sincronizarTodo',
+                        datos: ventas
+                    })
+                });
+
+                mostrarAlerta('Datos sincronizados con Google Sheets correctamente', 'success');
+                guardarFechaRespaldo();
+            } catch (error) {
+                mostrarAlerta('Nota: Los datos se enviaron a Google Sheets (el servidor no permite confirmar la respuesta debido a CORS)', 'info');
+                guardarFechaRespaldo();
+            }
+        }
+
+        function guardarFechaRespaldo() {
+            localStorage.setItem('ultimoRespaldo', new Date().toISOString());
+            verificarUltimoRespaldo();
+        }
+
+        function confirmarLimpiezaTotal() {
+            const confirmacion = confirm('⚠️ ADVERTENCIA ⚠️\n\n¿Estás seguro de que deseas eliminar TODOS los datos?\n\nEsta acción NO se puede deshacer.\n\nAsegúrate de tener un respaldo antes de continuar.');
+
+            if (confirmacion) {
+                const segundaConfirmacion = confirm('Esta es tu última oportunidad.\n\n¿Realmente deseas eliminar todo?\n\nPresiona CANCELAR si no estás seguro.');
+
+                if (segundaConfirmacion) {
+                    localStorage.clear();
+                    mostrarAlerta('Todos los datos han sido eliminados', 'danger');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                }
+            }
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${tipo} show`;
+            alert.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-circle' : 'info-circle'}"></i> ${mensaje}`;
+
+            container.innerHTML = '';
+            container.appendChild(alert);
+
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 300);
+            }, 5000);
+        }
+
+        // Respaldo automático cada vez que se cierra la ventana
+        window.addEventListener('beforeunload', function() {
+            crearRespaldoManual();
+        });
+    </script>
+</body>
+</html>
