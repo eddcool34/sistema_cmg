@@ -127,16 +127,28 @@
             const clientesGuardados = JSON.parse(localStorage.getItem('clientes') || '[]');
 
             // Verificar si el cliente ya existe (por nombre y teléfono)
-            const existeCliente = clientesGuardados.find(c =>
+            const indiceExistente = clientesGuardados.findIndex(c =>
                 c.nombre.toLowerCase() === cliente.nombre.toLowerCase() &&
                 c.telefono === cliente.telefono
             );
 
-            if (!existeCliente && cliente.nombre.trim() && cliente.telefono.trim()) {
-                clientesGuardados.push({
+            if (cliente.nombre.trim() && cliente.telefono.trim()) {
+                const clienteConFecha = {
                     ...cliente,
                     fechaRegistro: new Date().toISOString()
-                });
+                };
+
+                if (indiceExistente >= 0) {
+                    // Actualizar cliente existente con nuevos datos (por ejemplo, si se agregó dirección)
+                    clientesGuardados[indiceExistente] = {
+                        ...clientesGuardados[indiceExistente],
+                        ...clienteConFecha
+                    };
+                } else {
+                    // Agregar nuevo cliente
+                    clientesGuardados.push(clienteConFecha);
+                }
+
                 localStorage.setItem('clientes', JSON.stringify(clientesGuardados));
             }
         };
@@ -492,7 +504,7 @@
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <div>
+                                        <div className="flex-1">
                                             <p className="font-medium text-gray-900">
                                                 <i className="fas fa-user mr-2 text-blue-500"></i>
                                                 {cliente.nombre}
@@ -501,6 +513,12 @@
                                                 <i className="fas fa-phone mr-2"></i>
                                                 {cliente.telefono}
                                             </p>
+                                            {cliente.direccion && cliente.estado && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    <i className="fas fa-map-marker-alt mr-2"></i>
+                                                    {cliente.direccion}, {cliente.estado}
+                                                </p>
+                                            )}
                                         </div>
                                         <i className="fas fa-arrow-right text-gray-400"></i>
                                     </div>
@@ -1202,7 +1220,21 @@
                     setFormData(prev => ({
                         ...prev,
                         nombreDestinatario: cliente.nombre,
-                        telefonoDestinatario: cliente.telefono
+                        telefonoDestinatario: cliente.telefono,
+                        // Completar dirección si existe en el cliente guardado
+                        direccion: cliente.direccion || prev.direccion,
+                        numero: cliente.numero || prev.numero,
+                        codigoPostal: cliente.codigoPostal || prev.codigoPostal,
+                        colonia: cliente.colonia || prev.colonia,
+                        estado: cliente.estado || prev.estado,
+                        pais: cliente.pais || prev.pais
+                    }));
+                } else if (tipo === 'cliente') {
+                    // Para servicios
+                    setFormData(prev => ({
+                        ...prev,
+                        nombreCliente: cliente.nombre,
+                        telefonoCliente: cliente.telefono
                     }));
                 }
             };
@@ -1612,12 +1644,18 @@
                         });
                     }
 
-                    // Guardar destinatario si es envío
+                    // Guardar destinatario si es envío (con dirección completa)
                     if (tipoOperacion === 'envio' && formData.nombreDestinatario && formData.telefonoDestinatario) {
                         guardarCliente({
                             nombre: formData.nombreDestinatario,
                             telefono: formData.telefonoDestinatario,
-                            tipo: 'destinatario'
+                            tipo: 'destinatario',
+                            direccion: formData.direccion || '',
+                            numero: formData.numero || '',
+                            codigoPostal: formData.codigoPostal || '',
+                            colonia: formData.colonia || '',
+                            estado: formData.estado || '',
+                            pais: formData.pais || 'México'
                         });
                     }
                 }
@@ -2341,13 +2379,7 @@
                                                     name="nombreCliente"
                                                     value={formData.nombreCliente}
                                                     onChange={handleInputChange}
-                                                    onSelectCliente={(cliente) => {
-                                                        setFormData(prev => ({
-                                                            ...prev,
-                                                            nombreCliente: cliente.nombre,
-                                                            telefonoCliente: cliente.telefono
-                                                        }));
-                                                    }}
+                                                    onSelectCliente={handleSelectCliente}
                                                     tipo="cliente"
                                                     placeholder="Escribe el nombre del cliente..."
                                                 />
