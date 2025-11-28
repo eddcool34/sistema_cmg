@@ -661,7 +661,7 @@
                             precio: v.precio,
                             costo: v.costo,
                             tipoOperacion: 'envio',
-                            estado: 'activa'
+                            estadoVenta: 'activa'
                         }));
                         
                         setVentas(ventasConvertidas);
@@ -881,7 +881,7 @@
                             venta.precio || '0',
                             venta.costo || '0',
                             ganancia,
-                            venta.estado || 'activa'
+                            venta.estadoVenta || 'activa'
                         ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
                     });
 
@@ -1553,7 +1553,7 @@
                     id: id,
                     fecha: fechaActual.toISOString(),
                     tipoOperacion: tipoOperacion,
-                    estado: 'activa',
+                    estadoVenta: 'activa',
                     // Campos de turno
                     turno_id: turnoActual ? turnoActual.turno_id : 'N/A',
                     cajero: turnoActual ? turnoActual.cajero : 'Sin turno',
@@ -1696,7 +1696,7 @@
             const cancelarVenta = (ventaId) => {
                 if (window.confirm('¿Estás seguro de que deseas cancelar esta venta?')) {
                     setVentas(prev => prev.map(v =>
-                        v.id === ventaId ? { ...v, estado: 'cancelada' } : v
+                        v.id === ventaId ? { ...v, estadoVenta: 'cancelada' } : v
                     ));
                     showNotification('Venta cancelada exitosamente', 'success');
                 }
@@ -1734,14 +1734,14 @@
 
             const getVentasHoy = () => {
                 const hoy = new Date().toLocaleDateString('es-MX');
-                return ventas.filter(v => 
-                    new Date(v.fecha).toLocaleDateString('es-MX') === hoy && 
-                    v.estado !== 'cancelada'
+                return ventas.filter(v =>
+                    new Date(v.fecha).toLocaleDateString('es-MX') === hoy &&
+                    v.estadoVenta !== 'cancelada'
                 );
             };
 
             const getPaqueteriaMasVendida = () => {
-                const ventasActivas = ventas.filter(v => v.estado !== 'cancelada');
+                const ventasActivas = ventas.filter(v => v.estadoVenta !== 'cancelada');
                 const conteo = ventasActivas.reduce((acc, v) => {
                     const paq = v.tipoOperacion === 'devolucion' ? v.paqueteriaDevolucion : v.paqueteria;
                     acc[paq] = (acc[paq] || 0) + 1;
@@ -1753,7 +1753,7 @@
             };
 
             const getServicioMasVendido = () => {
-                const ventasActivas = ventas.filter(v => v.estado !== 'cancelada');
+                const ventasActivas = ventas.filter(v => v.estadoVenta !== 'cancelada');
                 const conteo = ventasActivas.reduce((acc, v) => {
                     const tipo = v.tipoOperacion || 'envio';
                     acc[tipo] = (acc[tipo] || 0) + 1;
@@ -1776,7 +1776,7 @@
             // Función para obtener estadísticas de ventas por vendedor
             const getEstadisticasVendedores = () => {
                 const vendedores = ['Mariana', 'Cris', 'Edgar'];
-                const ventasActivas = ventas.filter(v => v.estado !== 'cancelada' && v.tipoOperacion !== 'entrega');
+                const ventasActivas = ventas.filter(v => v.estadoVenta !== 'cancelada' && v.tipoOperacion !== 'entrega');
 
                 const estadisticas = vendedores.map(vendedor => {
                     const ventasVendedor = ventasActivas.filter(v => v.vendedor === vendedor);
@@ -1874,7 +1874,7 @@
                 return ventas.filter(v => {
                     const fechaVenta = new Date(v.fecha).toLocaleDateString('es-MX');
                     const fechaBuscar = new Date(fecha).toLocaleDateString('es-MX');
-                    return fechaVenta === fechaBuscar && v.estado !== 'cancelada';
+                    return fechaVenta === fechaBuscar && v.estadoVenta !== 'cancelada';
                 });
             };
 
@@ -1939,9 +1939,9 @@
 
             // Calcular dinero en efectivo y banco
             const getBalanceGeneral = () => {
-                const ventasEfectivo = ventas.filter(v => v.estado !== 'cancelada' && v.metodoPago === 'efectivo')
+                const ventasEfectivo = ventas.filter(v => v.estadoVenta !== 'cancelada' && v.metodoPago === 'efectivo')
                     .reduce((sum, v) => sum + parseFloat(v.precio), 0);
-                const ventasBanco = ventas.filter(v => v.estado !== 'cancelada' && (v.metodoPago === 'tarjeta' || v.metodoPago === 'transferencia'))
+                const ventasBanco = ventas.filter(v => v.estadoVenta !== 'cancelada' && (v.metodoPago === 'tarjeta' || v.metodoPago === 'transferencia'))
                     .reduce((sum, v) => sum + parseFloat(v.precio), 0);
 
                 const gastosEfectivo = gastos.filter(g => g.tipo === 'gasto' || g.tipo === 'salida')
@@ -2378,6 +2378,18 @@
                                                         <option value="Yucatán" />
                                                         <option value="Zacatecas" />
                                                     </datalist>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">País</label>
+                                                    <select
+                                                        name="pais"
+                                                        value={formData.pais}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <option value="México">México</option>
+                                                        <option value="EEUU">EEUU</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                         </div>
@@ -2942,13 +2954,15 @@
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">País</label>
-                                                        <input
-                                                            type="text"
+                                                        <select
                                                             name="pais"
                                                             value={formData.pais}
                                                             onChange={handleInputChange}
                                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                        />
+                                                        >
+                                                            <option value="México">México</option>
+                                                            <option value="EEUU">EEUU</option>
+                                                        </select>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3276,7 +3290,7 @@
                                                     <i className="fas fa-list"></i>
                                                     Todos
                                                     <span className="bg-white text-purple-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa').length}
+                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estadoVenta === 'activa').length}
                                                     </span>
                                                 </button>
                                                 <button
@@ -3290,7 +3304,7 @@
                                                     <i className="fas fa-warehouse"></i>
                                                     En Bodega
                                                     <span className="bg-white text-yellow-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa' && v.estadoEntrega === 'pendiente').length}
+                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estadoVenta === 'activa' && v.estadoEntrega === 'pendiente').length}
                                                     </span>
                                                 </button>
                                                 <button
@@ -3304,7 +3318,7 @@
                                                     <i className="fas fa-check-circle"></i>
                                                     Entregados
                                                     <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estado === 'activa' && v.estadoEntrega === 'entregado').length}
+                                                        {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estadoVenta === 'activa' && v.estadoEntrega === 'entregado').length}
                                                     </span>
                                                 </button>
                                             </div>
@@ -3313,7 +3327,7 @@
                                         <div className="space-y-3">
                                             {ventas
                                                 .filter(v => {
-                                                    if (v.tipoOperacion !== 'entrega' || v.estado !== 'activa') return false;
+                                                    if (v.tipoOperacion !== 'entrega' || v.estadoVenta !== 'activa') return false;
                                                     if (filtroEntregas === 'todos') return true;
                                                     if (filtroEntregas === 'bodega') return v.estadoEntrega === 'pendiente';
                                                     if (filtroEntregas === 'entregados') return v.estadoEntrega === 'entregado';
@@ -3392,7 +3406,7 @@
                                                     </div>
                                                 ))}
                                             {ventas.filter(v => {
-                                                if (v.tipoOperacion !== 'entrega' || v.estado !== 'activa') return false;
+                                                if (v.tipoOperacion !== 'entrega' || v.estadoVenta !== 'activa') return false;
                                                 if (filtroEntregas === 'todos') return true;
                                                 if (filtroEntregas === 'bodega') return v.estadoEntrega === 'pendiente';
                                                 if (filtroEntregas === 'entregados') return v.estadoEntrega === 'entregado';
@@ -3628,7 +3642,7 @@
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h3 className="text-lg font-semibold mb-2">Total Ventas</h3>
-                                                <p className="text-4xl font-bold">{ventas.filter(v => v.estado !== 'cancelada').length}</p>
+                                                <p className="text-4xl font-bold">{ventas.filter(v => v.estadoVenta !== 'cancelada').length}</p>
                                             </div>
                                             <i className="fas fa-boxes text-5xl opacity-20"></i>
                                         </div>
@@ -3650,8 +3664,8 @@
                                         </div>
                                         <div className="space-y-2">
                                             {PAQUETERIAS.map(paq => {
-                                                const count = ventas.filter(v => 
-                                                    v.estado !== 'cancelada' &&
+                                                const count = ventas.filter(v =>
+                                                    v.estadoVenta !== 'cancelada' &&
                                                     (v.tipoOperacion === 'devolucion' ? v.paqueteriaDevolucion : v.paqueteria) === paq
                                                 ).length;
                                                 return (
@@ -3679,7 +3693,7 @@
                                         <div className="space-y-2">
                                             {TIPOS_OPERACION.map(tipo => {
                                                 const count = ventas.filter(v =>
-                                                    v.estado !== 'cancelada' &&
+                                                    v.estadoVenta !== 'cancelada' &&
                                                     (v.tipoOperacion || 'envio') === tipo
                                                 ).length;
                                                 return (
@@ -3925,7 +3939,7 @@
                                                 {ventasFiltradas.slice().reverse().map((venta) => (
                                                     <tr
                                                         key={venta.id}
-                                                        className={`hover:bg-gray-50 cursor-pointer ${venta.estado === 'cancelada' ? 'bg-red-50 opacity-60' : ''}`}
+                                                        className={`hover:bg-gray-50 cursor-pointer ${venta.estadoVenta === 'cancelada' ? 'bg-red-50 opacity-60' : ''}`}
                                                         onClick={() => setVentaDetalle(venta)}
                                                     >
                                                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{venta.id}</td>
@@ -3963,11 +3977,11 @@
                                                         </td>
                                                         <td className="px-4 py-3 text-sm">
                                                             <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                                                                venta.estado === 'cancelada' 
-                                                                    ? 'bg-red-100 text-red-800' 
+                                                                venta.estadoVenta === 'cancelada'
+                                                                    ? 'bg-red-100 text-red-800'
                                                                     : 'bg-green-100 text-green-800'
                                                             }`}>
-                                                                {venta.estado === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
+                                                                {venta.estadoVenta === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3 text-sm font-semibold text-green-600">
@@ -3977,7 +3991,7 @@
                                                             <div className="flex gap-2 flex-wrap">
                                                                 <button
                                                                     onClick={() => abrirModalEdicion(venta)}
-                                                                    disabled={venta.estado === 'cancelada'}
+                                                                    disabled={venta.estadoVenta === 'cancelada'}
                                                                     className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Editar Venta"
                                                                 >
@@ -3985,7 +3999,7 @@
                                                                 </button>
                                                                 <button
                                                                     onClick={() => generarPDF(venta)}
-                                                                    disabled={venta.estado === 'cancelada'}
+                                                                    disabled={venta.estadoVenta === 'cancelada'}
                                                                     className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Generar PDF"
                                                                 >
@@ -3993,13 +4007,13 @@
                                                                 </button>
                                                                 <button
                                                                     onClick={() => generarTicket(venta)}
-                                                                    disabled={venta.estado === 'cancelada'}
+                                                                    disabled={venta.estadoVenta === 'cancelada'}
                                                                     className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Generar Ticket"
                                                                 >
                                                                     <i className="fas fa-receipt mr-1"></i>Ticket
                                                                 </button>
-                                                                {venta.estado !== 'cancelada' && (
+                                                                {venta.estadoVenta !== 'cancelada' && (
                                                                     <button
                                                                         onClick={() => cancelarVenta(venta.id)}
                                                                         className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs transition-colors"
@@ -4083,11 +4097,11 @@
                                                     <p className="text-sm text-gray-600">Estado</p>
                                                     <p className="font-bold">
                                                         <span className={`px-3 py-1 rounded text-sm font-semibold ${
-                                                            ventaDetalle.estado === 'cancelada'
+                                                            ventaDetalle.estadoVenta === 'cancelada'
                                                                 ? 'bg-red-100 text-red-800'
                                                                 : 'bg-green-100 text-green-800'
                                                         }`}>
-                                                            {ventaDetalle.estado === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
+                                                            {ventaDetalle.estadoVenta === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
                                                         </span>
                                                     </p>
                                                 </div>
@@ -4291,26 +4305,26 @@
                                                     abrirModalEdicion(ventaDetalle);
                                                     setVentaDetalle(null);
                                                 }}
-                                                disabled={ventaDetalle.estado === 'cancelada'}
+                                                disabled={ventaDetalle.estadoVenta === 'cancelada'}
                                                 className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
                                                 <i className="fas fa-edit mr-2"></i>Editar
                                             </button>
                                             <button
                                                 onClick={() => generarPDF(ventaDetalle)}
-                                                disabled={ventaDetalle.estado === 'cancelada'}
+                                                disabled={ventaDetalle.estadoVenta === 'cancelada'}
                                                 className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
                                                 <i className="fas fa-file-pdf mr-2"></i>PDF
                                             </button>
                                             <button
                                                 onClick={() => generarTicket(ventaDetalle)}
-                                                disabled={ventaDetalle.estado === 'cancelada'}
+                                                disabled={ventaDetalle.estadoVenta === 'cancelada'}
                                                 className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
                                                 <i className="fas fa-receipt mr-2"></i>Ticket
                                             </button>
-                                            {ventaDetalle.estado !== 'cancelada' && (
+                                            {ventaDetalle.estadoVenta !== 'cancelada' && (
                                                 <button
                                                     onClick={() => {
                                                         cancelarVenta(ventaDetalle.id);
@@ -4436,7 +4450,7 @@
                                     const cortesArray = turnosFiltrados.map(turno => {
                                         // Calcular ventas del turno
                                         const ventasTurno = ventas.filter(v =>
-                                            v.estado === 'activa' &&
+                                            v.estadoVenta === 'activa' &&
                                             v.tipoOperacion !== 'entrega' &&
                                             v.turno_id === turno.turno_id
                                         );
@@ -4700,7 +4714,7 @@
                                     const cortesMap = new Map();
 
                                     // Procesar ventas
-                                    ventas.filter(v => v.estado === 'activa' && v.tipoOperacion !== 'entrega').forEach(venta => {
+                                    ventas.filter(v => v.estadoVenta === 'activa' && v.tipoOperacion !== 'entrega').forEach(venta => {
                                         const fecha = new Date(venta.fecha);
                                         const fechaStr = fecha.toLocaleDateString('es-MX');
                                         const mes = fecha.getMonth() + 1;
