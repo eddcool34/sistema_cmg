@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Clientes - Sistema CMG</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .back-btn {
+            position: absolute;
+            left: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .filter-btn, .export-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .filter-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .filter-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .export-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e9ecef;
+            transition: all 0.3s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        td {
+            padding: 15px;
+            font-size: 14px;
+        }
+
+        .client-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .phone {
+            color: #666;
+            font-family: monospace;
+        }
+
+        .amount {
+            font-weight: bold;
+            color: #28a745;
+            font-size: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state p {
+            font-size: 18px;
+        }
+
+        .detail-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .detail-btn:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s;
+        }
+
+        .modal-close:hover {
+            background: #c82333;
+            transform: rotate(90deg);
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .client-detail {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .client-detail h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .detail-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .purchases-list {
+            margin-top: 20px;
+        }
+
+        .purchase-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .purchase-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .purchase-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .purchase-date {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .purchase-details {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .purchase-price {
+            font-weight: bold;
+            color: #28a745;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .back-btn {
+                position: static;
+                transform: none;
+                display: block;
+                margin-bottom: 20px;
+            }
+
+            th, td {
+                padding: 10px;
+                font-size: 12px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+            <h1><i class="fas fa-users"></i> Gestión de Clientes</h1>
+            <p>Consulta y administra la información de todos tus clientes</p>
+        </div>
+
+        <div class="controls">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-users" style="color: #667eea;"></i></div>
+                    <div class="value" id="totalClientes">0</div>
+                    <div class="label">Total Clientes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-shopping-cart" style="color: #28a745;"></i></div>
+                    <div class="value" id="totalCompras">0</div>
+                    <div class="label">Total Compras</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-dollar-sign" style="color: #ffc107;"></i></div>
+                    <div class="value" id="totalVentas">$0</div>
+                    <div class="label">Total Ventas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-chart-line" style="color: #17a2b8;"></i></div>
+                    <div class="value" id="promedioGasto">$0</div>
+                    <div class="label">Promedio por Cliente</div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar por nombre, teléfono o destinatario...">
+                <button class="filter-btn" onclick="ordenarPorGasto()">
+                    <i class="fas fa-sort-amount-down"></i> Ordenar por Gasto
+                </button>
+                <button class="export-btn" onclick="exportarPDF()">
+                    <i class="fas fa-file-pdf"></i> Exportar PDF
+                </button>
+                <button class="filter-btn" onclick="window.location.href='backup_datos.html'" style="background: #28a745;">
+                    <i class="fas fa-shield-alt"></i> Respaldo
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="clientesTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre del Cliente</th>
+                        <th>Teléfono</th>
+                        <th>Destinatario</th>
+                        <th>Tel. Destinatario</th>
+                        <th>Total Gastado</th>
+                        <th>Compras</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="clientesTableBody">
+                    <!-- Se llenará dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal para detalles del cliente -->
+    <div id="clienteModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="cerrarModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            <h2><i class="fas fa-user-circle"></i> Detalles del Cliente</h2>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let clientesData = [];
+        let ventasData = [];
+        let ordenActual = 'nombre'; // 'nombre' o 'gasto'
+
+        // Cargar datos al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarDatos();
+
+            // Búsqueda en tiempo real
+            document.getElementById('searchInput').addEventListener('input', function() {
+                filtrarClientes(this.value);
+            });
+        });
+
+        function cargarDatos() {
+            // Cargar ventas desde localStorage
+            const ventasGuardadas = localStorage.getItem('ventas');
+            ventasData = ventasGuardadas ? JSON.parse(ventasGuardadas) : [];
+
+            // Procesar clientes desde las ventas
+            procesarClientes();
+
+            // Actualizar estadísticas
+            actualizarEstadisticas();
+
+            // Mostrar tabla
+            mostrarClientes();
+        }
+
+        function procesarClientes() {
+            const clientesMap = new Map();
+
+            ventasData.forEach(venta => {
+                // Solo procesar envíos que tengan datos de cliente
+                if (venta.tipo === 'envio' && venta.nombre) {
+                    const key = `${venta.nombre}_${venta.telefono}`;
+
+                    if (!clientesMap.has(key)) {
+                        clientesMap.set(key, {
+                            nombre: venta.nombre,
+                            telefono: venta.telefono || 'N/A',
+                            destinatario: venta.destinatario || 'N/A',
+                            telefonoDestinatario: venta.telefono_destinatario || 'N/A',
+                            totalGastado: 0,
+                            compras: []
+                        });
+                    }
+
+                    const cliente = clientesMap.get(key);
+                    const precio = parseFloat(venta.precio) || 0;
+                    cliente.totalGastado += precio;
+                    cliente.compras.push(venta);
+
+                    // Actualizar destinatario si viene en esta venta
+                    if (venta.destinatario && venta.destinatario !== 'N/A') {
+                        cliente.destinatario = venta.destinatario;
+                    }
+                    if (venta.telefono_destinatario && venta.telefono_destinatario !== 'N/A') {
+                        cliente.telefonoDestinatario = venta.telefono_destinatario;
+                    }
+                }
+            });
+
+            clientesData = Array.from(clientesMap.values());
+
+            // Ordenar por nombre por defecto
+            clientesData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        }
+
+        function actualizarEstadisticas() {
+            const totalClientes = clientesData.length;
+            const totalCompras = clientesData.reduce((sum, c) => sum + c.compras.length, 0);
+            const totalVentas = clientesData.reduce((sum, c) => sum + c.totalGastado, 0);
+            const promedioGasto = totalClientes > 0 ? totalVentas / totalClientes : 0;
+
+            document.getElementById('totalClientes').textContent = totalClientes;
+            document.getElementById('totalCompras').textContent = totalCompras;
+            document.getElementById('totalVentas').textContent = `$${totalVentas.toFixed(2)}`;
+            document.getElementById('promedioGasto').textContent = `$${promedioGasto.toFixed(2)}`;
+        }
+
+        function mostrarClientes(clientesFiltrados = null) {
+            const clientes = clientesFiltrados || clientesData;
+            const tbody = document.getElementById('clientesTableBody');
+
+            if (clientes.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="fas fa-users-slash"></i>
+                                <p>No se encontraron clientes</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = clientes.map((cliente, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="client-name">${cliente.nombre}</td>
+                    <td class="phone">${cliente.telefono}</td>
+                    <td>${cliente.destinatario}</td>
+                    <td class="phone">${cliente.telefonoDestinatario}</td>
+                    <td class="amount">$${cliente.totalGastado.toFixed(2)}</td>
+                    <td>${cliente.compras.length}</td>
+                    <td>
+                        <button class="detail-btn" onclick="verDetalles(${index})">
+                            <i class="fas fa-eye"></i> Ver Detalles
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filtrarClientes(busqueda) {
+            const termino = busqueda.toLowerCase().trim();
+
+            if (!termino) {
+                mostrarClientes();
+                return;
+            }
+
+            const clientesFiltrados = clientesData.filter(cliente =>
+                cliente.nombre.toLowerCase().includes(termino) ||
+                cliente.telefono.toLowerCase().includes(termino) ||
+                cliente.destinatario.toLowerCase().includes(termino) ||
+                cliente.telefonoDestinatario.toLowerCase().includes(termino)
+            );
+
+            mostrarClientes(clientesFiltrados);
+        }
+
+        function ordenarPorGasto() {
+            if (ordenActual === 'nombre') {
+                clientesData.sort((a, b) => b.totalGastado - a.totalGastado);
+                ordenActual = 'gasto';
+            } else {
+                clientesData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+                ordenActual = 'nombre';
+            }
+            mostrarClientes();
+        }
+
+        function verDetalles(index) {
+            const cliente = clientesData[index];
+            const modal = document.getElementById('clienteModal');
+            const content = document.getElementById('modalContent');
+
+            content.innerHTML = `
+                <div class="client-detail">
+                    <h3><i class="fas fa-user"></i> Información del Cliente</h3>
+                    <div class="detail-row">
+                        <div class="detail-label">Nombre:</div>
+                        <div class="detail-value">${cliente.nombre}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Teléfono:</div>
+                        <div class="detail-value">${cliente.telefono}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Destinatario:</div>
+                        <div class="detail-value">${cliente.destinatario}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Tel. Destinatario:</div>
+                        <div class="detail-value">${cliente.telefonoDestinatario}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Total Gastado:</div>
+                        <div class="detail-value amount">$${cliente.totalGastado.toFixed(2)}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Total Compras:</div>
+                        <div class="detail-value">${cliente.compras.length}</div>
+                    </div>
+                </div>
+
+                <div class="purchases-list">
+                    <h3><i class="fas fa-shopping-bag"></i> Historial de Compras</h3>
+                    ${cliente.compras.map(compra => `
+                        <div class="purchase-item">
+                            <div class="purchase-header">
+                                <span class="purchase-id">
+                                    <i class="fas fa-barcode"></i> ${compra.id || 'N/A'}
+                                </span>
+                                <span class="purchase-date">
+                                    <i class="fas fa-calendar"></i> ${formatearFecha(compra.fecha)}
+                                </span>
+                            </div>
+                            <div class="purchase-details">
+                                <strong>Destino:</strong> ${compra.destinatario || 'N/A'}
+                            </div>
+                            <div class="purchase-details">
+                                <strong>Dirección:</strong> ${compra.direccion || 'N/A'}, ${compra.colonia || ''}, ${compra.estado || ''}
+                            </div>
+                            <div class="purchase-details">
+                                <strong>Paquetería:</strong> ${(compra.paqueteria || 'N/A').toUpperCase()}
+                            </div>
+                            <div class="purchase-details">
+                                <strong>Método de pago:</strong> ${(compra.metodoPago || 'N/A').toUpperCase()}
+                            </div>
+                            <div class="purchase-price">
+                                Total: $${parseFloat(compra.precio || 0).toFixed(2)}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        function cerrarModal() {
+            document.getElementById('clienteModal').classList.remove('active');
+        }
+
+        function formatearFecha(fecha) {
+            if (!fecha) return 'N/A';
+            const d = new Date(fecha);
+            return d.toLocaleDateString('es-MX', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function exportarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Título
+            doc.setFontSize(20);
+            doc.setTextColor(102, 126, 234);
+            doc.text('Sistema CMG - Reporte de Clientes', 14, 20);
+
+            // Fecha
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Generado: ${new Date().toLocaleDateString('es-MX')}`, 14, 28);
+
+            // Estadísticas
+            doc.setFontSize(12);
+            doc.setTextColor(0);
+            doc.text(`Total de Clientes: ${clientesData.length}`, 14, 38);
+            const totalVentas = clientesData.reduce((sum, c) => sum + c.totalGastado, 0);
+            doc.text(`Total Ventas: $${totalVentas.toFixed(2)}`, 14, 45);
+
+            // Tabla
+            const tableData = clientesData.map((cliente, index) => [
+                index + 1,
+                cliente.nombre,
+                cliente.telefono,
+                cliente.destinatario,
+                cliente.telefonoDestinatario,
+                `$${cliente.totalGastado.toFixed(2)}`,
+                cliente.compras.length
+            ]);
+
+            doc.autoTable({
+                startY: 55,
+                head: [['#', 'Nombre', 'Teléfono', 'Destinatario', 'Tel. Dest.', 'Total Gastado', 'Compras']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [102, 126, 234],
+                    textColor: 255,
+                    fontSize: 10,
+                    fontStyle: 'bold'
+                },
+                bodyStyles: {
+                    fontSize: 9
+                },
+                columnStyles: {
+                    5: { halign: 'right', fontStyle: 'bold' },
+                    6: { halign: 'center' }
+                }
+            });
+
+            // Guardar
+            doc.save(`clientes_cmg_${new Date().getTime()}.pdf`);
+        }
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('clienteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
+        });
+    </script>
+</body>
+</html>
