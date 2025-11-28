@@ -1836,7 +1836,7 @@
                 }
             }, [gastos]);
 
-            // Agregar gasto o salida
+            // Agregar gasto, salida o entrada
             const agregarGasto = () => {
                 if (!gastoForm.concepto.trim() || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
                     showNotification('Complete todos los campos correctamente', 'error');
@@ -1847,7 +1847,9 @@
                     id: `GASTO-${Date.now()}`,
                     ...gastoForm,
                     monto: parseFloat(gastoForm.monto),
-                    fecha: gastoForm.fecha || new Date().toISOString().split('T')[0]
+                    fecha: gastoForm.fecha || new Date().toISOString().split('T')[0],
+                    turno_id: turnoActual?.turno_id || null,
+                    cajero: turnoActual?.cajero || 'Sin turno'
                 };
 
                 setGastos(prev => [...prev, nuevoGasto]);
@@ -1855,10 +1857,12 @@
                     concepto: '',
                     monto: '',
                     tipo: 'gasto',
-                    fecha: new Date().toISOString().split('T')[0]
+                    fecha: new Date().toISOString().split('T')[0],
+                    metodoPago: 'efectivo'
                 });
                 setShowGastoModal(false);
-                showNotification('Registro agregado exitosamente');
+                const mensaje = gastoForm.tipo === 'entrada' ? 'Entrada registrada exitosamente' : 'Registro agregado exitosamente';
+                showNotification(mensaje);
             };
 
             // Eliminar gasto
@@ -1939,18 +1943,46 @@
 
             // Calcular dinero en efectivo y banco
             const getBalanceGeneral = () => {
+                // Ventas en efectivo
                 const ventasEfectivo = ventas.filter(v => v.estadoVenta !== 'cancelada' && v.metodoPago === 'efectivo')
                     .reduce((sum, v) => sum + parseFloat(v.precio), 0);
+
+                // Ventas en banco (tarjeta/transferencia)
                 const ventasBanco = ventas.filter(v => v.estadoVenta !== 'cancelada' && (v.metodoPago === 'tarjeta' || v.metodoPago === 'transferencia'))
                     .reduce((sum, v) => sum + parseFloat(v.precio), 0);
 
-                const gastosEfectivo = gastos.filter(g => g.tipo === 'gasto' || g.tipo === 'salida')
-                    .reduce((sum, g) => sum + parseFloat(g.monto), 0);
+                // Gastos y salidas en efectivo
+                const gastosEfectivo = gastos.filter(g =>
+                    (g.tipo === 'gasto' || g.tipo === 'salida') &&
+                    (!g.metodoPago || g.metodoPago === 'efectivo')
+                ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                // Gastos y salidas en banco (tarjeta/transferencia)
+                const gastosBanco = gastos.filter(g =>
+                    (g.tipo === 'gasto' || g.tipo === 'salida') &&
+                    g.metodoPago === 'tarjeta'
+                ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                // Entradas en efectivo
+                const entradasEfectivo = gastos.filter(g =>
+                    g.tipo === 'entrada' &&
+                    (!g.metodoPago || g.metodoPago === 'efectivo')
+                ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                // Entradas en banco (tarjeta/transferencia)
+                const entradasBanco = gastos.filter(g =>
+                    g.tipo === 'entrada' &&
+                    g.metodoPago === 'tarjeta'
+                ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                // Calcular balances finales
+                const efectivo = ventasEfectivo - gastosEfectivo + entradasEfectivo;
+                const banco = ventasBanco - gastosBanco + entradasBanco;
 
                 return {
-                    efectivo: ventasEfectivo - gastosEfectivo,
-                    banco: ventasBanco,
-                    total: (ventasEfectivo - gastosEfectivo) + ventasBanco
+                    efectivo: efectivo,
+                    banco: banco,
+                    total: efectivo + banco
                 };
             };
 
@@ -1986,7 +2018,7 @@
                             <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-2xl font-bold text-gray-800">
-                                        <i className="fas fa-money-bill-wave mr-2"></i>Registrar Gasto/Salida
+                                        <i className="fas fa-money-bill-wave mr-2"></i>Registrar Movimiento
                                     </h2>
                                     <button
                                         onClick={() => setShowGastoModal(false)}
@@ -2005,7 +2037,8 @@
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         >
                                             <option value="gasto">Gasto</option>
-                                            <option value="salida">Salida de Efectivo</option>
+                                            <option value="salida">Salida</option>
+                                            <option value="entrada">Entrada</option>
                                         </select>
                                     </div>
                                     <div>
@@ -2029,6 +2062,23 @@
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             placeholder="0.00"
                                         />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Método de Pago *</label>
+                                        <select
+                                            value={gastoForm.metodoPago}
+                                            onChange={(e) => setGastoForm({...gastoForm, metodoPago: e.target.value})}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="tarjeta">Tarjeta/Transferencia</option>
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {gastoForm.tipo === 'entrada'
+                                                ? (gastoForm.metodoPago === 'efectivo' ? '💵 Se sumará a Caja' : '🏦 Se sumará a Banco')
+                                                : (gastoForm.metodoPago === 'efectivo' ? '💵 Se restará de Caja' : '🏦 Se restará de Banco')
+                                            }
+                                        </p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Fecha *</label>
@@ -3444,7 +3494,7 @@
                                         className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg flex items-center"
                                     >
                                         <i className="fas fa-plus mr-2"></i>
-                                        Agregar Gasto/Salida
+                                        Registrar Movimiento
                                     </button>
                                 </div>
 
@@ -3539,16 +3589,16 @@
                                     </div>
                                 </div>
 
-                                {/* Lista de Gastos y Salidas */}
+                                {/* Lista de Gastos, Salidas y Entradas */}
                                 <div className="bg-white rounded-lg shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">
-                                        <i className="fas fa-list mr-2"></i>Historial de Gastos y Salidas
+                                        <i className="fas fa-list mr-2"></i>Historial de Movimientos
                                     </h3>
 
                                     {gastos.length === 0 ? (
                                         <div className="text-center py-12">
                                             <i className="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-                                            <p className="text-gray-500 text-lg">No hay gastos registrados</p>
+                                            <p className="text-gray-500 text-lg">No hay movimientos registrados</p>
                                         </div>
                                     ) : (
                                         <div className="overflow-x-auto">
@@ -3558,6 +3608,7 @@
                                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>
                                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo</th>
                                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Concepto</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Método</th>
                                                         <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Monto</th>
                                                         <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Acciones</th>
                                                     </tr>
@@ -3572,14 +3623,27 @@
                                                                 <span className={`px-2 py-1 rounded text-xs font-semibold ${
                                                                     gasto.tipo === 'gasto'
                                                                         ? 'bg-orange-100 text-orange-800'
-                                                                        : 'bg-red-100 text-red-800'
+                                                                        : gasto.tipo === 'salida'
+                                                                        ? 'bg-red-100 text-red-800'
+                                                                        : 'bg-green-100 text-green-800'
                                                                 }`}>
-                                                                    {gasto.tipo === 'gasto' ? 'GASTO' : 'SALIDA'}
+                                                                    {gasto.tipo === 'gasto' ? 'GASTO' : gasto.tipo === 'salida' ? 'SALIDA' : 'ENTRADA'}
                                                                 </span>
                                                             </td>
                                                             <td className="px-4 py-3 text-sm text-gray-900">{gasto.concepto}</td>
-                                                            <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">
-                                                                {formatCurrency(gasto.monto)}
+                                                            <td className="px-4 py-3 text-sm">
+                                                                <span className={`px-2 py-1 rounded text-xs ${
+                                                                    (!gasto.metodoPago || gasto.metodoPago === 'efectivo')
+                                                                        ? 'bg-green-50 text-green-700'
+                                                                        : 'bg-blue-50 text-blue-700'
+                                                                }`}>
+                                                                    {(!gasto.metodoPago || gasto.metodoPago === 'efectivo') ? '💵 Efectivo' : '🏦 Tarjeta'}
+                                                                </span>
+                                                            </td>
+                                                            <td className={`px-4 py-3 text-sm text-right font-semibold ${
+                                                                gasto.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                                                            }`}>
+                                                                {gasto.tipo === 'entrada' ? '+' : '-'}{formatCurrency(gasto.monto)}
                                                             </td>
                                                             <td className="px-4 py-3 text-center">
                                                                 <button
@@ -4455,21 +4519,57 @@
                                             v.turno_id === turno.turno_id
                                         );
 
-                                        const totalVentas = ventasTurno.reduce((sum, v) =>
-                                            sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0
-                                        );
+                                        // Separar ventas por método de pago
+                                        const ventasEfectivo = ventasTurno.filter(v => v.metodoPago === 'efectivo')
+                                            .reduce((sum, v) => sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0);
+                                        const ventasBanco = ventasTurno.filter(v => v.metodoPago === 'tarjeta' || v.metodoPago === 'transferencia')
+                                            .reduce((sum, v) => sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0);
 
-                                        // Calcular gastos del turno
-                                        const gastosTurno = gastos.filter(g => g.turno_id === turno.turno_id);
-                                        const totalGastos = gastosTurno.reduce((sum, g) => sum + parseFloat(g.monto), 0);
+                                        const totalVentas = ventasEfectivo + ventasBanco;
+
+                                        // Calcular gastos, salidas y entradas del turno
+                                        const movimientos = gastos.filter(g => g.turno_id === turno.turno_id);
+
+                                        // Gastos/Salidas en efectivo
+                                        const gastosEfectivo = movimientos.filter(g =>
+                                            (g.tipo === 'gasto' || g.tipo === 'salida') &&
+                                            (!g.metodoPago || g.metodoPago === 'efectivo')
+                                        ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                        // Gastos/Salidas en banco
+                                        const gastosBanco = movimientos.filter(g =>
+                                            (g.tipo === 'gasto' || g.tipo === 'salida') &&
+                                            g.metodoPago === 'tarjeta'
+                                        ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                        // Entradas en efectivo
+                                        const entradasEfectivo = movimientos.filter(g =>
+                                            g.tipo === 'entrada' &&
+                                            (!g.metodoPago || g.metodoPago === 'efectivo')
+                                        ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                        // Entradas en banco
+                                        const entradasBanco = movimientos.filter(g =>
+                                            g.tipo === 'entrada' &&
+                                            g.metodoPago === 'tarjeta'
+                                        ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                        const totalGastos = gastosEfectivo + gastosBanco;
+                                        const totalEntradas = entradasEfectivo + entradasBanco;
 
                                         // Ingresos en caja (fondo inicial)
                                         const ingresosCaja = parseFloat(turno.fondo_inicial || 0);
 
-                                        // Balance Real = fondo inicial + ventas - gastos
-                                        const balanceReal = ingresosCaja + totalVentas - totalGastos;
+                                        // Balance Real en EFECTIVO = fondo inicial + ventas efectivo - gastos efectivo + entradas efectivo
+                                        const balanceRealEfectivo = ingresosCaja + ventasEfectivo - gastosEfectivo + entradasEfectivo;
 
-                                        // Balance Declarado = monto reportado por cajero
+                                        // Balance Real en BANCO = ventas banco - gastos banco + entradas banco
+                                        const balanceRealBanco = ventasBanco - gastosBanco + entradasBanco;
+
+                                        // Balance Real TOTAL (lo que debería haber en caja física)
+                                        const balanceReal = balanceRealEfectivo;
+
+                                        // Balance Declarado = monto reportado por cajero (solo efectivo)
                                         const balanceDeclarado = parseFloat(turno.monto_reportado_por_cajero || 0);
 
                                         // Diferencia = Declarado - Real (positivo = sobrante, negativo = faltante)
@@ -4486,8 +4586,17 @@
                                             turno_id: turno.turno_id,
                                             cajero: turno.cajero,
                                             ingresosCaja,
+                                            ventasEfectivo,
+                                            ventasBanco,
                                             totalVentas,
+                                            gastosEfectivo,
+                                            gastosBanco,
                                             totalGastos,
+                                            entradasEfectivo,
+                                            entradasBanco,
+                                            totalEntradas,
+                                            balanceRealEfectivo,
+                                            balanceRealBanco,
                                             balanceReal,
                                             balanceDeclarado,
                                             diferencia,
@@ -4537,16 +4646,36 @@
                                                                     </h4>
                                                                     <div className="space-y-1 text-sm">
                                                                         <div className="flex justify-between">
-                                                                            <span>Ingreso en Caja (Fondo Inicial):</span>
+                                                                            <span>Fondo Inicial:</span>
                                                                             <span className="font-semibold">{formatCurrency(corte.ingresosCaja)}</span>
                                                                         </div>
-                                                                        <div className="flex justify-between">
-                                                                            <span>Ventas Realizadas:</span>
-                                                                            <span className="font-semibold">{formatCurrency(corte.totalVentas)}</span>
+                                                                        <div className="flex justify-between text-green-700">
+                                                                            <span>💵 Ventas Efectivo:</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.ventasEfectivo)}</span>
                                                                         </div>
+                                                                        <div className="flex justify-between text-blue-700">
+                                                                            <span>🏦 Ventas Banco:</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.ventasBanco)}</span>
+                                                                        </div>
+                                                                        {(corte.entradasEfectivo > 0 || corte.entradasBanco > 0) && (
+                                                                            <>
+                                                                                {corte.entradasEfectivo > 0 && (
+                                                                                    <div className="flex justify-between text-teal-700">
+                                                                                        <span>💵 Entradas Efectivo:</span>
+                                                                                        <span className="font-semibold">{formatCurrency(corte.entradasEfectivo)}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {corte.entradasBanco > 0 && (
+                                                                                    <div className="flex justify-between text-blue-700">
+                                                                                        <span>🏦 Entradas Banco:</span>
+                                                                                        <span className="font-semibold">{formatCurrency(corte.entradasBanco)}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        )}
                                                                         <div className="flex justify-between pt-2 border-t border-green-300">
                                                                             <span className="font-bold">Total Ingresos:</span>
-                                                                            <span className="font-bold">{formatCurrency(corte.ingresosCaja + corte.totalVentas)}</span>
+                                                                            <span className="font-bold">{formatCurrency(corte.ingresosCaja + corte.totalVentas + corte.totalEntradas)}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -4557,10 +4686,24 @@
                                                                         <i className="fas fa-minus-circle mr-2"></i>Egresos
                                                                     </h4>
                                                                     <div className="space-y-1 text-sm">
-                                                                        <div className="flex justify-between">
-                                                                            <span>Gastos Totales:</span>
-                                                                            <span className="font-semibold">{formatCurrency(corte.totalGastos)}</span>
-                                                                        </div>
+                                                                        {corte.gastosEfectivo > 0 && (
+                                                                            <div className="flex justify-between text-red-700">
+                                                                                <span>💵 Gastos Efectivo:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.gastosEfectivo)}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {corte.gastosBanco > 0 && (
+                                                                            <div className="flex justify-between text-blue-700">
+                                                                                <span>🏦 Gastos Banco:</span>
+                                                                                <span className="font-semibold">{formatCurrency(corte.gastosBanco)}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {corte.totalGastos === 0 && (
+                                                                            <div className="flex justify-between text-gray-500">
+                                                                                <span>Sin gastos</span>
+                                                                                <span className="font-semibold">$0.00</span>
+                                                                            </div>
+                                                                        )}
                                                                         <div className="flex justify-between pt-2 border-t border-red-300">
                                                                             <span className="font-bold">Total Egresos:</span>
                                                                             <span className="font-bold">{formatCurrency(corte.totalGastos)}</span>
@@ -4576,13 +4719,19 @@
                                                                         <i className="fas fa-calculator mr-2"></i>Balance Real
                                                                     </h4>
                                                                     <div className="space-y-1 text-sm">
-                                                                        <div className="flex justify-between text-xs text-gray-600">
-                                                                            <span>Fondo + Ventas - Gastos</span>
+                                                                        <div className="flex justify-between">
+                                                                            <span>💵 Efectivo en Caja:</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.balanceRealEfectivo)}</span>
                                                                         </div>
-                                                                        <div className="flex justify-between pt-2">
-                                                                            <span className="font-bold">Total Real:</span>
+                                                                        <div className="flex justify-between">
+                                                                            <span>🏦 En Banco:</span>
+                                                                            <span className="font-semibold">{formatCurrency(corte.balanceRealBanco)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pt-2 border-t border-blue-300">
+                                                                            <span className="font-bold">Total a Declarar (Efectivo):</span>
                                                                             <span className="font-bold text-lg text-blue-900">{formatCurrency(corte.balanceReal)}</span>
                                                                         </div>
+                                                                        <p className="text-xs text-gray-600 mt-1">Solo se declara efectivo físico</p>
                                                                     </div>
                                                                 </div>
 
@@ -4591,8 +4740,8 @@
                                                                         <i className="fas fa-hand-holding-usd mr-2"></i>Balance Declarado
                                                                     </h4>
                                                                     <div className="space-y-1 text-sm">
-                                                                        <div className="flex justify-between text-xs text-gray-600">
-                                                                            <span>Suma de billetes declarados</span>
+                                                                        <div className="flex justify-between text-xs text-gray-600 mb-2">
+                                                                            <span>Suma de billetes contados</span>
                                                                         </div>
                                                                         <div className="flex justify-between pt-2">
                                                                             <span className="font-bold">Total Declarado:</span>
@@ -4735,7 +4884,7 @@
                                         }
                                     });
 
-                                    // Procesar gastos
+                                    // Procesar gastos, salidas y entradas
                                     gastos.forEach(gasto => {
                                         const fecha = new Date(gasto.fecha);
                                         const fechaStr = fecha.toLocaleDateString('es-MX');
@@ -4753,7 +4902,13 @@
 
                                             const corte = cortesMap.get(fechaStr);
                                             const monto = parseFloat(gasto.monto);
-                                            corte.egresos += monto;
+
+                                            // Si es entrada, suma a ingresos; si es gasto/salida, suma a egresos
+                                            if (gasto.tipo === 'entrada') {
+                                                corte.ingresos += monto;
+                                            } else {
+                                                corte.egresos += monto;
+                                            }
                                         }
                                     });
 
