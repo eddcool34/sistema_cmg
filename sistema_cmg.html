@@ -1088,6 +1088,12 @@
             // Guardar gasto actualizado (con turno y método de pago)
             const guardarGastoActualizado = async () => {
                 try {
+                    // Validar que haya un turno abierto
+                    if (!turnoActual) {
+                        showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                        return;
+                    }
+
                     if (!gastoForm.concepto || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
                         showNotification('Completa todos los campos del gasto', 'error');
                         return;
@@ -1279,6 +1285,12 @@
 
             // Función para guardar edición
             const guardarEdicion = async () => {
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                    return;
+                }
+
                 const errores = validarCampos(formData, tipoOperacion);
                 if (errores.length > 0) {
                     showNotification(`Complete los campos obligatorios: ${errores.join(', ')}`, 'error');
@@ -1536,7 +1548,13 @@
 
             const handleSubmit = async (e, action) => {
                 e.preventDefault();
-                
+
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                    return;
+                }
+
                 // Validar campos
                 const errores = validarCampos(formData, tipoOperacion);
                 if (errores.length > 0) {
@@ -1713,6 +1731,12 @@
             };
 
             const cancelarVenta = (ventaId) => {
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                    return;
+                }
+
                 if (window.confirm('¿Estás seguro de que deseas cancelar esta venta?')) {
                     setVentas(prev => prev.map(v =>
                         v.id === ventaId ? { ...v, estadoVenta: 'cancelada' } : v
@@ -1722,6 +1746,12 @@
             };
 
             const marcarComoEntregado = async (ventaId) => {
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                    return;
+                }
+
                 if (window.confirm('¿Confirma que este paquete ha sido entregado?')) {
                     const fechaActual = new Date();
                     const ventaActualizada = ventas.find(v => v.id === ventaId);
@@ -1857,6 +1887,12 @@
 
             // Agregar gasto, salida o entrada
             const agregarGasto = () => {
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                    return;
+                }
+
                 if (!gastoForm.concepto.trim() || !gastoForm.monto || parseFloat(gastoForm.monto) <= 0) {
                     showNotification('Complete todos los campos correctamente', 'error');
                     return;
@@ -1886,6 +1922,12 @@
 
             // Eliminar gasto
             const eliminarGasto = (gastoId) => {
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de realizar operaciones', 'error');
+                    return;
+                }
+
                 if (window.confirm('¿Estás seguro de que deseas eliminar este registro?')) {
                     setGastos(prev => prev.filter(g => g.id !== gastoId));
                     showNotification('Registro eliminado exitosamente');
