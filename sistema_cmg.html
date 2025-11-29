@@ -739,6 +739,40 @@
                 }
             }, []);
 
+            // Calcular fondo inicial al abrir modal de apertura según día de la semana
+            useEffect(() => {
+                if (showAperturaTurno) {
+                    const fechaActual = new Date();
+                    const diaSemana = fechaActual.getDay(); // 0=Domingo, 1=Lunes, 2=Martes, etc.
+
+                    if (diaSemana !== 1) {
+                        // No es lunes, buscar el monto del corte anterior
+                        const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                        if (turnosCerrados.length > 0) {
+                            // Ordenar por fecha de cierre (más reciente primero)
+                            const ultimoCorte = turnosCerrados.sort((a, b) => {
+                                const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
+                                const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
+                                return fechaB - fechaA;
+                            })[0];
+
+                            if (ultimoCorte && ultimoCorte.monto_reportado_por_cajero) {
+                                setFormApertura(prev => ({
+                                    ...prev,
+                                    fondoInicial: parseFloat(ultimoCorte.monto_reportado_por_cajero).toFixed(2)
+                                }));
+                            }
+                        }
+                    } else {
+                        // Es lunes, usar el fondo inicial por defecto
+                        setFormApertura(prev => ({
+                            ...prev,
+                            fondoInicial: FONDO_INICIAL_DEFAULT
+                        }));
+                    }
+                }
+            }, [showAperturaTurno]);
+
             // Guardar en localStorage cuando cambian las ventas
             useEffect(() => {
                 if (ventas.length > 0) {
@@ -958,13 +992,37 @@
                     const horaStr = fechaActual.toTimeString().split(':').slice(0, 2).join('');
                     const turno_id = `TURN-${fechaStr}-${horaStr}-${formApertura.cajero}`;
 
+                    // Determinar el fondo inicial según el día de la semana
+                    const diaSemana = fechaActual.getDay(); // 0=Domingo, 1=Lunes, 2=Martes, etc.
+                    let fondoInicial = parseFloat(formApertura.fondoInicial);
+
+                    // Si NO es lunes (día 1), tomar el monto del corte anterior
+                    if (diaSemana !== 1) {
+                        const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                        if (turnosCerrados.length > 0) {
+                            // Ordenar por fecha de cierre (más reciente primero)
+                            const ultimoCorte = turnosCerrados.sort((a, b) => {
+                                const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
+                                const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
+                                return fechaB - fechaA;
+                            })[0];
+
+                            // Usar el monto reportado por cajero del último corte
+                            if (ultimoCorte && ultimoCorte.monto_reportado_por_cajero) {
+                                fondoInicial = parseFloat(ultimoCorte.monto_reportado_por_cajero);
+                                console.log(`📅 Día ${diaSemana} - Usando monto del corte anterior: ${fondoInicial}`);
+                            }
+                        }
+                    }
+
                     const nuevoTurno = {
                         turno_id,
                         fecha: fechaActual.toLocaleDateString('es-MX'),
                         hora_apertura: fechaActual.toLocaleTimeString('es-MX'),
                         cajero: formApertura.cajero,
-                        fondo_inicial: parseFloat(formApertura.fondoInicial),
-                        estado: 'abierto'
+                        fondo_inicial: fondoInicial,
+                        estado: 'abierto',
+                        es_lunes: diaSemana === 1 // Guardar si fue apertura de lunes
                     };
 
                     setSyncStatus({ syncing: true, message: 'Abriendo turno...' });
@@ -5015,6 +5073,89 @@
                                                 </div>
                                             </div>
 
+                                            {/* Tarjetas de Totales Acumulados */}
+                                            {(() => {
+                                                const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+
+                                                // Calcular totales acumulados de todos los cortes cerrados
+                                                let totalAcumuladoCaja = 0;
+                                                let totalAcumuladoBancos = 0;
+
+                                                turnosCerrados.forEach(turno => {
+                                                    // Obtener ventas del turno
+                                                    const ventasTurno = ventas.filter(v =>
+                                                        v.estadoVenta === 'activa' &&
+                                                        v.tipoOperacion !== 'entrega' &&
+                                                        v.turno_id === turno.turno_id
+                                                    );
+
+                                                    // Calcular ventas por método de pago
+                                                    const ventasEfectivo = ventasTurno
+                                                        .filter(v => v.metodoPago === 'efectivo')
+                                                        .reduce((sum, v) => sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0);
+
+                                                    const ventasBanco = ventasTurno
+                                                        .filter(v => v.metodoPago === 'tarjeta' || v.metodoPago === 'transferencia')
+                                                        .reduce((sum, v) => sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0);
+
+                                                    // Obtener gastos del turno
+                                                    const gastosTurno = gastos.filter(g => g.turno_id === turno.turno_id);
+
+                                                    const gastosEfectivo = gastosTurno
+                                                        .filter(g => (g.tipo === 'gasto' || g.tipo === 'salida') && g.metodoPago === 'efectivo')
+                                                        .reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                                    const gastosBanco = gastosTurno
+                                                        .filter(g => (g.tipo === 'gasto' || g.tipo === 'salida') && (g.metodoPago === 'tarjeta' || g.metodoPago === 'transferencia'))
+                                                        .reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                                    const entradasEfectivo = gastosTurno
+                                                        .filter(g => g.tipo === 'entrada' && g.metodoPago === 'efectivo')
+                                                        .reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                                    const entradasBanco = gastosTurno
+                                                        .filter(g => g.tipo === 'entrada' && (g.metodoPago === 'tarjeta' || g.metodoPago === 'transferencia'))
+                                                        .reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                                                    // Calcular balances
+                                                    const ingresosCaja = parseFloat(turno.fondo_inicial || 0);
+                                                    const balanceRealEfectivo = ingresosCaja + ventasEfectivo - gastosEfectivo + entradasEfectivo;
+                                                    const balanceRealBanco = ventasBanco - gastosBanco + entradasBanco;
+
+                                                    totalAcumuladoCaja += balanceRealEfectivo;
+                                                    totalAcumuladoBancos += balanceRealBanco;
+                                                });
+
+                                                return (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                                        <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-4 shadow-md">
+                                                            <div className="flex items-center justify-between">
+                                                                <div>
+                                                                    <p className="text-sm text-green-700 font-medium mb-1">
+                                                                        <i className="fas fa-wallet mr-2"></i>Total Acumulado en Caja
+                                                                    </p>
+                                                                    <p className="text-3xl font-bold text-green-800">{formatCurrency(totalAcumuladoCaja)}</p>
+                                                                    <p className="text-xs text-green-600 mt-1">Efectivo disponible en caja física</p>
+                                                                </div>
+                                                                <i className="fas fa-money-bill-wave text-4xl text-green-500"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-4 shadow-md">
+                                                            <div className="flex items-center justify-between">
+                                                                <div>
+                                                                    <p className="text-sm text-blue-700 font-medium mb-1">
+                                                                        <i className="fas fa-university mr-2"></i>Total Acumulado en Bancos
+                                                                    </p>
+                                                                    <p className="text-3xl font-bold text-blue-800">{formatCurrency(totalAcumuladoBancos)}</p>
+                                                                    <p className="text-xs text-blue-600 mt-1">Fondos en cuentas bancarias</p>
+                                                                </div>
+                                                                <i className="fas fa-building text-4xl text-blue-500"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
                                             {/* Tabla de cortes */}
                                             {cortesArray.length === 0 ? (
                                                 <div className="text-center py-8 text-gray-500">
@@ -5089,77 +5230,92 @@
                         )}
 
                         {/* Modal - Apertura de Turno */}
-                        {showAperturaTurno && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                                        <i className="fas fa-door-open mr-2 text-blue-500"></i>
-                                        Apertura de Turno
-                                    </h2>
+                        {showAperturaTurno && (() => {
+                            const esLunes = new Date().getDay() === 1;
+                            return (
+                                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                            <i className="fas fa-door-open mr-2 text-blue-500"></i>
+                                            Apertura de Turno
+                                        </h2>
 
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Cajero
-                                            </label>
-                                            <select
-                                                value={formApertura.cajero}
-                                                onChange={(e) => setFormApertura(prev => ({...prev, cajero: e.target.value}))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        {!esLunes && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                                <p className="text-sm text-blue-800">
+                                                    <i className="fas fa-info-circle mr-2"></i>
+                                                    La caja abre automáticamente con el monto declarado del día anterior. Solo los lunes se puede modificar el fondo inicial.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Cajero
+                                                </label>
+                                                <select
+                                                    value={formApertura.cajero}
+                                                    onChange={(e) => setFormApertura(prev => ({...prev, cajero: e.target.value}))}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                >
+                                                    <option value="">Seleccionar cajero...</option>
+                                                    {CAJEROS.map(cajero => (
+                                                        <option key={cajero} value={cajero}>{cajero}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Contraseña del Sistema
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    value={formApertura.contraseña}
+                                                    onChange={(e) => setFormApertura(prev => ({...prev, contraseña: e.target.value}))}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Ingresa la contraseña"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Fondo Inicial {!esLunes && '(Automático)'}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={formApertura.fondoInicial}
+                                                    onChange={(e) => setFormApertura(prev => ({...prev, fondoInicial: e.target.value}))}
+                                                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 ${!esLunes ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                                    readOnly={!esLunes}
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {esLunes ? 'Fondo estándar: $1,000' : 'Monto tomado del corte anterior'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-4 mt-6">
+                                            <button
+                                                onClick={abrirTurno}
+                                                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                                             >
-                                                <option value="">Seleccionar cajero...</option>
-                                                {CAJEROS.map(cajero => (
-                                                    <option key={cajero} value={cajero}>{cajero}</option>
-                                                ))}
-                                            </select>
+                                                <i className="fas fa-check mr-2"></i>
+                                                Abrir Turno
+                                            </button>
+                                            <button
+                                                onClick={() => setShowAperturaTurno(false)}
+                                                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                            >
+                                                <i className="fas fa-times mr-2"></i>
+                                                Cancelar
+                                            </button>
                                         </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Contraseña del Sistema
-                                            </label>
-                                            <input
-                                                type="password"
-                                                value={formApertura.contraseña}
-                                                onChange={(e) => setFormApertura(prev => ({...prev, contraseña: e.target.value}))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                placeholder="Ingresa la contraseña"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Fondo Inicial
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={formApertura.fondoInicial}
-                                                onChange={(e) => setFormApertura(prev => ({...prev, fondoInicial: e.target.value}))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Fondo estándar: $1,000</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4 mt-6">
-                                        <button
-                                            onClick={abrirTurno}
-                                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-                                        >
-                                            <i className="fas fa-check mr-2"></i>
-                                            Abrir Turno
-                                        </button>
-                                        <button
-                                            onClick={() => setShowAperturaTurno(false)}
-                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
-                                        >
-                                            <i className="fas fa-times mr-2"></i>
-                                            Cancelar
-                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {/* Modal - Cierre de Turno */}
                         {showCierreTurno && (
