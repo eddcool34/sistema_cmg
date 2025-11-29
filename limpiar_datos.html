@@ -80,6 +80,36 @@
             font-weight: bold;
             color: #007bff;
         }
+        .password-section {
+            background-color: #e3f2fd;
+            border: 2px solid #2196F3;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .password-section input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .password-section button {
+            margin-top: 10px;
+        }
+        .hidden {
+            display: none;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -90,13 +120,23 @@
             <strong>⚠️ ADVERTENCIA:</strong> Esta acción eliminará permanentemente todos los datos de prueba almacenados en el navegador. Esta acción NO se puede deshacer.
         </div>
 
-        <div class="data-list" id="dataList">
-            <h3>Datos Almacenados Actualmente:</h3>
-            <div id="dataContent"></div>
+        <div class="password-section" id="passwordSection">
+            <h3>🔒 Autenticación Requerida</h3>
+            <p>Para acceder a las funciones de limpieza de datos, ingresa la contraseña:</p>
+            <input type="password" id="passwordInput" placeholder="Ingresa la contraseña">
+            <div class="error" id="errorMessage">❌ Contraseña incorrecta. Intenta nuevamente.</div>
+            <button class="btn-info" onclick="validarPassword()">🔓 Desbloquear</button>
         </div>
 
-        <button class="btn-info" onclick="mostrarDatos()">🔍 Ver Datos Almacenados</button>
-        <button class="btn-danger" onclick="limpiarTodo()">🗑️ Eliminar Todos los Datos</button>
+        <div class="hidden" id="contentSection">
+            <div class="data-list" id="dataList">
+                <h3>Datos Almacenados Actualmente:</h3>
+                <div id="dataContent"></div>
+            </div>
+
+            <button class="btn-info" onclick="mostrarDatos()">🔍 Ver Datos Almacenados</button>
+            <button class="btn-danger" onclick="limpiarTodo()">🗑️ Eliminar Todos los Datos</button>
+        </div>
 
         <div class="success" id="successMessage">
             ✅ Todos los datos han sido eliminados exitosamente.
@@ -104,7 +144,34 @@
     </div>
 
     <script>
+        const PASSWORD_CORRECTA = 'Qaswed12';
+        let autenticado = false;
+
+        function validarPassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const errorMessage = document.getElementById('errorMessage');
+            const passwordSection = document.getElementById('passwordSection');
+            const contentSection = document.getElementById('contentSection');
+
+            if (passwordInput.value === PASSWORD_CORRECTA) {
+                autenticado = true;
+                passwordSection.classList.add('hidden');
+                contentSection.classList.remove('hidden');
+                errorMessage.style.display = 'none';
+                mostrarDatos();
+            } else {
+                errorMessage.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        }
+
         function mostrarDatos() {
+            if (!autenticado) {
+                alert('⚠️ Debes autenticarte primero para ver los datos.');
+                return;
+            }
+
             const dataContent = document.getElementById('dataContent');
             let html = '';
 
@@ -125,6 +192,11 @@
         }
 
         function limpiarTodo() {
+            if (!autenticado) {
+                alert('⚠️ Debes autenticarte primero para limpiar los datos.');
+                return;
+            }
+
             if (confirm('¿Estás seguro de que deseas eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
                 // Limpiar completamente el localStorage (elimina TODA la cache)
                 localStorage.clear();
@@ -150,9 +222,15 @@
             }
         }
 
-        // Mostrar datos al cargar la página
+        // Permitir presionar Enter en el campo de contraseña
         window.onload = function() {
-            mostrarDatos();
+            const passwordInput = document.getElementById('passwordInput');
+            passwordInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    validarPassword();
+                }
+            });
+            passwordInput.focus();
         };
     </script>
 </body>

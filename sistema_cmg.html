@@ -5532,11 +5532,25 @@
 
     <!-- Script de depuración para limpiar turno -->
     <script>
-        // Funciones globales de depuración
+        // Contraseña de administrador
+        const PASSWORD_ADMIN = 'Qaswed12';
+
+        // Función para validar contraseña
+        function validarPasswordAdmin(mensaje) {
+            const password = prompt(mensaje || '🔒 Ingresa la contraseña de administrador para continuar:');
+            return password === PASSWORD_ADMIN;
+        }
+
+        // Funciones globales de depuración con protección de contraseña
         window.limpiarTurno = function() {
+            if (!validarPasswordAdmin('🔒 Esta acción requiere contraseña de administrador.\nIngresa la contraseña para eliminar el turno actual:')) {
+                console.log('❌ Acceso denegado: contraseña incorrecta');
+                alert('❌ Contraseña incorrecta. Acceso denegado.');
+                return;
+            }
             localStorage.removeItem('turnoActual');
             console.log('✅ Turno eliminado del localStorage. Recarga la página para ver la pantalla de apertura.');
-            alert('Turno eliminado. Recarga la página (F5 o Ctrl+R)');
+            alert('✅ Turno eliminado. Recarga la página (F5 o Ctrl+R)');
         };
 
         window.verTurno = function() {
@@ -5551,15 +5565,23 @@
         };
 
         window.limpiarTodo = function() {
-            localStorage.clear();
-            console.log('🗑️ localStorage completamente limpiado. Recarga la página.');
-            alert('localStorage limpiado. Recarga la página (F5 o Ctrl+R)');
+            if (!validarPasswordAdmin('🔒 ⚠️ ADVERTENCIA: Esta acción eliminará TODOS los datos.\nIngresa la contraseña de administrador para continuar:')) {
+                console.log('❌ Acceso denegado: contraseña incorrecta');
+                alert('❌ Contraseña incorrecta. Acceso denegado.');
+                return;
+            }
+            if (confirm('¿Estás COMPLETAMENTE SEGURO de eliminar TODOS los datos? Esta acción NO se puede deshacer.')) {
+                localStorage.clear();
+                console.log('🗑️ localStorage completamente limpiado. Recarga la página.');
+                alert('✅ localStorage limpiado. Recarga la página (F5 o Ctrl+R)');
+            }
         };
 
         console.log('%c🔧 Funciones de depuración disponibles:', 'font-weight: bold; font-size: 14px; color: #4CAF50;');
-        console.log('%c  limpiarTurno() - Elimina el turno actual', 'font-size: 12px; color: #2196F3;');
+        console.log('%c  limpiarTurno() - Elimina el turno actual (requiere contraseña)', 'font-size: 12px; color: #2196F3;');
         console.log('%c  verTurno() - Muestra el turno guardado', 'font-size: 12px; color: #2196F3;');
-        console.log('%c  limpiarTodo() - Limpia todo el localStorage', 'font-size: 12px; color: #FF5722;');
+        console.log('%c  limpiarTodo() - Limpia todo el localStorage (requiere contraseña)', 'font-size: 12px; color: #FF5722;');
+        console.log('%c  🔒 Contraseña requerida para funciones destructivas', 'font-size: 12px; color: #FF9800; font-weight: bold;');
     </script>
 </body>
 </html>
