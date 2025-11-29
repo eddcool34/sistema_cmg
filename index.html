@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="Sistema CMG - Portal de acceso para gestión de paquetería y logística">
     <title>Sistema CMG - Portal de Acceso</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -94,8 +96,8 @@
 
         .card-description {
             font-size: 14px;
-            color: #666;
-            line-height: 1.5;
+            color: #555;
+            line-height: 1.6;
         }
 
         .card.primary .card-icon {
@@ -116,8 +118,7 @@
 
         .footer {
             text-align: center;
-            color: white;
-            opacity: 0.8;
+            color: rgba(255, 255, 255, 0.9);
             margin-top: 40px;
         }
 
@@ -148,18 +149,108 @@
             transform: scale(1.05);
             box-shadow: 0 5px 20px rgba(255,255,255,0.3);
         }
+
+        /* Estados :focus para accesibilidad */
+        .card:focus {
+            outline: 3px solid #667eea;
+            outline-offset: 2px;
+        }
+
+        .quick-access-btn:focus {
+            outline: 3px solid #fff;
+            outline-offset: 2px;
+        }
+
+        /* Soporte para prefers-reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Mejoras para dispositivos táctiles */
+        @media (hover: none) {
+            .card:hover {
+                transform: none;
+            }
+
+            .card:active {
+                transform: scale(0.98);
+            }
+
+            .quick-access-btn:hover {
+                transform: none;
+            }
+
+            .quick-access-btn:active {
+                transform: scale(0.95);
+            }
+        }
+
+        /* Mejoras responsive para tablets */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 36px;
+            }
+
+            .logo {
+                font-size: 60px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .cards-grid {
+                gap: 15px;
+            }
+        }
+
+        /* Mejoras responsive para móviles */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 28px;
+            }
+
+            .subtitle {
+                font-size: 16px;
+            }
+
+            .quick-access-btn {
+                padding: 12px 30px;
+                font-size: 16px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            .card-icon {
+                font-size: 40px;
+                margin-bottom: 15px;
+            }
+
+            .card-title {
+                font-size: 18px;
+            }
+
+            .card-description {
+                font-size: 13px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
+    <main class="container">
+        <header class="header">
             <div class="logo">📦</div>
             <h1>Sistema CMG</h1>
             <p class="subtitle">Tu mejor socio en logística</p>
-        </div>
+        </header>
 
-        <div class="cards-grid">
-            <a href="sistema_cmg.html" class="card primary">
+        <section class="cards-grid">
+            <a href="sistema_cmg.html" class="card primary" aria-label="Acceder al Sistema Principal de gestión de paquetería y ventas">
                 <div class="card-icon">
                     <i class="fas fa-desktop"></i>
                 </div>
@@ -169,7 +260,7 @@
                 </div>
             </a>
 
-            <a href="test_cache_turno.html" class="card info">
+            <a href="test_cache_turno.html" class="card info" aria-label="Acceder a herramientas de Pruebas y Debug del sistema">
                 <div class="card-icon">
                     <i class="fas fa-vial"></i>
                 </div>
@@ -179,7 +270,7 @@
                 </div>
             </a>
 
-            <a href="limpiar_datos.html" class="card warning">
+            <a href="limpiar_datos.html" class="card warning" aria-label="Acceder a la herramienta de Limpieza de Datos del sistema">
                 <div class="card-icon">
                     <i class="fas fa-broom"></i>
                 </div>
@@ -189,7 +280,7 @@
                 </div>
             </a>
 
-            <a href="test_turno.html" class="card success">
+            <a href="test_turno.html" class="card success" aria-label="Acceder a las herramientas de Test de Turnos">
                 <div class="card-icon">
                     <i class="fas fa-clock"></i>
                 </div>
@@ -199,7 +290,7 @@
                 </div>
             </a>
 
-            <a href="clientes.html" class="card primary">
+            <a href="clientes.html" class="card primary" aria-label="Acceder a la gestión de Clientes y consultar su historial">
                 <div class="card-icon">
                     <i class="fas fa-users"></i>
                 </div>
@@ -209,7 +300,7 @@
                 </div>
             </a>
 
-            <a href="backup_datos.html" class="card success">
+            <a href="backup_datos.html" class="card success" aria-label="Acceder al sistema de Respaldo de Datos">
                 <div class="card-icon">
                     <i class="fas fa-shield-alt"></i>
                 </div>
@@ -218,7 +309,7 @@
                     Exporta, importa y asegura toda tu información con copias de seguridad.
                 </div>
             </a>
-        </div>
+        </section>
 
         <div class="quick-access">
             <h3 style="margin-bottom: 10px;">
@@ -230,7 +321,7 @@
             </button>
         </div>
 
-        <div class="footer">
+        <footer class="footer">
             <p>
                 <i class="fas fa-info-circle"></i>
                 Sistema de gestión integral para paquetería y logística
@@ -238,21 +329,32 @@
             <p style="margin-top: 10px; font-size: 12px;">
                 v2.1 - Gestión de Clientes y Respaldo de Datos
             </p>
-        </div>
-    </div>
+        </footer>
+    </main>
 
     <script>
-        // Agregar animación de entrada
+        // Mejorar la animación de entrada con IntersectionObserver
         document.addEventListener('DOMContentLoaded', function() {
             const cards = document.querySelectorAll('.card');
-            cards.forEach((card, index) => {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry, index) => {
+                    if (entry.isIntersecting) {
+                        setTimeout(() => {
+                            entry.target.style.opacity = '1';
+                            entry.target.style.transform = 'translateY(0)';
+                        }, index * 100);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+
+            cards.forEach(card => {
                 card.style.opacity = '0';
                 card.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    card.style.transition = 'all 0.5s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 100);
+                card.style.transition = 'all 0.5s ease';
+                observer.observe(card);
             });
         });
     </script>
