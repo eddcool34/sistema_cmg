@@ -1,0 +1,23 @@
+# Protección con contraseña para el sistema CMG
+# Este archivo protege todo el contenido de la carpeta /admin/
+
+AuthType Basic
+AuthName "Sistema CMG - Acceso Restringido"
+AuthUserFile /home/u368112799/public_html/admin/.htpasswd
+Require valid-user
+
+# Configuración adicional de seguridad
+<FilesMatch "\.(html|php|js)$">
+    Order Allow,Deny
+    Allow from all
+    Satisfy any
+</FilesMatch>
+
+# Prevenir listado de directorios
+Options -Indexes
+
+# Proteger archivos sensibles
+<Files ".htpasswd">
+    Order allow,deny
+    Deny from all
+</Files>

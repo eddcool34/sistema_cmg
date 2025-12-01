@@ -10,6 +10,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- API Connector para conexión con base de datos MySQL en Hostinger -->
+    <script src="api/api-connector.js"></script>
+
     <style>
         /* Estilos para modales */
         .modal-overlay {
@@ -59,13 +63,12 @@
         const { useState, useEffect, useRef } = React;
         const { jsPDF } = window.jspdf;
 
-        // ========== CONFIGURACIÓN DE GOOGLE SHEETS ==========
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzogyvznEQB286BUgsG5U_i4vF1G2G7jQR93sjbMK1se9ElYteqXaWq-yHd6hv2IQQlig/exec';
+        // ========== CONFIGURACIÓN DE API ==========
+        // La API se conecta a MySQL en Hostinger
+        // El archivo api-connector.js maneja todas las llamadas a la base de datos
 
-        // ID de tu Google Sheet (reemplaza con el ID real de tu hoja)
-        // Para obtenerlo: abre tu Google Sheet y copia el ID de la URL
-        // Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit
-        const GOOGLE_SHEET_ID = '1YourSheetIdHere'; // ⚠️ REEMPLAZAR CON TU ID REAL
+        // MIGRADO A MYSQL - Ya no se usa Google Sheets
+        // const GOOGLE_SCRIPT_URL = 'https://script.google.com/...' // ❌ DEPRECADO
 
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
@@ -188,24 +191,23 @@
             return errores;
         };
 
-        // ========== FUNCIONES DE GOOGLE SHEETS ==========
-        
-        // Guardar venta en Google Sheets
+        // ========== FUNCIONES DE BASE DE DATOS (MySQL en Hostinger) ==========
+
+        // Guardar venta en MySQL
         const guardarVentaEnSheets = async (venta) => {
             try {
                 // Preparar datos según tipo de operación
                 let remitente, telRemitente, destinatario, telDestinatario, paqueteria, servicio;
 
                 if (venta.tipoOperacion === 'servicio') {
-                    // Para servicios, usar datos del cliente
+                    // Para servicios
                     remitente = venta.nombreCliente;
                     telRemitente = venta.telefonoCliente;
                     destinatario = '-';
                     telDestinatario = '-';
-                    // Obtener el nombre del servicio
                     const servicioInfo = SERVICIOS_DISPONIBLES.find(s => s.id === venta.tipoServicioSeleccionado);
-                    paqueteria = servicioInfo ? servicioInfo.nombre : 'Servicio';
-                    servicio = 'Servicio';
+                    paqueteria = null;
+                    servicio = servicioInfo ? servicioInfo.nombre : 'Servicio';
                 } else {
                     // Para envíos, devoluciones y entregas
                     remitente = venta.nombreRemitente;
@@ -216,46 +218,66 @@
                     servicio = venta.tipoOperacion === 'devolucion' ? 'Devolución' : venta.tipoServicio;
                 }
 
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'guardarVenta',
-                        fecha: new Date(venta.fecha).toLocaleDateString('es-MX'),
-                        hora: new Date(venta.fecha).toLocaleTimeString('es-MX'),
-                        remitente: remitente,
-                        telRemitente: telRemitente,
-                        destinatario: destinatario,
-                        telDestinatario: telDestinatario,
-                        direccion: venta.direccion ? `${venta.direccion} #${venta.numero}, ${venta.colonia}` : '-',
-                        codigoPostal: venta.codigoPostal || '-',
-                        ciudad: venta.colonia || '-',
-                        estado: venta.estado || '-',
-                        pais: venta.pais || 'México',
-                        paqueteria: paqueteria,
-                        servicio: servicio,
-                        precio: venta.precio,
-                        costo: venta.costo,
-                        ganancia: parseFloat(venta.precio) - parseFloat(venta.costo),
-                        numeroGuia: venta.numeroGuia || venta.id
-                    })
-                });
+                const turnoActualData = JSON.parse(localStorage.getItem('turnoActual') || 'null');
 
-                console.log('✅ Venta guardada en Google Sheets');
+                // Preparar datos para MySQL
+                const ventaData = {
+                    tipo_operacion: venta.tipoOperacion,
+                    numero_guia: venta.numeroGuia || venta.id,
+                    cliente_nombre: remitente,
+                    cliente_telefono: telRemitente,
+                    destinatario: destinatario,
+                    telefono_destinatario: telDestinatario,
+                    origen: venta.direccion ? `${venta.direccion} #${venta.numero || ''}, ${venta.colonia || ''}` : null,
+                    destino: `${venta.ciudad || ''}, ${venta.estado || 'México'}`,
+                    tipo_servicio: servicio,
+                    precio: parseFloat(venta.precio || 0),
+                    metodo_pago: venta.metodoPago || 'efectivo',
+                    comision: parseFloat(venta.costo || 0),
+                    total_pago: parseFloat(venta.precio || 0),
+                    paqueteria: paqueteria,
+                    servicio_nombre: venta.tipoOperacion === 'servicio' ? servicio : null,
+                    ruta_guia: venta.rutaGuia || null,
+                    turno_id: turnoActualData?.turno_id || null,
+                    cajero: turnoActualData?.cajero || null,
+                    fecha_venta: new Date(venta.fecha).toISOString().slice(0, 19).replace('T', ' ')
+                };
+
+                // Usar API connector
+                await guardarVentaAPI(ventaData);
+                console.log('✅ Venta guardada en MySQL');
                 return true;
             } catch (error) {
-                console.error('❌ Error al guardar en Google Sheets:', error);
+                console.error('❌ Error al guardar venta en BD:', error);
                 return false;
             }
         };
 
-        // Guardar cliente en Google Sheets
+        // Guardar cliente en MySQL
+        const guardarClienteEnDB = async (cliente) => {
+            try {
+                const clienteData = {
+                    nombre: cliente.nombre,
+                    telefono: cliente.telefono,
+                    email: cliente.email || null,
+                    direccion: cliente.direccion || null
+                };
+
+                await guardarClienteAPI(clienteData);
+                console.log('✅ Cliente guardado en MySQL');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar cliente:', error);
+                return false;
+            }
+        };
+
+        // Función deprecada - mantener por compatibilidad temporal
         const guardarClienteEnSheets = async (cliente) => {
             try {
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                return await guardarClienteEnDB(cliente);
+            } catch (error) {
+                const response = await fetch('', {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: {
@@ -278,32 +300,40 @@
             }
         };
 
-        // Cargar ventas desde Google Sheets
-        const cargarVentasDesdeSheets = async () => {
+        // Cargar ventas desde MySQL
+        const cargarVentasDesdeDB = async (filtros = {}) => {
             try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerVentas`);
-                const data = await response.json();
-
-                if (data.success && data.ventas) {
-                    console.log('✅ Ventas cargadas desde Google Sheets:', data.ventas.length);
-                    return data.ventas;
-                }
-                return [];
+                const ventas = await obtenerVentasAPI(filtros);
+                console.log('✅ Ventas cargadas desde MySQL:', ventas.length);
+                return ventas;
             } catch (error) {
-                console.error('❌ Error al cargar ventas desde Google Sheets:', error);
-                return [];
+                console.error('❌ Error al cargar ventas desde BD:', error);
+                // Fallback a localStorage
+                const ventasLocal = localStorage.getItem('ventas');
+                return ventasLocal ? JSON.parse(ventasLocal) : [];
             }
         };
 
-        // Guardar en hoja de ventas por paquetería
+        // Función deprecada - mantener por compatibilidad
+        const cargarVentasDesdeSheets = cargarVentasDesdeDB;
+
+        // Función deprecada - los datos ya se guardan automáticamente en MySQL
         const guardarVentaPorPaqueteria = async (venta) => {
+            // Ya no es necesario, la venta se guarda una sola vez en MySQL
+            // y se pueden filtrar por paquetería desde la base de datos
+            console.log('ℹ️ Venta ya guardada en MySQL (guardarVentaPorPaqueteria deprecado)');
+            return true;
+        };
+
+        // Función temporal que no hace nada - eliminada la llamada a Google Sheets
+        const _guardarVentaPorPaqueteriaOLD = async (venta) => {
             try {
                 const fecha = new Date(venta.fecha);
                 const mes = fecha.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
                 const paqueteria = venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria;
                 const tipoServicio = venta.tipoOperacion === 'devolucion' ? 'devolucion' : venta.tipoServicio;
 
-                await fetch(GOOGLE_SCRIPT_URL, {
+                await fetch('', {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: {
@@ -1027,17 +1057,12 @@
 
                     setSyncStatus({ syncing: true, message: 'Abriendo turno...' });
 
-                    // Enviar a Google Sheets
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            action: 'openTurno',
-                            ...nuevoTurno
-                        })
+                    // Enviar a MySQL (Hostinger)
+                    await guardarTurnoAPI({
+                        turno_id: nuevoTurno.turno_id,
+                        cajero: nuevoTurno.cajero,
+                        fondo_inicial: nuevoTurno.fondo_inicial,
+                        fecha_apertura: new Date().toISOString().slice(0, 19).replace('T', ' ')
                     });
 
                     // Guardar localmente
@@ -1093,18 +1118,25 @@
 
                     setSyncStatus({ syncing: true, message: 'Cerrando turno...' });
 
-                    // Enviar a Google Sheets
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            action: 'cerrarTurno',
-                            ...corte,
-                            turno_id: turnoActual.turno_id
-                        })
+                    // Calcular totales de ventas (falta implementar - tomamos de localStorage)
+                    const ventasDelTurno = ventas.filter(v => v.turno_id === turnoActual.turno_id);
+                    const totalEfectivo = ventasDelTurno.filter(v => v.metodo_pago === 'efectivo').reduce((sum, v) => sum + parseFloat(v.total_pago || 0), 0);
+                    const totalTarjeta = ventasDelTurno.filter(v => v.metodo_pago === 'tarjeta').reduce((sum, v) => sum + parseFloat(v.total_pago || 0), 0);
+                    const totalTransferencia = ventasDelTurno.filter(v => v.metodo_pago === 'transferencia').reduce((sum, v) => sum + parseFloat(v.total_pago || 0), 0);
+
+                    // Enviar a MySQL
+                    await cerrarTurnoAPI({
+                        turno_id: turnoActual.turno_id,
+                        fecha_cierre: new Date().toISOString().slice(0, 19).replace('T', ' '),
+                        total_ventas_efectivo: totalEfectivo,
+                        total_ventas_tarjeta: totalTarjeta,
+                        total_ventas_transferencia: totalTransferencia,
+                        total_gastos: gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0),
+                        efectivo_final: montoContado,
+                        efectivo_esperado: turnoActual.fondo_inicial + totalEfectivo,
+                        diferencia: montoContado - (turnoActual.fondo_inicial + totalEfectivo),
+                        billetes_monedas: formCierre.denominaciones,
+                        notas: formCierre.observaciones
                     });
 
                     // Guardar en historial local
@@ -1173,17 +1205,14 @@
 
                     setSyncStatus({ syncing: true, message: 'Guardando gasto...' });
 
-                    // Enviar a Google Sheets
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            action: 'guardarGasto',
-                            ...gasto
-                        })
+                    // Enviar a MySQL
+                    await guardarGastoAPI({
+                        turno_id: gasto.turno_id,
+                        cajero: gasto.cajero,
+                        concepto: gasto.concepto,
+                        monto: gasto.monto,
+                        notas: `Tipo: ${gasto.tipo}, Método: ${gasto.metodo_pago}, Cuenta: ${gasto.cuenta_afectada}`,
+                        fecha_gasto: new Date(gasto.fecha).toISOString().slice(0, 19).replace('T', ' ')
                     });
 
                     // Actualizar gastos localmente
