@@ -575,49 +575,55 @@
             // Cargar datos al iniciar
             useEffect(() => {
                 const cargarDatos = async () => {
-                    setSyncStatus({ syncing: true, message: 'Cargando datos...' });
-                    
-                    // Intentar cargar desde Google Sheets primero
-                    const ventasSheets = await cargarVentasDesdeSheets();
-                    
-                    if (ventasSheets.length > 0) {
-                        // Convertir las ventas de Sheets al formato de la app
-                        const ventasConvertidas = ventasSheets.map(v => ({
-                            id: v.numeroGuia || `ENV-${Date.now()}`,
-                            fecha: v.fecha || v.fechaRegistro || new Date().toISOString(), // Usar fecha original de Sheets
-                            nombreRemitente: v.remitente,
-                            telefonoRemitente: v.telRemitente,
-                            nombreDestinatario: v.destinatario,
-                            telefonoDestinatario: v.telDestinatario,
-                            direccion: v.direccion,
-                            codigoPostal: v.codigoPostal,
-                            colonia: v.ciudad,
-                            estado: v.estado,
-                            pais: v.pais,
-                            paqueteria: v.paqueteria,
-                            tipoServicio: v.servicio,
-                            precio: v.precio,
-                            costo: v.costo,
-                            tipoOperacion: 'envio',
-                            estadoVenta: 'activa'
-                        }));
-                        
-                        setVentas(ventasConvertidas);
-                        localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
-                        setSyncStatus({ syncing: false, message: '✅ Sincronizado con Google Sheets' });
-                    } else {
-                        // Si no hay datos en Sheets, cargar desde localStorage
+                    setSyncStatus({ syncing: true, message: 'Cargando datos desde API...' });
+
+                    try {
+                        // Intentar cargar desde la API PHP
+                        const ventasAPI = await cargarVentasDesdeSheets(); // Usa la misma función pero ahora apunta a la API
+
+                        if (ventasAPI.length > 0) {
+                            // Convertir las ventas de la API al formato de la app
+                            const ventasConvertidas = ventasAPI.map(v => ({
+                                id: v.num_guia || v.id || `ENV-${Date.now()}`,
+                                fecha: v.fecha || new Date().toISOString(),
+                                nombreRemitente: v.cliente_nombre || '',
+                                telefonoRemitente: '',
+                                nombreDestinatario: '',
+                                telefonoDestinatario: '',
+                                direccion: '',
+                                codigoPostal: v.codigo_postal || '',
+                                colonia: v.ciudad || '',
+                                estado: v.estado || '',
+                                pais: 'México',
+                                paqueteria: v.paqueteria || '',
+                                tipoServicio: 'nacional',
+                                precio: v.total || 0,
+                                costo: v.costo_envio || 0,
+                                tipoOperacion: 'envio',
+                                estadoVenta: 'activa'
+                            }));
+
+                            setVentas(ventasConvertidas);
+                            localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
+                            setSyncStatus({ syncing: false, message: '✅ Sincronizado con API PHP' });
+                        } else {
+                            setSyncStatus({ syncing: false, message: '📋 Sin datos registrados' });
+                        }
+                    } catch (error) {
+                        console.error('❌ Error al cargar desde API:', error);
+
+                        // Fallback: cargar desde localStorage
                         const ventasGuardadas = localStorage.getItem('ventas');
                         if (ventasGuardadas) {
                             try {
                                 setVentas(JSON.parse(ventasGuardadas));
-                                setSyncStatus({ syncing: false, message: '📂 Datos cargados localmente' });
+                                setSyncStatus({ syncing: false, message: '📂 Datos cargados localmente (sin conexión)' });
                             } catch (error) {
                                 console.error('Error al cargar ventas:', error);
                                 setSyncStatus({ syncing: false, message: '⚠️ Error al cargar datos' });
                             }
                         } else {
-                            setSyncStatus({ syncing: false, message: '📋 Sin datos registrados' });
+                            setSyncStatus({ syncing: false, message: '⚠️ Error de conexión con API' });
                         }
                     }
 
@@ -1690,11 +1696,39 @@
                     }
                 }
 
-                // Actualizar estado local
-                setVentas(prev => [...prev, nuevaVenta]);
+                // Recargar ventas desde la API para obtener la versión más actualizada
+                try {
+                    const ventasAPI = await cargarVentasDesdeSheets();
+                    if (ventasAPI.length > 0) {
+                        const ventasConvertidas = ventasAPI.map(v => ({
+                            id: v.num_guia || v.id || `ENV-${Date.now()}`,
+                            fecha: v.fecha || new Date().toISOString(),
+                            nombreRemitente: v.cliente_nombre || '',
+                            telefonoRemitente: '',
+                            nombreDestinatario: '',
+                            telefonoDestinatario: '',
+                            direccion: '',
+                            codigoPostal: v.codigo_postal || '',
+                            colonia: v.ciudad || '',
+                            estado: v.estado || '',
+                            pais: 'México',
+                            paqueteria: v.paqueteria || '',
+                            tipoServicio: 'nacional',
+                            precio: v.total || 0,
+                            costo: v.costo_envio || 0,
+                            tipoOperacion: 'envio',
+                            estadoVenta: 'activa'
+                        }));
+                        setVentas(ventasConvertidas);
+                        localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
+                    }
+                } catch (error) {
+                    console.log('⚠️ No se pudo recargar desde API, usando datos locales');
+                    setVentas(prev => [...prev, nuevaVenta]);
+                }
 
                 if (guardadoExitoso) {
-                    setSyncStatus({ syncing: false, message: '✅ Guardado en Google Sheets' });
+                    setSyncStatus({ syncing: false, message: '✅ Guardado en API PHP' });
                 } else {
                     setSyncStatus({ syncing: false, message: '⚠️ Guardado localmente (sin conexión)' });
                 }
@@ -2623,15 +2657,66 @@
                                             Sistema CMG
                                         </h1>
                                         <p className="text-lg text-gray-600">Paquetería CMG</p>
-                                        <p className="text-xs text-green-600 mt-1">
-                                            <i className="fas fa-cloud mr-1"></i>
-                                            Conectado a Google Sheets
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            <i className="fas fa-database mr-1"></i>
+                                            Conectado a API PHP
                                         </p>
                                     </div>
                                 </div>
 
-                                {/* Indicador de Turno */}
-                                <div className="text-right">
+                                {/* Botón de Sincronizar */}
+                                <div className="flex gap-4 items-center">
+                                    <button
+                                        onClick={async () => {
+                                            setSyncStatus({ syncing: true, message: 'Sincronizando...' });
+                                            try {
+                                                const ventasAPI = await cargarVentasDesdeSheets();
+                                                if (ventasAPI.length > 0) {
+                                                    const ventasConvertidas = ventasAPI.map(v => ({
+                                                        id: v.num_guia || v.id || `ENV-${Date.now()}`,
+                                                        fecha: v.fecha || new Date().toISOString(),
+                                                        nombreRemitente: v.cliente_nombre || '',
+                                                        telefonoRemitente: '',
+                                                        nombreDestinatario: '',
+                                                        telefonoDestinatario: '',
+                                                        direccion: '',
+                                                        codigoPostal: v.codigo_postal || '',
+                                                        colonia: v.ciudad || '',
+                                                        estado: v.estado || '',
+                                                        pais: 'México',
+                                                        paqueteria: v.paqueteria || '',
+                                                        tipoServicio: 'nacional',
+                                                        precio: v.total || 0,
+                                                        costo: v.costo_envio || 0,
+                                                        tipoOperacion: 'envio',
+                                                        estadoVenta: 'activa'
+                                                    }));
+                                                    setVentas(ventasConvertidas);
+                                                    localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
+                                                    setSyncStatus({ syncing: false, message: '✅ Sincronizado' });
+                                                    showNotification('✅ Datos sincronizados correctamente', 'success');
+                                                } else {
+                                                    setSyncStatus({ syncing: false, message: '📋 Sin datos' });
+                                                }
+                                            } catch (error) {
+                                                console.error('Error al sincronizar:', error);
+                                                setSyncStatus({ syncing: false, message: '⚠️ Error de conexión' });
+                                                showNotification('Error al sincronizar con la API', 'error');
+                                            }
+                                        }}
+                                        disabled={syncStatus.syncing}
+                                        className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                            syncStatus.syncing
+                                                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                        }`}
+                                    >
+                                        <i className={`fas ${syncStatus.syncing ? 'fa-spinner fa-spin' : 'fa-sync-alt'} mr-2`}></i>
+                                        {syncStatus.syncing ? 'Sincronizando...' : 'Sincronizar'}
+                                    </button>
+
+                                    {/* Indicador de Turno */}
+                                    <div className="text-right">
                                     {turnoActual ? (
                                         <div className="bg-green-100 border border-green-300 rounded-lg p-4">
                                             <p className="text-sm font-semibold text-green-800">
@@ -2665,6 +2750,7 @@
                                             </button>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
