@@ -1463,13 +1463,13 @@
                             doc.text('Peso', 175, yPos);
 
                             doc.setFont(undefined, 'normal');
-                            let totalGeneral = 0;
+                            let totalDeclaraciones = 0;
                             venta.declaraciones.forEach((dec, index) => {
                                 yPos += 6;
                                 const cantidad = parseFloat(dec.cantidad) || 1;
                                 const precio = parseFloat(dec.costo) || 0;
                                 const valor = cantidad * precio;
-                                totalGeneral += valor;
+                                totalDeclaraciones += valor;
 
                                 doc.text(`${index + 1}`, 20, yPos);
                                 doc.text(dec.cantidad || '1', 32, yPos);
@@ -1479,18 +1479,68 @@
                                 doc.text(dec.peso ? `${dec.peso} kg` : '-', 175, yPos);
                             });
 
-                            // Agregar línea separadora y total
-                            if (totalGeneral > 0) {
-                                yPos += 8;
-                                doc.setFont(undefined, 'bold');
-                                doc.text('TOTAL:', 120, yPos);
-                                doc.text(`$${totalGeneral.toFixed(2)}`, 150, yPos);
-                            }
-
                             yPos += 10;
                         } else {
                             yPos = 150;
                         }
+                    }
+
+                    // INFORMACIÓN DE PAGO (al final del documento)
+                    if (venta.tipoOperacion !== 'entrega') {
+                        let yPosPago = 200;
+
+                        doc.setFontSize(14);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('INFORMACIÓN DE PAGO', 20, yPosPago);
+
+                        doc.setDrawColor(0, 0, 0);
+                        doc.line(20, yPosPago + 2, 190, yPosPago + 2);
+
+                        yPosPago += 10;
+                        doc.setFontSize(11);
+                        doc.setFont(undefined, 'normal');
+
+                        const precioServicio = parseFloat(venta.precio) || 0;
+                        const impuesto = parseFloat(venta.impuesto) || 0;
+                        const totalDeclaraciones = (venta.declaraciones && venta.declaraciones.length > 0)
+                            ? venta.declaraciones.reduce((sum, dec) => {
+                                const cantidad = parseFloat(dec.cantidad) || 1;
+                                const precio = parseFloat(dec.costo) || 0;
+                                return sum + (cantidad * precio);
+                            }, 0)
+                            : 0;
+                        const totalAPagar = precioServicio + impuesto;
+
+                        doc.text(`Precio del Servicio:`, 20, yPosPago);
+                        doc.text(`$${precioServicio.toFixed(2)}`, 190, yPosPago, { align: 'right' });
+
+                        if (impuesto > 0) {
+                            yPosPago += 6;
+                            doc.text(`Impuesto:`, 20, yPosPago);
+                            doc.text(`$${impuesto.toFixed(2)}`, 190, yPosPago, { align: 'right' });
+                        }
+
+                        if (totalDeclaraciones > 0) {
+                            yPosPago += 6;
+                            doc.text(`Valor Declarado:`, 20, yPosPago);
+                            doc.text(`$${totalDeclaraciones.toFixed(2)}`, 190, yPosPago, { align: 'right' });
+                        }
+
+                        yPosPago += 8;
+                        doc.setDrawColor(0, 0, 0);
+                        doc.line(20, yPosPago, 190, yPosPago);
+
+                        yPosPago += 6;
+                        doc.setFontSize(13);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('TOTAL A PAGAR:', 20, yPosPago);
+                        doc.text(`$${totalAPagar.toFixed(2)}`, 190, yPosPago, { align: 'right' });
+
+                        yPosPago += 8;
+                        doc.setFontSize(11);
+                        doc.setFont(undefined, 'normal');
+                        const metodoPago = venta.metodoPago || 'efectivo';
+                        doc.text(`Método de Pago: ${metodoPago.toUpperCase()}`, 20, yPosPago);
                     }
 
                     // Pie de página
