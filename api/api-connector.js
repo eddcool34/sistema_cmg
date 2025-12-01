@@ -14,8 +14,8 @@
  * 3. Usa las funciones proporcionadas en lugar de fetch directo
  */
 
-// ⚠️ CONFIGURACIÓN: Cambia esto con tu dominio real
-const API_URL = 'https://tu-dominio.com/api/';
+// Configuración de la API
+const API_URL = 'https://paqueteriacmg.com/api/';
 
 /**
  * Clase para manejar todas las operaciones de la API

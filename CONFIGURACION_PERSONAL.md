@@ -40,28 +40,15 @@ Contraseña: ********** (ya configurada en config.php)
 
 ---
 
-### ⚠️ PASO 2: Configurar tu dominio en config.php
+### ✅ PASO 2: Dominio configurado
 
-**IMPORTANTE:** Necesito saber cuál es tu dominio de Hostinger para configurar CORS.
+**Tu dominio:** `paqueteriacmg.com`
 
-**¿Cuál es tu dominio?** Por ejemplo:
-- `miempresa.com`
-- `sistema-cmg.com`
-- `cmgpaqueteria.online`
+✅ **Ya está configurado** en los archivos:
+- `api/config.php` (líneas 16-21): CORS configurado para tu dominio
+- `api/api-connector.js` (línea 18): URL de API configurada
 
-Una vez que me digas tu dominio, debes editar el archivo **`api/config.php`** en Hostinger:
-
-**Líneas 17-18**, cambiar de:
-```php
-'https://tu-dominio.com',
-'https://www.tu-dominio.com',
-```
-
-**A:** (ejemplo si tu dominio es `miempresa.com`)
-```php
-'https://miempresa.com',
-'https://www.miempresa.com',
-```
+**No necesitas hacer nada en este paso.** Solo asegúrate de subir estos archivos a Hostinger.
 
 ---
 
@@ -114,10 +101,10 @@ Tienes **2 opciones**:
 ```
 
 4. Abre el archivo **`api/api-connector.js`**
-5. En la **línea 15**, cambia:
+5. Verifica que en la **línea 18** diga:
 
 ```javascript
-const API_URL = 'https://TU-DOMINIO-AQUI.com/api/';  // ⚠️ Reemplaza con tu dominio real
+const API_URL = 'https://paqueteriacmg.com/api/';  // ✅ Ya configurado
 ```
 
 6. Busca en `sistema_cmg.html` todas las funciones que llaman a `GOOGLE_SCRIPT_URL`
@@ -146,7 +133,7 @@ Una vez subidos los archivos:
 
 1. **Probar la API directamente:**
    - Abre tu navegador
-   - Ve a: `https://TU-DOMINIO.com/api/?action=obtenerVentas`
+   - Ve a: `https://paqueteriacmg.com/api/?action=obtenerVentas`
    - Deberías ver algo como:
    ```json
    {
@@ -162,7 +149,7 @@ Una vez subidos los archivos:
    - Que el archivo esté en la carpeta `public_html/api/`
 
 2. **Probar el sistema completo:**
-   - Abre: `https://TU-DOMINIO.com/sistema_cmg.html`
+   - Abre: `https://paqueteriacmg.com/sistema_cmg.html`
    - Presiona **F12** para abrir la consola del navegador
    - Deberías ver:
    ```
