@@ -1,0 +1,27 @@
+# Habilitar motor de reescritura
+RewriteEngine On
+
+# Permitir acceso al archivo index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Configuración de seguridad
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Prevenir listado de directorios
+Options -Indexes
+
+# Proteger contra XSS
+<IfModule mod_headers.c>
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# Límite de tamaño de subida (para archivos PDF)
+php_value upload_max_filesize 10M
+php_value post_max_size 10M

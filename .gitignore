@@ -1,0 +1,27 @@
+# Archivos de configuración con datos sensibles
+api/config.php
+
+# Archivos de respaldo de base de datos
+*.sql.backup
+*.sql.gz
+backups/
+
+# Archivos temporales
+*.tmp
+*.log
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Directorios de IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Node modules (si se usa en el futuro)
+node_modules/
+
+# Variables de entorno
+.env
+.env.local
