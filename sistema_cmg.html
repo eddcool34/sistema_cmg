@@ -574,6 +574,8 @@
                 membresia: 'no',
                 totalPagar: '0'
             });
+            const [paqueteALiberar, setPaqueteALiberar] = useState(null); // Paquete seleccionado para liberar
+            const [metodoPagoLiberacion, setMetodoPagoLiberacion] = useState('efectivo');
             
             // Estados para pago en efectivo
             const [montoPagado, setMontoPagado] = useState('');
@@ -1732,25 +1734,41 @@
                 }
             };
 
-            const marcarPaqueteComoEntregado = async (paqueteId) => {
-                if (!confirm('¿Marcar este paquete como entregado?')) {
+            const iniciarLiberacionPaquete = (paqueteId) => {
+                const paquete = paquetesRecibidos.find(p => p.id === paqueteId);
+                if (paquete) {
+                    setPaqueteALiberar(paquete);
+                    setMetodoPagoLiberacion('efectivo');
+                }
+            };
+
+            const confirmarLiberacionPaquete = async () => {
+                if (!paqueteALiberar) return;
+
+                // Validar que haya un turno abierto
+                if (!turnoActual) {
+                    showNotification('⚠️ Debe abrir un turno antes de liberar paquetes', 'error');
+                    setPaqueteALiberar(null);
                     return;
                 }
 
                 setLoading(true);
-                setSyncStatus({ syncing: true, message: 'Actualizando paquete...' });
+                setSyncStatus({ syncing: true, message: 'Liberando paquete...' });
 
                 try {
-                    const paqueteIndex = paquetesRecibidos.findIndex(p => p.id === paqueteId);
+                    const fechaActual = new Date();
+                    const paqueteIndex = paquetesRecibidos.findIndex(p => p.id === paqueteALiberar.id);
                     if (paqueteIndex === -1) return;
 
+                    // Actualizar paquete
                     const paqueteActualizado = {
                         ...paquetesRecibidos[paqueteIndex],
                         estado: 'entregado',
-                        fechaEntrega: new Date().toISOString()
+                        fechaEntrega: fechaActual.toISOString(),
+                        metodoPagoLiberacion: metodoPagoLiberacion
                     };
 
-                    // Actualizar en Google Sheets
+                    // Actualizar paquete en Google Sheets
                     await fetch(SHEETS_URL_PAQUETES, {
                         method: 'POST',
                         mode: 'no-cors',
@@ -1761,16 +1779,50 @@
                         })
                     });
 
-                    // Actualizar estado local
+                    // Registrar entrada en caja si tiene monto
+                    const totalPagar = parseFloat(paqueteALiberar.totalPagar) || 0;
+                    if (totalPagar > 0) {
+                        const entrada = {
+                            gasto_id: `ENTRADA-PKG-${Date.now()}`,
+                            fecha: fechaActual.toISOString().split('T')[0],
+                            hora: fechaActual.toLocaleTimeString('es-MX'),
+                            turno_id: turnoActual.turno_id,
+                            cajero: turnoActual.cajero,
+                            concepto: `Liberación de paquete ${paqueteALiberar.id} - ${paqueteALiberar.destinatario}`,
+                            monto: totalPagar,
+                            tipo: 'entrada',
+                            metodo_pago: metodoPagoLiberacion,
+                            cuenta_afectada: MAPEO_CUENTA[metodoPagoLiberacion] || 'Cash'
+                        };
+
+                        // Guardar entrada en Google Sheets
+                        await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'guardarGasto',
+                                ...entrada
+                            })
+                        });
+
+                        // Actualizar gastos localmente
+                        const nuevosGastos = [...gastos, entrada];
+                        setGastos(nuevosGastos);
+                        localStorage.setItem('gastos', JSON.stringify(nuevosGastos));
+                    }
+
+                    // Actualizar estado local de paquetes
                     const nuevosPaquetes = [...paquetesRecibidos];
                     nuevosPaquetes[paqueteIndex] = paqueteActualizado;
                     setPaquetesRecibidos(nuevosPaquetes);
 
                     setSyncStatus({ syncing: false, message: '✅ Actualizado' });
-                    showNotification('Paquete marcado como entregado');
+                    showNotification(`Paquete liberado y ${totalPagar > 0 ? `$${totalPagar.toFixed(2)} registrado en caja` : 'registrado'}`);
+                    setPaqueteALiberar(null);
                 } catch (error) {
-                    console.error('Error al actualizar paquete:', error);
-                    showNotification('Error al actualizar el paquete', 'error');
+                    console.error('Error al liberar paquete:', error);
+                    showNotification('Error al liberar el paquete', 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -5626,7 +5678,7 @@
                                                         <td className="px-4 py-3 text-sm">
                                                             {paquete.estado === 'almacen' && (
                                                                 <button
-                                                                    onClick={() => marcarPaqueteComoEntregado(paquete.id)}
+                                                                    onClick={() => iniciarLiberacionPaquete(paquete.id)}
                                                                     className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-xs"
                                                                     disabled={loading}
                                                                 >
@@ -5970,6 +6022,76 @@
                                                 setShowDenominacionesModal(false);
                                             }}
                                             className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-times mr-2"></i>
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal - Liberación de Paquete */}
+                        {paqueteALiberar && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-hand-holding-usd mr-2 text-green-500"></i>
+                                        Liberar Paquete
+                                    </h2>
+
+                                    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                                        <p className="text-sm text-gray-700 mb-2">
+                                            <strong>Folio:</strong> {paqueteALiberar.id}
+                                        </p>
+                                        <p className="text-sm text-gray-700 mb-2">
+                                            <strong>Destinatario:</strong> {paqueteALiberar.destinatario}
+                                        </p>
+                                        <p className="text-sm text-gray-700 mb-2">
+                                            <strong>Paquetes:</strong> {paqueteALiberar.numeroPaquetes}
+                                        </p>
+                                        <p className="text-lg text-gray-900 font-bold mt-3">
+                                            <strong>Total a Cobrar:</strong> ${parseFloat(paqueteALiberar.totalPagar).toFixed(2)}
+                                        </p>
+                                    </div>
+
+                                    {parseFloat(paqueteALiberar.totalPagar) > 0 && (
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-credit-card mr-2"></i>Método de Pago *
+                                            </label>
+                                            <select
+                                                value={metodoPagoLiberacion}
+                                                onChange={(e) => setMetodoPagoLiberacion(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="efectivo">💵 Efectivo</option>
+                                                <option value="tarjeta">💳 Tarjeta</option>
+                                                <option value="transferencia">🏦 Transferencia</option>
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                <i className="fas fa-info-circle mr-1"></i>
+                                                Este monto se registrará como entrada en {metodoPagoLiberacion === 'efectivo' ? 'Caja' : 'Bancos'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={confirmarLiberacionPaquete}
+                                            disabled={loading}
+                                            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400"
+                                        >
+                                            <i className="fas fa-check-circle mr-2"></i>
+                                            {loading ? 'Procesando...' : 'Confirmar Liberación'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setPaqueteALiberar(null);
+                                                setMetodoPagoLiberacion('efectivo');
+                                            }}
+                                            disabled={loading}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-4 rounded-lg transition-colors"
                                         >
                                             <i className="fas fa-times mr-2"></i>
                                             Cancelar
