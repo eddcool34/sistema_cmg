@@ -15,7 +15,8 @@
  */
 
 // Configuración de la API
-const API_URL = 'https://paqueteriacmg.com/api/';
+// Para uso LOCAL: ejecuta desde un servidor local (XAMPP, WAMP, Live Server)
+const API_URL = 'http://localhost/sistema_cmg/api/';
 
 /**
  * Clase para manejar todas las operaciones de la API

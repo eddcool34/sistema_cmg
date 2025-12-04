@@ -2,12 +2,35 @@
 
 Sistema completo para registrar y gestionar ventas de envíos de paquetería con control de turnos, caja y reportes.
 
-## 🚀 Inicio Rápido
+## 🚀 Inicio Rápido - USO LOCAL
 
-1. Abre `sistema_cmg.html` en tu navegador
-2. **Primera vez:** El sistema te pedirá abrir un turno (apertura obligatoria)
-3. Ingresa las credenciales del cajero y el fondo inicial
-4. ¡Comienza a trabajar!
+### Requisitos:
+- Servidor web local (XAMPP, WAMP, MAMP, o Live Server de VSCode)
+- PHP 7.4 o superior (para funcionalidad de API)
+- Navegador moderno (Chrome, Firefox, Edge)
+
+### Instalación:
+
+1. **Clona o descarga el repositorio:**
+   ```bash
+   git clone https://github.com/eddcool34/sistema_cmg.git
+   ```
+
+2. **Mueve la carpeta al directorio de tu servidor:**
+   - XAMPP: `C:/xampp/htdocs/sistema_cmg/`
+   - WAMP: `C:/wamp64/www/sistema_cmg/`
+   - MAMP: `/Applications/MAMP/htdocs/sistema_cmg/`
+
+3. **Inicia tu servidor local**
+
+4. **Abre en el navegador:**
+   ```
+   http://localhost/sistema_cmg/index.html
+   ```
+
+5. **Primera vez:** El sistema te pedirá abrir un turno (apertura obligatoria)
+6. Ingresa las credenciales del cajero y el fondo inicial
+7. ¡Comienza a trabajar!
 
 ## 🔐 Sistema de Turnos
 
@@ -81,8 +104,19 @@ Si no puedes entrar al sistema con la contraseña `cmg2025`, sigue estos pasos:
 4. **Lee el diagnóstico**: Revisa `DIAGNOSTICO_LOGIN.md` para soluciones detalladas
 
 ### Acceso correcto al sistema:
-- ✅ Desde tu dominio: `https://paqueteriacmg.com/sistema_cmg.html`
-- ✅ Desde GitHub Pages (si está habilitado)
+- ✅ Desde servidor local: `http://localhost/sistema_cmg/sistema_cmg.html`
+- ✅ Con Live Server en VSCode
+- ❌ NO abriendo archivos HTML directamente (file:///)
 - ❌ NO desde el repositorio de GitHub directamente
 
 **Contraseña actual:** `cmg2025` (sin espacios, todo en minúsculas)
+
+## 🗄️ Configuración de Base de Datos (Opcional)
+
+Si deseas usar la funcionalidad completa con base de datos MySQL:
+
+1. Crea una base de datos MySQL llamada `sistema_cmg`
+2. Configura las credenciales en `api/config.php` (crear archivo)
+3. Las tablas se crearán automáticamente en el primer uso
+
+Sin base de datos, el sistema funciona con localStorage (almacenamiento local del navegador).
