@@ -51,7 +51,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-purple-50">
     <div id="root"></div>
     <input type="file" id="guiaFileInput" accept=".pdf" style="display: none;" />
 
@@ -487,8 +487,8 @@
                                 <div
                                     key={index}
                                     onClick={() => seleccionarCliente(cliente)}
-                                    className={`px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 ${
-                                        index === indiceSugerencia ? 'bg-blue-100' : ''
+                                    className={`px-4 py-3 cursor-pointer hover:bg-red-50 border-b border-gray-100 ${
+                                        index === indiceSugerencia ? 'bg-red-100' : ''
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
@@ -2162,7 +2162,7 @@
                         <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg animate-fade-in ${
                             notification.type === 'error' 
                                 ? 'bg-red-500 text-white' 
-                                : 'bg-green-500 text-white'
+                                : 'bg-pink-500 text-white'
                         }`}>
                             <div className="flex items-center">
                                 <i className={`fas ${
@@ -2175,7 +2175,7 @@
 
                     {/* Estado de sincronización */}
                     {syncStatus.message && (
-                        <div className="fixed top-16 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+                        <div className="fixed top-16 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
                             {syncStatus.syncing && <i className="fas fa-sync fa-spin mr-2"></i>}
                             {syncStatus.message}
                         </div>
@@ -2271,7 +2271,7 @@
                                     <button
                                         type="button"
                                         onClick={agregarGasto}
-                                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center"
+                                        className="px-6 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg flex items-center"
                                     >
                                         <i className="fas fa-save mr-2"></i>
                                         Guardar
@@ -2519,7 +2519,7 @@
                                     {/* Destinatario - solo si es envío */}
                                     {tipoOperacion === 'envio' && (
                                         <div>
-                                            <h3 className="text-xl font-semibold text-green-600 mb-4">
+                                            <h3 className="text-xl font-semibold text-pink-600 mb-4">
                                                 <i className="fas fa-user-friends mr-2"></i>Datos del Destinatario
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2685,7 +2685,7 @@
                                         <button
                                             type="button"
                                             onClick={guardarEdicion}
-                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center"
+                                            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center"
                                         >
                                             <i className="fas fa-save mr-2"></i>
                                             Guardar Cambios
@@ -2707,7 +2707,7 @@
                                             Sistema CMG
                                         </h1>
                                         <p className="text-lg text-gray-600">Paquetería CMG</p>
-                                        <p className="text-xs text-green-600 mt-1">
+                                        <p className="text-xs text-pink-600 mt-1">
                                             <i className="fas fa-cloud mr-1"></i>
                                             Conectado a Google Sheets
                                         </p>
@@ -2717,13 +2717,13 @@
                                 {/* Indicador de Turno */}
                                 <div className="text-right">
                                     {turnoActual ? (
-                                        <div className="bg-green-100 border border-green-300 rounded-lg p-4">
+                                        <div className="bg-pink-100 border border-pink-300 rounded-lg p-4">
                                             <p className="text-sm font-semibold text-green-800">
                                                 <i className="fas fa-user-check mr-1"></i>
                                                 Turno Activo
                                             </p>
                                             <p className="text-lg font-bold text-green-900">{turnoActual.cajero}</p>
-                                            <p className="text-xs text-green-700">
+                                            <p className="text-xs text-pink-700">
                                                 Apertura: {turnoActual.hora_apertura}
                                             </p>
                                             <button
@@ -2742,7 +2742,7 @@
                                             </p>
                                             <button
                                                 onClick={() => setShowAperturaTurno(true)}
-                                                className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded transition-colors"
+                                                className="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-2 rounded transition-colors"
                                             >
                                                 <i className="fas fa-door-open mr-1"></i>
                                                 Abrir Turno
@@ -2760,7 +2760,7 @@
                                     onClick={() => setActiveTab('registro')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'registro'
-                                            ? 'bg-blue-500 text-white'
+                                            ? 'bg-red-500 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -2770,7 +2770,7 @@
                                     onClick={() => setActiveTab('balance')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'balance'
-                                            ? 'bg-blue-500 text-white'
+                                            ? 'bg-red-500 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -2780,7 +2780,7 @@
                                     onClick={() => setActiveTab('estadisticas')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'estadisticas'
-                                            ? 'bg-blue-500 text-white'
+                                            ? 'bg-red-500 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -2790,7 +2790,7 @@
                                     onClick={() => setActiveTab('historial')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'historial'
-                                            ? 'bg-blue-500 text-white'
+                                            ? 'bg-red-500 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -2800,7 +2800,7 @@
                                     onClick={() => setActiveTab('cortes')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'cortes'
-                                            ? 'bg-blue-500 text-white'
+                                            ? 'bg-red-500 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -2810,7 +2810,7 @@
                                     onClick={() => setActiveTab('resumen-cortes')}
                                     className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
                                         activeTab === 'resumen-cortes'
-                                            ? 'bg-blue-500 text-white'
+                                            ? 'bg-red-500 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -3092,7 +3092,7 @@
                                         <>
                                             {/* Destinatario */}
                                             <div className="mb-6">
-                                                <h3 className="text-xl font-semibold text-green-600 mb-4">
+                                                <h3 className="text-xl font-semibold text-pink-600 mb-4">
                                                     <i className="fas fa-user-friends mr-2"></i>Datos del Destinatario
                                                 </h3>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3391,7 +3391,7 @@
 
                                         {/* Campos adicionales para pago en efectivo */}
                                         {tipoOperacion !== 'entrega' && formData.metodoPago === 'efectivo' && formData.precio && (
-                                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                                                 <h4 className="text-md font-semibold text-blue-700 mb-3">
                                                     <i className="fas fa-money-bill-alt mr-2"></i>
                                                     Detalles del Pago en Efectivo
@@ -3425,7 +3425,7 @@
                                                         </label>
                                                         <div className={`w-full px-4 py-2 border rounded-lg font-semibold text-lg ${
                                                             montoPagado && parseFloat(montoPagado) >= (parseFloat(formData.precio) + parseFloat(formData.impuesto || 0))
-                                                                ? 'bg-green-100 border-green-300 text-green-700'
+                                                                ? 'bg-pink-100 border-pink-300 text-pink-700'
                                                                 : 'bg-red-100 border-red-300 text-red-700'
                                                         }`}>
                                                             {montoPagado
@@ -3437,7 +3437,7 @@
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowDenominacionesModal(true)}
-                                                    className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                                                    className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
                                                 >
                                                     <i className="fas fa-list mr-2"></i>
                                                     Registrar Denominaciones Recibidas
@@ -3446,8 +3446,8 @@
                                         )}
 
                                         {formData.precio && formData.costo && (
-                                            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                                <p className="text-lg font-semibold text-green-700">
+                                            <div className="mt-4 p-4 bg-pink-50 border border-pink-200 rounded-lg">
+                                                <p className="text-lg font-semibold text-pink-700">
                                                     <i className="fas fa-coins mr-2"></i>
                                                     Ganancia: {formatCurrency(parseFloat(formData.precio) - parseFloat(formData.costo))}
                                                 </p>
@@ -3462,7 +3462,7 @@
                                             type="button"
                                             onClick={(e) => handleSubmit(e, 'pdf')}
                                             disabled={loading}
-                                            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-4 px-6 rounded-lg transition-colors shadow-lg flex items-center justify-center"
+                                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold py-4 px-6 rounded-lg transition-colors shadow-lg flex items-center justify-center"
                                         >
                                             {loading ? (
                                                 <i className="fas fa-spinner fa-spin mr-2"></i>
@@ -3475,7 +3475,7 @@
                                             type="button"
                                             onClick={(e) => handleSubmit(e, 'ticket')}
                                             disabled={loading}
-                                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-4 px-6 rounded-lg transition-colors shadow-lg flex items-center justify-center"
+                                            className="flex-1 bg-pink-600 hover:bg-pink-700 disabled:bg-pink-400 text-white font-bold py-4 px-6 rounded-lg transition-colors shadow-lg flex items-center justify-center"
                                         >
                                             {loading ? (
                                                 <i className="fas fa-spinner fa-spin mr-2"></i>
@@ -3530,13 +3530,13 @@
                                                     onClick={() => setFiltroEntregas('entregados')}
                                                     className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
                                                         filtroEntregas === 'entregados'
-                                                            ? 'bg-green-600 text-white shadow-lg'
-                                                            : 'bg-white text-green-600 border-2 border-green-300 hover:bg-green-50'
+                                                            ? 'bg-pink-600 text-white shadow-lg'
+                                                            : 'bg-white text-pink-600 border-2 border-pink-300 hover:bg-pink-50'
                                                     }`}
                                                 >
                                                     <i className="fas fa-check-circle"></i>
                                                     Entregados
-                                                    <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                    <span className="bg-white text-pink-600 px-2 py-0.5 rounded-full text-xs font-bold">
                                                         {ventas.filter(v => v.tipoOperacion === 'entrega' && v.estadoVenta === 'activa' && v.estadoEntrega === 'entregado').length}
                                                     </span>
                                                 </button>
@@ -3559,7 +3559,7 @@
                                                         key={paquete.id}
                                                         className={`p-4 rounded-lg border-2 shadow-md ${
                                                             paquete.estadoEntrega === 'entregado'
-                                                                ? 'bg-green-50 border-green-300'
+                                                                ? 'bg-pink-50 border-pink-300'
                                                                 : 'bg-purple-50 border-purple-300'
                                                         }`}
                                                     >
@@ -3569,7 +3569,7 @@
                                                                     <span className="font-bold text-purple-800">#{index + 1}</span>
                                                                     <span className="text-sm text-gray-600">{paquete.id}</span>
                                                                     {paquete.estadoEntrega === 'entregado' && (
-                                                                        <span className="px-2 py-1 bg-green-500 text-white text-xs rounded-full">
+                                                                        <span className="px-2 py-1 bg-pink-500 text-white text-xs rounded-full">
                                                                             <i className="fas fa-check mr-1"></i>Entregado
                                                                         </span>
                                                                     )}
@@ -3595,7 +3595,7 @@
                                                                         {paquete.horaRegistro && ` a las ${paquete.horaRegistro}`}
                                                                     </p>
                                                                     {paquete.estadoEntrega === 'entregado' && paquete.fechaLiberacion && (
-                                                                        <p className="text-green-700">
+                                                                        <p className="text-pink-700">
                                                                             <i className="fas fa-calendar-check mr-2"></i>
                                                                             <strong>Entregado:</strong> {paquete.fechaLiberacion}
                                                                             {paquete.horaLiberacion && ` a las ${paquete.horaLiberacion}`}
@@ -3607,7 +3607,7 @@
                                                                 {paquete.estadoEntrega === 'pendiente' && (
                                                                     <button
                                                                         onClick={() => marcarComoEntregado(paquete.id)}
-                                                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                                                        className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
                                                                     >
                                                                         <i className="fas fa-check-circle"></i>
                                                                         Entregar
@@ -3615,7 +3615,7 @@
                                                                 )}
                                                                 <button
                                                                     onClick={() => generarTicket(paquete)}
-                                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
                                                                 >
                                                                     <i className="fas fa-receipt"></i>
                                                                     Ticket
@@ -3660,7 +3660,7 @@
                                     </h2>
                                     <button
                                         onClick={() => setShowGastoModal(true)}
-                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg flex items-center"
+                                        className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg flex items-center"
                                     >
                                         <i className="fas fa-plus mr-2"></i>
                                         Registrar Movimiento
@@ -3724,14 +3724,14 @@
                                                         <td className="px-4 py-3 text-sm text-gray-600">
                                                             {new Date(dia.fecha).toLocaleDateString('es-MX')}
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">
+                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-pink-600">
                                                             {formatCurrency(dia.totalVentas)}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">
                                                             {formatCurrency(dia.totalGastos)}
                                                         </td>
                                                         <td className={`px-4 py-3 text-sm text-right font-bold ${
-                                                            dia.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                                                            dia.balance >= 0 ? 'text-pink-600' : 'text-red-600'
                                                         }`}>
                                                             {formatCurrency(dia.balance)}
                                                         </td>
@@ -3741,14 +3741,14 @@
                                             <tfoot className="bg-gray-100 border-t-2 border-gray-300">
                                                 <tr>
                                                     <td colSpan="2" className="px-4 py-3 text-sm font-bold text-gray-900">TOTALES SEMANALES</td>
-                                                    <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                                                    <td className="px-4 py-3 text-sm text-right font-bold text-pink-600">
                                                         {formatCurrency(getTotalesSemana().totalVentas)}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-right font-bold text-red-600">
                                                         {formatCurrency(getTotalesSemana().totalGastos)}
                                                     </td>
                                                     <td className={`px-4 py-3 text-sm text-right font-bold ${
-                                                        getTotalesSemana().balance >= 0 ? 'text-green-600' : 'text-red-600'
+                                                        getTotalesSemana().balance >= 0 ? 'text-pink-600' : 'text-red-600'
                                                     }`}>
                                                         {formatCurrency(getTotalesSemana().balance)}
                                                     </td>
@@ -3794,7 +3794,7 @@
                                                                         ? 'bg-orange-100 text-orange-800'
                                                                         : gasto.tipo === 'salida'
                                                                         ? 'bg-red-100 text-red-800'
-                                                                        : 'bg-green-100 text-green-800'
+                                                                        : 'bg-pink-100 text-green-800'
                                                                 }`}>
                                                                     {gasto.tipo === 'gasto' ? 'GASTO' : gasto.tipo === 'salida' ? 'SALIDA' : 'ENTRADA'}
                                                                 </span>
@@ -3803,14 +3803,14 @@
                                                             <td className="px-4 py-3 text-sm">
                                                                 <span className={`px-2 py-1 rounded text-xs ${
                                                                     (!gasto.metodoPago || gasto.metodoPago === 'efectivo')
-                                                                        ? 'bg-green-50 text-green-700'
-                                                                        : 'bg-blue-50 text-blue-700'
+                                                                        ? 'bg-pink-50 text-pink-700'
+                                                                        : 'bg-red-50 text-blue-700'
                                                                 }`}>
                                                                     {(!gasto.metodoPago || gasto.metodoPago === 'efectivo') ? '💵 Efectivo' : '🏦 Tarjeta'}
                                                                 </span>
                                                             </td>
                                                             <td className={`px-4 py-3 text-sm text-right font-semibold ${
-                                                                gasto.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'
+                                                                gasto.tipo === 'entrada' ? 'text-pink-600' : 'text-red-600'
                                                             }`}>
                                                                 {gasto.tipo === 'entrada' ? '+' : '-'}{formatCurrency(gasto.monto)}
                                                             </td>
@@ -3887,7 +3887,7 @@
                                         <h3 className="text-xl font-bold text-gray-800 mb-4">
                                             <i className="fas fa-truck mr-2"></i>Paquetería Más Vendida
                                         </h3>
-                                        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg mb-4">
+                                        <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg mb-4">
                                             <span className="text-2xl font-bold text-blue-600 uppercase">
                                                 {getPaqueteriaMasVendida().nombre}
                                             </span>
@@ -3915,8 +3915,8 @@
                                         <h3 className="text-xl font-bold text-gray-800 mb-4">
                                             <i className="fas fa-box mr-2"></i>Tipo Más Vendido
                                         </h3>
-                                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg mb-4">
-                                            <span className="text-2xl font-bold text-green-600 uppercase">
+                                        <div className="flex items-center justify-between p-4 bg-pink-50 rounded-lg mb-4">
+                                            <span className="text-2xl font-bold text-pink-600 uppercase">
                                                 {getServicioMasVendido().nombre}
                                             </span>
                                             <span className="text-3xl font-bold text-gray-800">
@@ -3999,15 +3999,15 @@
                                                             {vendedor.nombre}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm text-center">
-                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-blue-800">
                                                                 {vendedor.cantidadVentas}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">
+                                                        <td className="px-4 py-3 text-sm text-right font-semibold text-pink-600">
                                                             {formatCurrency(vendedor.totalVentas)}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm text-right">
-                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-pink-100 text-green-800">
                                                                 {formatCurrency(vendedor.comisionTotal)}
                                                             </span>
                                                         </td>
@@ -4020,7 +4020,7 @@
                                                     <td className="px-4 py-3 text-sm text-center font-bold text-blue-800">
                                                         {getEstadisticasVendedores().reduce((sum, v) => sum + v.cantidadVentas, 0)}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                                                    <td className="px-4 py-3 text-sm text-right font-bold text-pink-600">
                                                         {formatCurrency(getEstadisticasVendedores().reduce((sum, v) => sum + v.totalVentas, 0))}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-right font-bold text-green-800">
@@ -4031,7 +4031,7 @@
                                         </table>
                                     </div>
 
-                                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
                                         <p className="text-sm text-blue-700">
                                             <i className="fas fa-info-circle mr-2"></i>
                                             <strong>Nota:</strong> Las comisiones se calculan automáticamente según el tipo de servicio:
@@ -4067,7 +4067,7 @@
                                 </div>
 
                                 {/* Filtros y Exportación */}
-                                <div className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-6">
+                                <div className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border border-red-200 rounded-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">
                                         <i className="fas fa-file-export mr-2 text-blue-600"></i>Exportar y Gestionar Ventas
                                     </h3>
@@ -4118,14 +4118,14 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <button
                                             onClick={exportarVentasCSV}
-                                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                            className="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                         >
                                             <i className="fas fa-download mr-2"></i>
                                             Descargar CSV
                                         </button>
                                         <button
                                             onClick={abrirGoogleSheets}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                         >
                                             <i className="fas fa-table mr-2"></i>
                                             Abrir Google Sheets
@@ -4187,7 +4187,7 @@
                                                                     ? 'bg-purple-100 text-purple-800'
                                                                     : venta.tipoOperacion === 'servicio'
                                                                     ? 'bg-indigo-100 text-indigo-800'
-                                                                    : 'bg-blue-100 text-blue-800'
+                                                                    : 'bg-red-100 text-blue-800'
                                                             }`}>
                                                                 <i className={`fas ${
                                                                     venta.tipoOperacion === 'devolucion' ? 'fa-undo'
@@ -4212,12 +4212,12 @@
                                                             <span className={`px-2 py-1 rounded text-xs font-semibold ${
                                                                 venta.estadoVenta === 'cancelada'
                                                                     ? 'bg-red-100 text-red-800'
-                                                                    : 'bg-green-100 text-green-800'
+                                                                    : 'bg-pink-100 text-green-800'
                                                             }`}>
                                                                 {venta.estadoVenta === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                                                        <td className="px-4 py-3 text-sm font-semibold text-pink-600">
                                                             {formatCurrency(venta.precio)}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
@@ -4233,7 +4233,7 @@
                                                                 <button
                                                                     onClick={() => generarPDF(venta)}
                                                                     disabled={venta.estadoVenta === 'cancelada'}
-                                                                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Generar PDF"
                                                                 >
                                                                     <i className="fas fa-file-pdf mr-1"></i>PDF
@@ -4241,7 +4241,7 @@
                                                                 <button
                                                                     onClick={() => generarTicket(venta)}
                                                                     disabled={venta.estadoVenta === 'cancelada'}
-                                                                    className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
+                                                                    className="bg-pink-500 hover:bg-pink-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs transition-colors"
                                                                     title="Generar Ticket"
                                                                 >
                                                                     <i className="fas fa-receipt mr-1"></i>Ticket
@@ -4317,7 +4317,7 @@
                                                                 ? 'bg-purple-100 text-purple-800'
                                                                 : ventaDetalle.tipoOperacion === 'servicio'
                                                                 ? 'bg-indigo-100 text-indigo-800'
-                                                                : 'bg-blue-100 text-blue-800'
+                                                                : 'bg-red-100 text-blue-800'
                                                         }`}>
                                                             {ventaDetalle.tipoOperacion === 'devolucion' ? 'Devolución'
                                                             : ventaDetalle.tipoOperacion === 'entrega' ? 'Entrega'
@@ -4332,7 +4332,7 @@
                                                         <span className={`px-3 py-1 rounded text-sm font-semibold ${
                                                             ventaDetalle.estadoVenta === 'cancelada'
                                                                 ? 'bg-red-100 text-red-800'
-                                                                : 'bg-green-100 text-green-800'
+                                                                : 'bg-pink-100 text-green-800'
                                                         }`}>
                                                             {ventaDetalle.estadoVenta === 'cancelada' ? 'CANCELADA' : 'ACTIVA'}
                                                         </span>
@@ -4340,7 +4340,7 @@
                                                 </div>
                                                 <div className="bg-gray-50 p-3 rounded">
                                                     <p className="text-sm text-gray-600">Precio</p>
-                                                    <p className="font-bold text-green-600 text-xl">{formatCurrency(ventaDetalle.precio)}</p>
+                                                    <p className="font-bold text-pink-600 text-xl">{formatCurrency(ventaDetalle.precio)}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -4402,11 +4402,11 @@
                                                             <i className="fas fa-user mr-2 text-blue-600"></i>Remitente
                                                         </h3>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="bg-blue-50 p-3 rounded">
+                                                            <div className="bg-red-50 p-3 rounded">
                                                                 <p className="text-sm text-gray-600">Nombre</p>
                                                                 <p className="font-bold">{ventaDetalle.nombreRemitente}</p>
                                                             </div>
-                                                            <div className="bg-blue-50 p-3 rounded">
+                                                            <div className="bg-red-50 p-3 rounded">
                                                                 <p className="text-sm text-gray-600">Teléfono</p>
                                                                 <p className="font-bold">{ventaDetalle.telefonoRemitente}</p>
                                                             </div>
@@ -4418,40 +4418,40 @@
                                                 {ventaDetalle.tipoOperacion !== 'devolucion' && ventaDetalle.nombreDestinatario && (
                                                     <div className="mb-6">
                                                         <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">
-                                                            <i className="fas fa-user-friends mr-2 text-green-600"></i>Destinatario
+                                                            <i className="fas fa-user-friends mr-2 text-pink-600"></i>Destinatario
                                                         </h3>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="bg-green-50 p-3 rounded">
+                                                            <div className="bg-pink-50 p-3 rounded">
                                                                 <p className="text-sm text-gray-600">Nombre</p>
                                                                 <p className="font-bold">{ventaDetalle.nombreDestinatario}</p>
                                                             </div>
-                                                            <div className="bg-green-50 p-3 rounded">
+                                                            <div className="bg-pink-50 p-3 rounded">
                                                                 <p className="text-sm text-gray-600">Teléfono</p>
                                                                 <p className="font-bold">{ventaDetalle.telefonoDestinatario}</p>
                                                             </div>
                                                             {ventaDetalle.direccion && (
                                                                 <>
-                                                                    <div className="bg-green-50 p-3 rounded">
+                                                                    <div className="bg-pink-50 p-3 rounded">
                                                                         <p className="text-sm text-gray-600">Dirección</p>
                                                                         <p className="font-bold">{ventaDetalle.direccion}</p>
                                                                     </div>
-                                                                    <div className="bg-green-50 p-3 rounded">
+                                                                    <div className="bg-pink-50 p-3 rounded">
                                                                         <p className="text-sm text-gray-600">Número</p>
                                                                         <p className="font-bold">{ventaDetalle.numero || 'N/A'}</p>
                                                                     </div>
-                                                                    <div className="bg-green-50 p-3 rounded">
+                                                                    <div className="bg-pink-50 p-3 rounded">
                                                                         <p className="text-sm text-gray-600">Colonia</p>
                                                                         <p className="font-bold">{ventaDetalle.colonia || 'N/A'}</p>
                                                                     </div>
-                                                                    <div className="bg-green-50 p-3 rounded">
+                                                                    <div className="bg-pink-50 p-3 rounded">
                                                                         <p className="text-sm text-gray-600">Código Postal</p>
                                                                         <p className="font-bold">{ventaDetalle.codigoPostal || 'N/A'}</p>
                                                                     </div>
-                                                                    <div className="bg-green-50 p-3 rounded">
+                                                                    <div className="bg-pink-50 p-3 rounded">
                                                                         <p className="text-sm text-gray-600">Estado</p>
                                                                         <p className="font-bold">{ventaDetalle.estado || 'N/A'}</p>
                                                                     </div>
-                                                                    <div className="bg-green-50 p-3 rounded">
+                                                                    <div className="bg-pink-50 p-3 rounded">
                                                                         <p className="text-sm text-gray-600">País</p>
                                                                         <p className="font-bold">{ventaDetalle.pais || 'N/A'}</p>
                                                                     </div>
@@ -4546,14 +4546,14 @@
                                             <button
                                                 onClick={() => generarPDF(ventaDetalle)}
                                                 disabled={ventaDetalle.estadoVenta === 'cancelada'}
-                                                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
+                                                className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
                                                 <i className="fas fa-file-pdf mr-2"></i>PDF
                                             </button>
                                             <button
                                                 onClick={() => generarTicket(ventaDetalle)}
                                                 disabled={ventaDetalle.estadoVenta === 'cancelada'}
-                                                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
+                                                className="bg-pink-500 hover:bg-pink-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors font-semibold"
                                             >
                                                 <i className="fas fa-receipt mr-2"></i>Ticket
                                             </button>
@@ -4809,7 +4809,7 @@
 
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                                                 {/* Ingresos */}
-                                                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                                <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
                                                                     <h4 className="font-semibold text-green-800 mb-2">
                                                                         <i className="fas fa-plus-circle mr-2"></i>Ingresos
                                                                     </h4>
@@ -4818,7 +4818,7 @@
                                                                             <span>Fondo Inicial:</span>
                                                                             <span className="font-semibold">{formatCurrency(corte.ingresosCaja)}</span>
                                                                         </div>
-                                                                        <div className="flex justify-between text-green-700">
+                                                                        <div className="flex justify-between text-pink-700">
                                                                             <span>💵 Ventas Efectivo:</span>
                                                                             <span className="font-semibold">{formatCurrency(corte.ventasEfectivo)}</span>
                                                                         </div>
@@ -4842,7 +4842,7 @@
                                                                                 )}
                                                                             </>
                                                                         )}
-                                                                        <div className="flex justify-between pt-2 border-t border-green-300">
+                                                                        <div className="flex justify-between pt-2 border-t border-pink-300">
                                                                             <span className="font-bold">Total Ingresos:</span>
                                                                             <span className="font-bold">{formatCurrency(corte.ingresosCaja + corte.totalVentas + corte.totalEntradas)}</span>
                                                                         </div>
@@ -4883,7 +4883,7 @@
 
                                                             {/* Balance Real vs Declarado */}
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                                                                     <h4 className="font-semibold text-blue-800 mb-2">
                                                                         <i className="fas fa-calculator mr-2"></i>Balance Real
                                                                     </h4>
@@ -5094,11 +5094,11 @@
                                         <>
                                             {/* Tarjetas de resumen del mes */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
                                                     <div className="flex items-center justify-between">
                                                         <div>
-                                                            <p className="text-sm text-green-600 font-medium">Total Ingresado</p>
-                                                            <p className="text-2xl font-bold text-green-700">{formatCurrency(totalIngresosDelMes)}</p>
+                                                            <p className="text-sm text-pink-600 font-medium">Total Ingresado</p>
+                                                            <p className="text-2xl font-bold text-pink-700">{formatCurrency(totalIngresosDelMes)}</p>
                                                         </div>
                                                         <i className="fas fa-arrow-up text-3xl text-green-500"></i>
                                                     </div>
@@ -5112,7 +5112,7 @@
                                                         <i className="fas fa-arrow-down text-3xl text-red-500"></i>
                                                     </div>
                                                 </div>
-                                                <div className={`${totalDiferenciaDelMes >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}>
+                                                <div className={`${totalDiferenciaDelMes >= 0 ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'} border rounded-lg p-4`}>
                                                     <div className="flex items-center justify-between">
                                                         <div>
                                                             <p className={`text-sm font-medium ${totalDiferenciaDelMes >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Diferencia Total</p>
@@ -5178,14 +5178,14 @@
 
                                                 return (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                                        <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-4 shadow-md">
+                                                        <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-pink-300 rounded-lg p-4 shadow-md">
                                                             <div className="flex items-center justify-between">
                                                                 <div>
-                                                                    <p className="text-sm text-green-700 font-medium mb-1">
+                                                                    <p className="text-sm text-pink-700 font-medium mb-1">
                                                                         <i className="fas fa-wallet mr-2"></i>Total Acumulado en Caja
                                                                     </p>
                                                                     <p className="text-3xl font-bold text-green-800">{formatCurrency(totalAcumuladoCaja)}</p>
-                                                                    <p className="text-xs text-green-600 mt-1">Efectivo disponible en caja física</p>
+                                                                    <p className="text-xs text-pink-600 mt-1">Efectivo disponible en caja física</p>
                                                                 </div>
                                                                 <i className="fas fa-money-bill-wave text-4xl text-green-500"></i>
                                                             </div>
@@ -5239,7 +5239,7 @@
                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                                             {corte.fecha}
                                                                         </td>
-                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-green-600">
+                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-pink-600">
                                                                             {formatCurrency(corte.ingresos)}
                                                                         </td>
                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-red-600">
@@ -5258,7 +5258,7 @@
                                                                 <td className="px-6 py-4 text-sm text-gray-900">
                                                                     TOTAL DEL MES
                                                                 </td>
-                                                                <td className="px-6 py-4 text-sm text-right text-green-700">
+                                                                <td className="px-6 py-4 text-sm text-right text-pink-700">
                                                                     {formatCurrency(totalIngresosDelMes)}
                                                                 </td>
                                                                 <td className="px-6 py-4 text-sm text-right text-red-700">
@@ -5291,7 +5291,7 @@
                                         </h2>
 
                                         {!esLunes && (
-                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                                                 <p className="text-sm text-blue-800">
                                                     <i className="fas fa-info-circle mr-2"></i>
                                                     La caja abre automáticamente con el monto declarado del día anterior. Solo los lunes se puede modificar el fondo inicial.
@@ -5349,7 +5349,7 @@
                                         <div className="flex gap-4 mt-6">
                                             <button
                                                 onClick={abrirTurno}
-                                                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                                             >
                                                 <i className="fas fa-check mr-2"></i>
                                                 Abrir Turno
@@ -5376,7 +5376,7 @@
                                         Cierre de Turno - Conteo de Caja
                                     </h2>
 
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                                         <p className="text-sm text-blue-800">
                                             <i className="fas fa-info-circle mr-2"></i>
                                             Cuenta los billetes y monedas que tienes en caja. El sistema calculará automáticamente el total.
@@ -5429,7 +5429,7 @@
                                         </div>
                                     </div>
 
-                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                                    <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 mb-4">
                                         <p className="text-lg font-bold text-green-800">
                                             Total Contado: ${(
                                                 Object.entries(formCierre.denominaciones).reduce((total, [denom, cant]) =>
@@ -5481,7 +5481,7 @@
                                         Denominaciones Recibidas
                                     </h2>
 
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                                         <p className="text-sm text-blue-800">
                                             <i className="fas fa-info-circle mr-2"></i>
                                             Registra los billetes y monedas que recibiste del cliente. Esto ayudará al corte de caja.
@@ -5528,7 +5528,7 @@
                                         </div>
                                     </div>
 
-                                    <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4">
+                                    <div className="bg-pink-50 border border-pink-300 rounded-lg p-4 mb-4">
                                         <div className="flex justify-between items-center">
                                             <span className="text-lg font-semibold text-green-800">Total Registrado:</span>
                                             <span className="text-2xl font-bold text-green-900">
@@ -5545,7 +5545,7 @@
                                     <div className="flex gap-4">
                                         <button
                                             onClick={() => setShowDenominacionesModal(false)}
-                                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                                         >
                                             <i className="fas fa-check mr-2"></i>
                                             Guardar
