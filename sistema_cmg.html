@@ -1005,10 +1005,20 @@
                         return;
                     }
 
-                    if (formApertura.contraseña !== CONTRASEÑA_SISTEMA) {
+                    // Validar contraseña (eliminar espacios)
+                    const contraseñaIngresada = (formApertura.contraseña || '').trim();
+                    console.log('🔐 Validando contraseña:', {
+                        ingresada: contraseñaIngresada,
+                        esperada: CONTRASEÑA_SISTEMA,
+                        longitud_ingresada: contraseñaIngresada.length,
+                        longitud_esperada: CONTRASEÑA_SISTEMA.length,
+                        coincide: contraseñaIngresada === CONTRASEÑA_SISTEMA
+                    });
+
+                    if (contraseñaIngresada !== CONTRASEÑA_SISTEMA) {
                         showNotification('❌ Contraseña incorrecta', 'error');
-                        // Registrar intento fallido
-                        console.warn(`Intento de apertura fallido - Cajero: ${formApertura.cajero}`);
+                        console.warn(`❌ Intento fallido - Ingresada: "${contraseñaIngresada}" (${contraseñaIngresada.length} caracteres)`);
+                        console.warn(`   Esperada: "${CONTRASEÑA_SISTEMA}" (${CONTRASEÑA_SISTEMA.length} caracteres)`);
                         return;
                     }
 
@@ -5329,8 +5339,12 @@
                                                     value={formApertura.contraseña}
                                                     onChange={(e) => setFormApertura(prev => ({...prev, contraseña: e.target.value}))}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="Ingresa la contraseña"
+                                                    placeholder="cmg2025"
+                                                    autoComplete="off"
                                                 />
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    💡 Contraseña actual: <code className="bg-gray-100 px-2 py-1 rounded">cmg2025</code>
+                                                </p>
                                             </div>
 
                                             <div>
