@@ -8,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="api/api-connector.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -60,9 +59,9 @@
         const { useState, useEffect, useRef } = React;
         const { jsPDF } = window.jspdf;
 
-        // ========== CONFIGURACIÓN DE API ==========
-        // La configuración de la API está en api/api-connector.js
-        // Se usa MySQL en lugar de Google Sheets
+        // ========== CONFIGURACIÓN DE ALMACENAMIENTO ==========
+        // Este sistema usa localStorage del navegador para guardar datos
+        // No requiere servidor ni base de datos externa
 
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
@@ -148,6 +147,121 @@
             return clientesGuardados.filter(cliente =>
                 cliente.nombre.toLowerCase().includes(queryLower)
             ).slice(0, 5); // Limitar a 5 resultados
+        };
+
+        // ========== FUNCIONES DE ALMACENAMIENTO (localStorage) ==========
+
+        // Guardar venta en localStorage
+        const guardarVentaAPI = async (venta) => {
+            try {
+                const ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+                ventas.push({
+                    ...venta,
+                    _id: Date.now(),
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('ventas', JSON.stringify(ventas));
+                console.log('✅ Venta guardada en localStorage');
+                return { success: true, data: venta };
+            } catch (error) {
+                console.error('❌ Error guardando venta:', error);
+                throw error;
+            }
+        };
+
+        // Obtener ventas de localStorage
+        const obtenerVentasAPI = async (filtros = {}) => {
+            try {
+                const ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+                console.log(`✅ ${ventas.length} ventas obtenidas de localStorage`);
+                return ventas;
+            } catch (error) {
+                console.error('❌ Error obteniendo ventas:', error);
+                return [];
+            }
+        };
+
+        // Guardar cliente en localStorage (wrapper para compatibilidad)
+        const guardarClienteAPI = async (cliente) => {
+            try {
+                guardarCliente(cliente);
+                console.log('✅ Cliente guardado en localStorage');
+                return { success: true, data: cliente };
+            } catch (error) {
+                console.error('❌ Error guardando cliente:', error);
+                throw error;
+            }
+        };
+
+        // Guardar turno en localStorage
+        const guardarTurnoAPI = async (turno) => {
+            try {
+                localStorage.setItem('turnoActual', JSON.stringify(turno));
+                console.log('✅ Turno guardado en localStorage');
+                return { success: true, data: turno };
+            } catch (error) {
+                console.error('❌ Error guardando turno:', error);
+                throw error;
+            }
+        };
+
+        // Obtener turno actual de localStorage
+        const obtenerTurnoActualAPI = async () => {
+            try {
+                const turno = localStorage.getItem('turnoActual');
+                return turno ? JSON.parse(turno) : null;
+            } catch (error) {
+                console.error('❌ Error obteniendo turno:', error);
+                return null;
+            }
+        };
+
+        // Cerrar turno en localStorage
+        const cerrarTurnoAPI = async (datoscierre) => {
+            try {
+                const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                turnosCerrados.push(datoscierre);
+                localStorage.setItem('turnosCerrados', JSON.stringify(turnosCerrados));
+                localStorage.removeItem('turnoActual');
+                console.log('✅ Turno cerrado y guardado en localStorage');
+                return { success: true, data: datoscierre };
+            } catch (error) {
+                console.error('❌ Error cerrando turno:', error);
+                throw error;
+            }
+        };
+
+        // Guardar gasto en localStorage
+        const guardarGastoAPI = async (gasto) => {
+            try {
+                const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+                gastos.push({
+                    ...gasto,
+                    _id: Date.now(),
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('gastos', JSON.stringify(gastos));
+                console.log('✅ Gasto guardado en localStorage');
+                return { success: true, data: gasto };
+            } catch (error) {
+                console.error('❌ Error guardando gasto:', error);
+                throw error;
+            }
+        };
+
+        // Obtener gastos de localStorage
+        const obtenerGastosAPI = async (turnoId) => {
+            try {
+                const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+                const gastosFiltrados = turnoId
+                    ? gastos.filter(g => g.turnoId === turnoId)
+                    : gastos;
+                console.log(`✅ ${gastosFiltrados.length} gastos obtenidos de localStorage`);
+                return gastosFiltrados;
+            } catch (error) {
+                console.error('❌ Error obteniendo gastos:', error);
+                return [];
+            }
         };
 
         // Función para validar campos requeridos

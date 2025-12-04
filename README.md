@@ -2,35 +2,42 @@
 
 Sistema completo para registrar y gestionar ventas de envíos de paquetería con control de turnos, caja y reportes.
 
-## 🚀 Inicio Rápido - USO LOCAL
+## 🚀 Inicio Rápido
 
-### Requisitos:
-- Servidor web local (XAMPP, WAMP, MAMP, o Live Server de VSCode)
-- PHP 7.4 o superior (para funcionalidad de API)
-- Navegador moderno (Chrome, Firefox, Edge)
+### Método 1: Abrir directamente desde GitHub (Recomendado)
 
-### Instalación:
+1. **Descarga el repositorio:**
+   - Ve a: https://github.com/eddcool34/sistema_cmg
+   - Clic en "Code" → "Download ZIP"
+   - Extrae el ZIP en tu computadora
 
-1. **Clona o descarga el repositorio:**
-   ```bash
-   git clone https://github.com/eddcool34/sistema_cmg.git
-   ```
+2. **Abre el archivo:**
+   - Navega a la carpeta extraída
+   - Abre `index.html` directamente con tu navegador
+   - O arrastra `index.html` a tu navegador
 
-2. **Mueve la carpeta al directorio de tu servidor:**
-   - XAMPP: `C:/xampp/htdocs/sistema_cmg/`
-   - WAMP: `C:/wamp64/www/sistema_cmg/`
-   - MAMP: `/Applications/MAMP/htdocs/sistema_cmg/`
+3. **¡Listo!** El sistema funciona completamente en tu navegador
 
-3. **Inicia tu servidor local**
+### Método 2: Clonar con Git
 
-4. **Abre en el navegador:**
-   ```
-   http://localhost/sistema_cmg/index.html
-   ```
+```bash
+git clone https://github.com/eddcool34/sistema_cmg.git
+cd sistema_cmg
+# Abre index.html en tu navegador
+```
 
-5. **Primera vez:** El sistema te pedirá abrir un turno (apertura obligatoria)
-6. Ingresa las credenciales del cajero y el fondo inicial
-7. ¡Comienza a trabajar!
+### Primera vez:
+- El sistema te pedirá abrir un turno (apertura obligatoria)
+- Ingresa las credenciales del cajero y el fondo inicial
+- ¡Comienza a trabajar!
+
+### 💾 Almacenamiento de Datos
+
+- **Todos los datos se guardan en tu navegador** (localStorage)
+- **No requiere servidor** ni base de datos
+- **Funciona offline** completamente
+- **Los datos persisten** mientras no limpies el caché del navegador
+- **Haz backups regularmente** usando la herramienta incluida
 
 ## 🔐 Sistema de Turnos
 
@@ -103,20 +110,27 @@ Si no puedes entrar al sistema con la contraseña `cmg2025`, sigue estos pasos:
 3. **Recarga completa**: Presiona `Ctrl + Shift + R` para recargar sin caché
 4. **Lee el diagnóstico**: Revisa `DIAGNOSTICO_LOGIN.md` para soluciones detalladas
 
-### Acceso correcto al sistema:
-- ✅ Desde servidor local: `http://localhost/sistema_cmg/sistema_cmg.html`
-- ✅ Con Live Server en VSCode
-- ❌ NO abriendo archivos HTML directamente (file:///)
-- ❌ NO desde el repositorio de GitHub directamente
+### Acceso al sistema:
+- ✅ Abriendo archivos HTML directamente desde tu computadora
+- ✅ Desde cualquier navegador moderno (Chrome, Firefox, Edge, Safari)
+- ✅ Desde GitHub Pages (si está habilitado)
+- ✅ Sin necesidad de servidor web
 
 **Contraseña actual:** `cmg2025` (sin espacios, todo en minúsculas)
 
-## 🗄️ Configuración de Base de Datos (Opcional)
+## 📂 Archivos Importantes
 
-Si deseas usar la funcionalidad completa con base de datos MySQL:
+- `index.html` - Página de inicio y login
+- `sistema_cmg.html` - Sistema principal (gestión completa)
+- `clientes.html` - Gestión de clientes
+- `backup_datos.html` - Herramienta de respaldo
+- `limpiar_datos.html` - Limpieza de datos
+- `test_login.html` - Verificar contraseña
 
-1. Crea una base de datos MySQL llamada `sistema_cmg`
-2. Configura las credenciales en `api/config.php` (crear archivo)
-3. Las tablas se crearán automáticamente en el primer uso
+## ⚠️ Notas Importantes sobre Datos
 
-Sin base de datos, el sistema funciona con localStorage (almacenamiento local del navegador).
+- **Los datos se guardan en localStorage** del navegador
+- **NO se sincronizan entre dispositivos** (cada navegador tiene sus propios datos)
+- **Haz backups regularmente** usando `backup_datos.html`
+- **Si limpias el caché del navegador** perderás todos los datos
+- **Usa el mismo navegador** siempre para mantener tus datos
