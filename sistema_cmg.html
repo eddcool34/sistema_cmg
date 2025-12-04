@@ -8,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="api/api-connector.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -60,9 +59,13 @@
         const { useState, useEffect, useRef } = React;
         const { jsPDF } = window.jspdf;
 
-        // ========== CONFIGURACIÓN DE API ==========
-        // La configuración de la API está en api/api-connector.js
-        // Se usa MySQL en lugar de Google Sheets
+        // ========== CONFIGURACIÓN DE GOOGLE SHEETS ==========
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzogyvznEQB286BUgsG5U_i4vF1G2G7jQR93sjbMK1se9ElYteqXaWq-yHd6hv2IQQlig/exec';
+
+        // ID de tu Google Sheet (reemplaza con el ID real de tu hoja)
+        // Para obtenerlo: abre tu Google Sheet y copia el ID de la URL
+        // Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit
+        const GOOGLE_SHEET_ID = '1YourSheetIdHere'; // ⚠️ REEMPLAZAR CON TU ID REAL
 
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
@@ -187,7 +190,7 @@
 
         // ========== FUNCIONES DE GOOGLE SHEETS ==========
         
-        // Guardar venta en la API
+        // Guardar venta en Google Sheets
         const guardarVentaEnSheets = async (venta) => {
             try {
                 // Preparar datos según tipo de operación
@@ -213,100 +216,165 @@
                     servicio = venta.tipoOperacion === 'devolucion' ? 'Devolución' : venta.tipoServicio;
                 }
 
-                // Guardar usando la API
-                await guardarVentaAPI({
-                    fecha: new Date(venta.fecha).toLocaleDateString('es-MX'),
-                    hora: new Date(venta.fecha).toLocaleTimeString('es-MX'),
-                    remitente: remitente,
-                    telRemitente: telRemitente,
-                    destinatario: destinatario,
-                    telDestinatario: telDestinatario,
-                    direccion: venta.direccion ? `${venta.direccion} #${venta.numero}, ${venta.colonia}` : '-',
-                    codigoPostal: venta.codigoPostal || '-',
-                    ciudad: venta.colonia || '-',
-                    estado: venta.estado || '-',
-                    pais: venta.pais || 'México',
-                    paqueteria: paqueteria,
-                    servicio: servicio,
-                    precio: venta.precio,
-                    costo: venta.costo,
-                    ganancia: parseFloat(venta.precio) - parseFloat(venta.costo),
-                    numeroGuia: venta.numeroGuia || venta.id,
-                    tipoOperacion: venta.tipoOperacion,
-                    turnoId: venta.turnoId
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarVenta',
+                        fecha: new Date(venta.fecha).toLocaleDateString('es-MX'),
+                        hora: new Date(venta.fecha).toLocaleTimeString('es-MX'),
+                        remitente: remitente,
+                        telRemitente: telRemitente,
+                        destinatario: destinatario,
+                        telDestinatario: telDestinatario,
+                        direccion: venta.direccion ? `${venta.direccion} #${venta.numero}, ${venta.colonia}` : '-',
+                        codigoPostal: venta.codigoPostal || '-',
+                        ciudad: venta.colonia || '-',
+                        estado: venta.estado || '-',
+                        pais: venta.pais || 'México',
+                        paqueteria: paqueteria,
+                        servicio: servicio,
+                        precio: venta.precio,
+                        costo: venta.costo,
+                        ganancia: parseFloat(venta.precio) - parseFloat(venta.costo),
+                        numeroGuia: venta.numeroGuia || venta.id
+                    })
                 });
 
-                console.log('✅ Venta guardada en la API');
+                console.log('✅ Venta guardada en Google Sheets');
                 return true;
             } catch (error) {
-                console.error('❌ Error al guardar en la API:', error);
+                console.error('❌ Error al guardar en Google Sheets:', error);
                 return false;
             }
         };
 
-        // Guardar cliente en la API
+        // Guardar cliente en Google Sheets
         const guardarClienteEnSheets = async (cliente) => {
             try {
-                await guardarClienteAPI({
-                    idCliente: cliente.id,
-                    nombre: cliente.nombre,
-                    telefono: cliente.telefono,
-                    fechaRegistro: new Date().toLocaleDateString('es-MX')
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarCliente',
+                        idCliente: cliente.id,
+                        nombre: cliente.nombre,
+                        telefono: cliente.telefono,
+                        fechaRegistro: new Date().toLocaleDateString('es-MX')
+                    })
                 });
-
-                console.log('✅ Cliente guardado en la API');
+                
+                console.log('✅ Cliente guardado en Google Sheets');
                 return true;
             } catch (error) {
-                console.error('❌ Error al guardar cliente en la API:', error);
+                console.error('❌ Error al guardar cliente en Google Sheets:', error);
                 return false;
             }
         };
 
-        // Cargar ventas desde la API
+        // Cargar ventas desde Google Sheets
         const cargarVentasDesdeSheets = async () => {
             try {
-                const ventas = await obtenerVentasAPI();
-                console.log('✅ Ventas cargadas desde la API:', ventas.length);
-                return ventas;
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerVentas`);
+                const data = await response.json();
+
+                if (data.success && data.ventas) {
+                    console.log('✅ Ventas cargadas desde Google Sheets:', data.ventas.length);
+                    return data.ventas;
+                }
+                return [];
             } catch (error) {
-                console.error('❌ Error al cargar ventas desde la API:', error);
+                console.error('❌ Error al cargar ventas desde Google Sheets:', error);
                 return [];
             }
         };
 
         // Guardar en hoja de ventas por paquetería
-        // NOTA: Esta funcionalidad se maneja ahora en la API al guardar la venta principal
         const guardarVentaPorPaqueteria = async (venta) => {
             try {
-                // Los datos por paquetería ahora se gestionan en la API
-                console.log('✅ Venta guardada (análisis por paquetería en la API)');
+                const fecha = new Date(venta.fecha);
+                const mes = fecha.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+                const paqueteria = venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion : venta.paqueteria;
+                const tipoServicio = venta.tipoOperacion === 'devolucion' ? 'devolucion' : venta.tipoServicio;
+
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarVentaPorPaqueteria',
+                        mes: mes,
+                        tipoServicio: tipoServicio,
+                        paqueteria: paqueteria
+                    })
+                });
+
+                console.log('✅ Venta por paquetería guardada en Google Sheets');
             } catch (error) {
-                console.error('❌ Error al procesar venta:', error);
+                console.error('❌ Error al guardar venta por paquetería:', error);
             }
         };
 
         // Guardar destino frecuente
-        // NOTA: Esta funcionalidad se maneja ahora en la API al guardar la venta principal
         const guardarDestinoFrecuente = async (venta) => {
             try {
                 if (venta.tipoOperacion === 'envio' && venta.codigoPostal && venta.estado) {
-                    // Los destinos frecuentes ahora se gestionan en la API
-                    console.log('✅ Destino frecuente registrado en la API');
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'guardarDestinoFrecuente',
+                            codigoPostal: venta.codigoPostal,
+                            destino: `${venta.colonia || ''}, ${venta.estado}`.trim(),
+                            estado: venta.estado,
+                            pais: venta.pais || 'México'
+                        })
+                    });
+
+                    console.log('✅ Destino frecuente guardado en Google Sheets');
                 }
             } catch (error) {
                 console.error('❌ Error al guardar destino frecuente:', error);
             }
         };
 
-        // Guardar entrega en la API
-        // NOTA: Las entregas se guardan como ventas con tipoOperacion='entrega'
+        // Guardar entrega en Google Sheets
         const guardarEntregaEnSheets = async (entrega) => {
             try {
-                // Las entregas ya se guardan como parte de las ventas en la API
-                console.log('✅ Entrega guardada en la API como venta');
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'guardarEntrega',
+                        id: entrega.id,
+                        fechaRegistro: entrega.fechaRegistro || new Date(entrega.fecha).toLocaleDateString('es-MX'),
+                        horaRegistro: entrega.horaRegistro || new Date(entrega.fecha).toLocaleTimeString('es-MX'),
+                        nombre: entrega.nombreEntrega,
+                        paqueteria: entrega.paqueteriaEntrega,
+                        fechaLiberacion: entrega.fechaLiberacion || '',
+                        horaLiberacion: entrega.horaLiberacion || '',
+                        estado: entrega.estadoEntrega || 'pendiente'
+                    })
+                });
+
+                console.log('✅ Entrega guardada en Google Sheets');
                 return true;
             } catch (error) {
-                console.error('❌ Error al guardar entrega en la API:', error);
+                console.error('❌ Error al guardar entrega en Google Sheets:', error);
                 return false;
             }
         };
@@ -571,11 +639,11 @@
                 const cargarDatos = async () => {
                     setSyncStatus({ syncing: true, message: 'Cargando datos...' });
                     
-                    // Intentar cargar desde la API primero
+                    // Intentar cargar desde Google Sheets primero
                     const ventasSheets = await cargarVentasDesdeSheets();
-
+                    
                     if (ventasSheets.length > 0) {
-                        // Convertir las ventas de la API al formato de la app
+                        // Convertir las ventas de Sheets al formato de la app
                         const ventasConvertidas = ventasSheets.map(v => ({
                             id: v.numeroGuia || `ENV-${Date.now()}`,
                             fecha: v.fecha || v.fechaRegistro || new Date().toISOString(), // Usar fecha original de Sheets
@@ -598,7 +666,7 @@
                         
                         setVentas(ventasConvertidas);
                         localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
-                        setSyncStatus({ syncing: false, message: '✅ Sincronizado con la API' });
+                        setSyncStatus({ syncing: false, message: '✅ Sincronizado con Google Sheets' });
                     } else {
                         // Si no hay datos en Sheets, cargar desde localStorage
                         const ventasGuardadas = localStorage.getItem('ventas');
@@ -875,9 +943,24 @@
                 }
             };
 
-            // Función deshabilitada - Ya no se usa Google Sheets
+            // Abrir Google Sheets directamente
             const abrirGoogleSheets = () => {
-                showNotification('ℹ️ El sistema ahora usa base de datos MySQL en lugar de Google Sheets', 'info');
+                try {
+                    // Verificar si el ID de Google Sheet está configurado
+                    if (!GOOGLE_SHEET_ID || GOOGLE_SHEET_ID === '1YourSheetIdHere') {
+                        showNotification('⚠️ Debes configurar el ID de tu Google Sheet en el código', 'error');
+                        console.warn('Configura GOOGLE_SHEET_ID en la línea 68 del código');
+                        return;
+                    }
+
+                    // Abrir Google Sheets en una nueva pestaña
+                    const sheetsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/edit`;
+                    window.open(sheetsUrl, '_blank');
+                    showNotification('📊 Abriendo Google Sheets...', 'success');
+                } catch (error) {
+                    console.error('Error al abrir Google Sheets:', error);
+                    showNotification('Error al abrir Google Sheets', 'error');
+                }
             };
 
             // ========== FUNCIONES DE TURNOS ==========
@@ -944,8 +1027,18 @@
 
                     setSyncStatus({ syncing: true, message: 'Abriendo turno...' });
 
-                    // Enviar a la API
-                    await guardarTurnoAPI(nuevoTurno);
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'openTurno',
+                            ...nuevoTurno
+                        })
+                    });
 
                     // Guardar localmente
                     setTurnoActual(nuevoTurno);
@@ -1000,10 +1093,18 @@
 
                     setSyncStatus({ syncing: true, message: 'Cerrando turno...' });
 
-                    // Enviar a la API
-                    await cerrarTurnoAPI({
-                        ...corte,
-                        turno_id: turnoActual.turno_id
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'cerrarTurno',
+                            ...corte,
+                            turno_id: turnoActual.turno_id
+                        })
                     });
 
                     // Guardar en historial local
@@ -1072,8 +1173,18 @@
 
                     setSyncStatus({ syncing: true, message: 'Guardando gasto...' });
 
-                    // Enviar a la API
-                    await guardarGastoAPI(gasto);
+                    // Enviar a Google Sheets
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'guardarGasto',
+                            ...gasto
+                        })
+                    });
 
                     // Actualizar gastos localmente
                     const nuevosGastos = [...gastos, gasto];
@@ -1568,7 +1679,7 @@
                 }
 
                 setLoading(true);
-                setSyncStatus({ syncing: true, message: 'Guardando en la API...' });
+                setSyncStatus({ syncing: true, message: 'Guardando en Google Sheets...' });
 
                 const fechaActual = new Date();
 
@@ -1640,10 +1751,10 @@
                 let guardadoExitoso = false;
 
                 if (tipoOperacion === 'entrega') {
-                    // Guardar entrega en la API
+                    // Guardar entrega en Google Sheets
                     guardadoExitoso = await guardarEntregaEnSheets(nuevaVenta);
                 } else {
-                    // Guardar en la API (envíos y devoluciones)
+                    // Guardar en Google Sheets (envíos y devoluciones)
                     guardadoExitoso = await guardarVentaEnSheets(nuevaVenta);
 
                     // Guardar en hoja de ventas por paquetería
@@ -1667,7 +1778,7 @@
                 setVentas(prev => [...prev, nuevaVenta]);
 
                 if (guardadoExitoso) {
-                    setSyncStatus({ syncing: false, message: '✅ Guardado en la API' });
+                    setSyncStatus({ syncing: false, message: '✅ Guardado en Google Sheets' });
                 } else {
                     setSyncStatus({ syncing: false, message: '⚠️ Guardado localmente (sin conexión)' });
                 }
@@ -1766,13 +1877,13 @@
                             v.id === ventaId ? entregaActualizada : v
                         ));
 
-                        // Actualizar en la API
+                        // Actualizar en Google Sheets
                         try {
                             await guardarEntregaEnSheets(entregaActualizada);
                             showNotification('Paquete marcado como entregado exitosamente', 'success');
                         } catch (error) {
                             console.error('Error al actualizar entrega:', error);
-                            showNotification('Paquete marcado localmente, sin conexión con la API', 'warning');
+                            showNotification('Paquete marcado localmente, sin conexión con Google Sheets', 'warning');
                         }
                     }
                 }
@@ -2597,8 +2708,8 @@
                                         </h1>
                                         <p className="text-lg text-gray-600">Paquetería CMG</p>
                                         <p className="text-xs text-green-600 mt-1">
-                                            <i className="fas fa-database mr-1"></i>
-                                            Conectado a MySQL API
+                                            <i className="fas fa-cloud mr-1"></i>
+                                            Conectado a Google Sheets
                                         </p>
                                     </div>
                                 </div>
@@ -4014,11 +4125,10 @@
                                         </button>
                                         <button
                                             onClick={abrirGoogleSheets}
-                                            className="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md opacity-70 cursor-not-allowed"
-                                            title="Esta función ya no está disponible - El sistema usa MySQL"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                         >
-                                            <i className="fas fa-database mr-2"></i>
-                                            MySQL Database
+                                            <i className="fas fa-table mr-2"></i>
+                                            Abrir Google Sheets
                                         </button>
                                     </div>
 
@@ -4029,8 +4139,8 @@
                                             <strong>Descargar CSV:</strong> Exporta todas las ventas del mes seleccionado en formato Excel
                                         </p>
                                         <p className="text-sm text-gray-700 mt-1">
-                                            <i className="fas fa-database mr-2 text-green-500"></i>
-                                            <strong>Base de Datos:</strong> El sistema ahora usa MySQL en lugar de Google Sheets
+                                            <i className="fas fa-info-circle mr-2 text-blue-500"></i>
+                                            <strong>Abrir Google Sheets:</strong> Accede directamente a tu hoja de cálculo en línea
                                         </p>
                                     </div>
                                 </div>
