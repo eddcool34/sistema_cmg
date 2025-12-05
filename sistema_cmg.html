@@ -623,6 +623,23 @@
             const [showEditModal, setShowEditModal] = useState(false);
             const [ventaEditando, setVentaEditando] = useState(null);
 
+            // ========== Estados para Pendientes ==========
+            const [vuelosPendientes, setVuelosPendientes] = useState([]);
+            const [tareasPendientes, setTareasPendientes] = useState([]);
+            const [formVuelo, setFormVuelo] = useState({
+                codigoReservacion: '',
+                fechaCompra: new Date().toISOString().split('T')[0],
+                fechaVueloSalida: '',
+                fechaVuelta: '',
+                precio: '',
+                aerolinea: ''
+            });
+            const [formTarea, setFormTarea] = useState({
+                descripcion: ''
+            });
+            const [showVueloForm, setShowVueloForm] = useState(false);
+            const [showTareaForm, setShowTareaForm] = useState(false);
+
             // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
@@ -783,6 +800,36 @@
                     }
                 }
             }, [ventas]);
+
+            // Cargar pendientes desde localStorage al iniciar
+            useEffect(() => {
+                const vuelosGuardados = localStorage.getItem('vuelosPendientes');
+                if (vuelosGuardados) {
+                    try {
+                        setVuelosPendientes(JSON.parse(vuelosGuardados));
+                    } catch (error) {
+                        console.error('Error al cargar vuelos pendientes:', error);
+                    }
+                }
+
+                const tareasGuardadas = localStorage.getItem('tareasPendientes');
+                if (tareasGuardadas) {
+                    try {
+                        setTareasPendientes(JSON.parse(tareasGuardadas));
+                    } catch (error) {
+                        console.error('Error al cargar tareas pendientes:', error);
+                    }
+                }
+            }, []);
+
+            // Guardar pendientes en localStorage cuando cambian
+            useEffect(() => {
+                localStorage.setItem('vuelosPendientes', JSON.stringify(vuelosPendientes));
+            }, [vuelosPendientes]);
+
+            useEffect(() => {
+                localStorage.setItem('tareasPendientes', JSON.stringify(tareasPendientes));
+            }, [tareasPendientes]);
 
             const handleGuiaFileSelect = (e) => {
                 const file = e.target.files[0];
@@ -2042,6 +2089,76 @@
                 }
             };
 
+            // ========== FUNCIONES PARA PENDIENTES ==========
+
+            // Agregar vuelo pendiente
+            const agregarVuelo = () => {
+                const errores = [];
+                if (!formVuelo.codigoReservacion.trim()) errores.push('Código de reservación');
+                if (!formVuelo.fechaVueloSalida) errores.push('Fecha de vuelo de salida');
+                if (!formVuelo.precio || parseFloat(formVuelo.precio) <= 0) errores.push('Precio válido');
+                if (!formVuelo.aerolinea.trim()) errores.push('Aerolínea');
+
+                if (errores.length > 0) {
+                    showNotification(`⚠️ Faltan campos requeridos: ${errores.join(', ')}`, 'error');
+                    return;
+                }
+
+                const nuevoVuelo = {
+                    id: `VUELO-${Date.now()}`,
+                    ...formVuelo,
+                    precio: parseFloat(formVuelo.precio),
+                    realizado: false,
+                    fechaCreacion: new Date().toISOString()
+                };
+
+                setVuelosPendientes(prev => [...prev, nuevoVuelo]);
+                setFormVuelo({
+                    codigoReservacion: '',
+                    fechaCompra: new Date().toISOString().split('T')[0],
+                    fechaVueloSalida: '',
+                    fechaVuelta: '',
+                    precio: '',
+                    aerolinea: ''
+                });
+                setShowVueloForm(false);
+                showNotification('✅ Vuelo agregado exitosamente');
+            };
+
+            // Marcar vuelo como realizado
+            const toggleVueloRealizado = (vueloId) => {
+                setVuelosPendientes(prev => prev.map(v =>
+                    v.id === vueloId ? { ...v, realizado: !v.realizado } : v
+                ));
+            };
+
+            // Agregar tarea pendiente
+            const agregarTarea = () => {
+                if (!formTarea.descripcion.trim()) {
+                    showNotification('⚠️ Por favor ingresa una descripción para la tarea', 'error');
+                    return;
+                }
+
+                const nuevaTarea = {
+                    id: `TAREA-${Date.now()}`,
+                    descripcion: formTarea.descripcion,
+                    realizado: false,
+                    fechaCreacion: new Date().toISOString()
+                };
+
+                setTareasPendientes(prev => [...prev, nuevaTarea]);
+                setFormTarea({ descripcion: '' });
+                setShowTareaForm(false);
+                showNotification('✅ Tarea agregada exitosamente');
+            };
+
+            // Marcar tarea como realizada
+            const toggleTareaRealizada = (tareaId) => {
+                setTareasPendientes(prev => prev.map(t =>
+                    t.id === tareaId ? { ...t, realizado: !t.realizado } : t
+                ));
+            };
+
             // Obtener ventas por fecha
             const getVentasPorFecha = (fecha) => {
                 return ventas.filter(v => {
@@ -2815,6 +2932,16 @@
                                     }`}
                                 >
                                     <i className="fas fa-list-alt mr-2"></i>Resumen de Cortes
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('pendientes')}
+                                    className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
+                                        activeTab === 'pendientes'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <i className="fas fa-tasks mr-2"></i>Pendientes
                                 </button>
                             </div>
                         </div>
@@ -5276,6 +5403,341 @@
                                         </>
                                     );
                                 })()}
+                            </div>
+                        )}
+
+                        {/* Contenido - Pendientes */}
+                        {activeTab === 'pendientes' && (
+                            <div className="space-y-6">
+                                {/* Sección de Vuelos Vendidos */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            <i className="fas fa-plane mr-2"></i>Vuelos Vendidos
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowVueloForm(!showVueloForm)}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-plus mr-2"></i>Agregar Vuelo
+                                        </button>
+                                    </div>
+
+                                    {/* Formulario para agregar vuelo */}
+                                    {showVueloForm && (
+                                        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                                                <i className="fas fa-ticket-alt mr-2"></i>Nuevo Vuelo
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Código de Reservación *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={formVuelo.codigoReservacion}
+                                                        onChange={(e) => setFormVuelo({...formVuelo, codigoReservacion: e.target.value})}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Ej: ABC123"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Aerolínea *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={formVuelo.aerolinea}
+                                                        onChange={(e) => setFormVuelo({...formVuelo, aerolinea: e.target.value})}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Ej: Volaris, Viva Aerobus"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Fecha de Compra
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={formVuelo.fechaCompra}
+                                                        onChange={(e) => setFormVuelo({...formVuelo, fechaCompra: e.target.value})}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Fecha de Salida *
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={formVuelo.fechaVueloSalida}
+                                                        onChange={(e) => setFormVuelo({...formVuelo, fechaVueloSalida: e.target.value})}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Fecha de Vuelta
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={formVuelo.fechaVuelta}
+                                                        onChange={(e) => setFormVuelo({...formVuelo, fechaVuelta: e.target.value})}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Precio *
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={formVuelo.precio}
+                                                        onChange={(e) => setFormVuelo({...formVuelo, precio: e.target.value})}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 mt-4">
+                                                <button
+                                                    onClick={agregarVuelo}
+                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                                >
+                                                    <i className="fas fa-check mr-2"></i>Guardar Vuelo
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowVueloForm(false);
+                                                        setFormVuelo({
+                                                            codigoReservacion: '',
+                                                            fechaCompra: new Date().toISOString().split('T')[0],
+                                                            fechaVueloSalida: '',
+                                                            fechaVuelta: '',
+                                                            precio: '',
+                                                            aerolinea: ''
+                                                        });
+                                                    }}
+                                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                                >
+                                                    <i className="fas fa-times mr-2"></i>Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Lista de vuelos */}
+                                    {vuelosPendientes.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <i className="fas fa-plane-slash text-4xl mb-2"></i>
+                                            <p>No hay vuelos pendientes registrados</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Código
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Aerolínea
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Fecha Compra
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Salida
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Vuelta
+                                                        </th>
+                                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Precio
+                                                        </th>
+                                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                                            Estado
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200">
+                                                    {vuelosPendientes.map((vuelo) => (
+                                                        <tr key={vuelo.id} className={`hover:bg-gray-50 transition-colors ${vuelo.realizado ? 'opacity-60' : ''}`}>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                                <i className="fas fa-ticket-alt mr-2 text-blue-500"></i>
+                                                                {vuelo.codigoReservacion}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                {vuelo.aerolinea}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                {new Date(vuelo.fechaCompra).toLocaleDateString('es-MX')}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                <i className="fas fa-plane-departure mr-1 text-green-500"></i>
+                                                                {new Date(vuelo.fechaVueloSalida).toLocaleDateString('es-MX')}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                {vuelo.fechaVuelta ? (
+                                                                    <>
+                                                                        <i className="fas fa-plane-arrival mr-1 text-orange-500"></i>
+                                                                        {new Date(vuelo.fechaVuelta).toLocaleDateString('es-MX')}
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="text-gray-400">Solo ida</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-green-600">
+                                                                {formatCurrency(vuelo.precio)}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                                <button
+                                                                    onClick={() => toggleVueloRealizado(vuelo.id)}
+                                                                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                                                        vuelo.realizado
+                                                                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                                            : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                                                                    }`}
+                                                                >
+                                                                    {vuelo.realizado ? (
+                                                                        <>
+                                                                            <i className="fas fa-check-circle mr-1"></i>
+                                                                            Realizado
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <i className="fas fa-clock mr-1"></i>
+                                                                            Pendiente
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Sección de Tareas Pendientes */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            <i className="fas fa-list-check mr-2"></i>Tareas Pendientes
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowTareaForm(!showTareaForm)}
+                                            className="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-plus mr-2"></i>Agregar Tarea
+                                        </button>
+                                    </div>
+
+                                    {/* Formulario para agregar tarea */}
+                                    {showTareaForm && (
+                                        <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6 mb-6">
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                                                <i className="fas fa-clipboard-list mr-2"></i>Nueva Tarea
+                                            </h3>
+                                            <div className="mb-4">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Descripción *
+                                                </label>
+                                                <textarea
+                                                    value={formTarea.descripcion}
+                                                    onChange={(e) => setFormTarea({...formTarea, descripcion: e.target.value})}
+                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                    placeholder="Ej: Pagar servicios de luz, Renovar licencia, etc."
+                                                    rows="3"
+                                                />
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={agregarTarea}
+                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                                >
+                                                    <i className="fas fa-check mr-2"></i>Guardar Tarea
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowTareaForm(false);
+                                                        setFormTarea({ descripcion: '' });
+                                                    }}
+                                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                                                >
+                                                    <i className="fas fa-times mr-2"></i>Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Lista de tareas */}
+                                    {tareasPendientes.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <i className="fas fa-clipboard text-4xl mb-2"></i>
+                                            <p>No hay tareas pendientes registradas</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {tareasPendientes.map((tarea) => (
+                                                <div
+                                                    key={tarea.id}
+                                                    className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
+                                                        tarea.realizado
+                                                            ? 'bg-green-50 border-green-200 opacity-70'
+                                                            : 'bg-white border-gray-200 hover:shadow-md'
+                                                    }`}
+                                                >
+                                                    <div className="flex-1">
+                                                        <p className={`text-gray-800 ${tarea.realizado ? 'line-through' : ''}`}>
+                                                            <i className={`fas ${tarea.realizado ? 'fa-check-square' : 'fa-square'} mr-2 ${tarea.realizado ? 'text-green-500' : 'text-gray-400'}`}></i>
+                                                            {tarea.descripcion}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1 ml-6">
+                                                            Creado: {new Date(tarea.fechaCreacion).toLocaleDateString('es-MX')}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => toggleTareaRealizada(tarea.id)}
+                                                        className={`px-4 py-2 rounded-lg font-semibold transition-colors ml-4 ${
+                                                            tarea.realizado
+                                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                                : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                                                        }`}
+                                                    >
+                                                        {tarea.realizado ? (
+                                                            <>
+                                                                <i className="fas fa-check-circle mr-1"></i>
+                                                                Realizado
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <i className="fas fa-clock mr-1"></i>
+                                                                Marcar
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Nota informativa */}
+                                    <div className="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                                        <div className="flex">
+                                            <i className="fas fa-info-circle text-blue-400 mr-3 mt-1"></i>
+                                            <div>
+                                                <p className="text-sm text-blue-700 font-semibold mb-1">Nota importante</p>
+                                                <p className="text-sm text-blue-600">
+                                                    Esta sección es únicamente para recordatorio. Los vuelos y tareas marcados como realizados no se eliminan y no afectan al corte de caja.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
