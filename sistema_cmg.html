@@ -1107,10 +1107,11 @@
                                 return fechaB - fechaA;
                             })[0];
 
-                            // Usar el monto reportado por cajero del último corte
-                            if (ultimoCorte && ultimoCorte.monto_reportado_por_cajero) {
-                                fondoInicial = parseFloat(ultimoCorte.monto_reportado_por_cajero);
-                                console.log(`📅 Día ${diaSemana} - Usando monto del corte anterior: ${fondoInicial}`);
+                            // Calcular el balance real del último corte (caja acumulada)
+                            if (ultimoCorte) {
+                                fondoInicial = calcularBalanceRealTurno(ultimoCorte);
+                                console.log(`📅 Día ${diaSemana} - Usando balance real del corte anterior: $${fondoInicial.toFixed(2)}`);
+                                console.log(`   Fondo inicial anterior: $${ultimoCorte.fondo_inicial}`);
                             }
                         }
                     }
@@ -2352,6 +2353,39 @@
                     banco: banco,
                     total: efectivo + banco
                 };
+            };
+
+            // Calcular balance real en efectivo de un turno específico
+            const calcularBalanceRealTurno = (turno) => {
+                // Obtener ventas del turno
+                const ventasTurno = ventas.filter(v => v.turno_id === turno.turno_id && v.estadoVenta !== 'cancelada');
+
+                // Separar ventas por método de pago (solo efectivo)
+                const ventasEfectivo = ventasTurno.filter(v => v.metodoPago === 'efectivo')
+                    .reduce((sum, v) => sum + parseFloat(v.precio) + parseFloat(v.impuesto || 0), 0);
+
+                // Calcular gastos, salidas y entradas del turno
+                const movimientos = gastos.filter(g => g.turno_id === turno.turno_id);
+
+                // Gastos/Salidas en efectivo
+                const gastosEfectivo = movimientos.filter(g =>
+                    (g.tipo === 'gasto' || g.tipo === 'salida') &&
+                    (!g.metodoPago || g.metodoPago === 'efectivo')
+                ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                // Entradas en efectivo
+                const entradasEfectivo = movimientos.filter(g =>
+                    g.tipo === 'entrada' &&
+                    (!g.metodoPago || g.metodoPago === 'efectivo')
+                ).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+
+                // Ingresos en caja (fondo inicial del turno)
+                const ingresosCaja = parseFloat(turno.fondo_inicial || 0);
+
+                // Balance Real en EFECTIVO = fondo inicial + ventas efectivo - gastos efectivo + entradas efectivo
+                const balanceRealEfectivo = ingresosCaja + ventasEfectivo - gastosEfectivo + entradasEfectivo;
+
+                return balanceRealEfectivo;
             };
 
             return (
