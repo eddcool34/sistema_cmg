@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - Sistema CMG</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .role-badge {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            display: inline-block;
+        }
+
+        .role-ADMINISTRADOR { background: #dc2626; }
+        .role-SUPERVISOR { background: #f59e0b; }
+        .role-CAJERO { background: #3b82f6; }
+        .role-AUDITOR { background: #8b5cf6; }
+
+        .audit-entry {
+            border-left: 4px solid;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .audit-entry.login { border-color: #4caf50; }
+        .audit-entry.logout { border-color: #ff9800; }
+        .audit-entry.acceso_denegado { border-color: #f44336; }
+        .audit-entry.default { border-color: #2196f3; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal.show .modal-content {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold">
+                    <i class="fas fa-users-cog mr-2"></i>
+                    Gestión de Usuarios
+                </h1>
+                <p class="text-purple-200 mt-1">Sistema de Control de Acceso Basado en Roles</p>
+            </div>
+            <div>
+                <button onclick="window.location.href='sistema_cmg.html'" class="bg-white text-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-50 transition">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver al Sistema
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto p-6">
+        <!-- Información del Usuario Actual -->
+        <div id="userInfo" class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Sesión Actual</h2>
+                    <p class="text-gray-600 mt-1" id="currentUserInfo">Cargando...</p>
+                </div>
+                <button onclick="cerrarSesionYRedirigir()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow-md mb-6">
+            <div class="flex border-b">
+                <button onclick="cambiarTab('usuarios')" id="tab-usuarios" class="flex-1 px-6 py-4 text-center font-semibold border-b-2 border-purple-600 text-purple-600">
+                    <i class="fas fa-users mr-2"></i>
+                    Usuarios
+                </button>
+                <button onclick="cambiarTab('auditoria')" id="tab-auditoria" class="flex-1 px-6 py-4 text-center font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-history mr-2"></i>
+                    Auditoría
+                </button>
+            </div>
+
+            <!-- Panel de Usuarios -->
+            <div id="panel-usuarios" class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-list mr-2"></i>
+                        Lista de Usuarios
+                    </h3>
+                    <button onclick="abrirModalNuevoUsuario()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nuevo Usuario
+                    </button>
+                </div>
+
+                <div id="listaUsuarios" class="space-y-4">
+                    <!-- Usuarios se cargarán dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Panel de Auditoría -->
+            <div id="panel-auditoria" class="p-6" style="display: none;">
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-clipboard-list mr-2"></i>
+                        Historial de Acciones
+                    </h3>
+
+                    <div class="flex gap-4 mb-4">
+                        <select id="filtroUsuario" onchange="cargarAuditoria()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                            <option value="">Todos los usuarios</option>
+                        </select>
+                        <button onclick="exportarAuditoria()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
+                            <i class="fas fa-download mr-2"></i>
+                            Exportar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="listaAuditoria" class="space-y-2">
+                    <!-- Auditoría se cargará dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo/Editar Usuario -->
+    <div id="modalUsuario" class="modal">
+        <div class="modal-content">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-t-lg">
+                <h3 class="text-2xl font-bold" id="modalTitulo">Nuevo Usuario</h3>
+            </div>
+            <form id="formUsuario" class="p-6">
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-user mr-2"></i>Usuario
+                    </label>
+                    <input type="text" id="inputUsuario" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-id-card mr-2"></i>Nombre Completo
+                    </label>
+                    <input type="text" id="inputNombre" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2"></i>Contraseña
+                    </label>
+                    <input type="password" id="inputContrasena" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-user-tag mr-2"></i>Rol
+                    </label>
+                    <select id="inputRol" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" required>
+                        <option value="CAJERO">Cajero</option>
+                        <option value="SUPERVISOR">Supervisor</option>
+                        <option value="AUDITOR">Auditor</option>
+                        <option value="ADMINISTRADOR">Administrador</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-4 mt-6">
+                    <button type="submit" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition font-semibold">
+                        <i class="fas fa-save mr-2"></i>Guardar
+                    </button>
+                    <button type="button" onclick="cerrarModal()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Importar RBAC Config -->
+    <script src="rbac-config.js"></script>
+
+    <script>
+        // ========== VERIFICAR PERMISOS ==========
+        const usuarioActual = verificarSesion();
+
+        if (!usuarioActual) {
+            window.location.href = 'login.html';
+        }
+
+        if (!tienePermiso('gestionar_usuarios', usuarioActual)) {
+            alert('❌ No tienes permisos para acceder a esta sección');
+            window.location.href = 'sistema_cmg.html';
+        }
+
+        // ========== CARGAR INFORMACIÓN ==========
+        window.addEventListener('DOMContentLoaded', function() {
+            mostrarInfoUsuarioActual();
+            cargarUsuarios();
+            cargarAuditoria();
+            cargarFiltroUsuarios();
+        });
+
+        // ========== FUNCIONES DE USUARIO ==========
+        function mostrarInfoUsuarioActual() {
+            const rol = ROLES[usuarioActual.rol];
+            document.getElementById('currentUserInfo').innerHTML = `
+                <span class="font-semibold">${usuarioActual.nombre}</span> -
+                <span class="role-badge role-${usuarioActual.rol}">${rol.nombre}</span>
+            `;
+        }
+
+        function cargarUsuarios() {
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const container = document.getElementById('listaUsuarios');
+
+            if (usuarios.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay usuarios registrados</p>';
+                return;
+            }
+
+            container.innerHTML = usuarios.map(usuario => {
+                const rol = ROLES[usuario.rol];
+                const activo = usuario.activo !== false;
+
+                return `
+                    <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between hover:shadow-md transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center text-white text-xl font-bold">
+                                ${usuario.nombre.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-800">${usuario.nombre}</div>
+                                <div class="text-sm text-gray-600">@${usuario.usuario}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="role-badge role-${usuario.rol}">${rol.nombre}</span>
+                            <span class="text-sm ${activo ? 'text-green-600' : 'text-red-600'}">
+                                <i class="fas fa-circle mr-1"></i>
+                                ${activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                            <button onclick="toggleEstadoUsuario(${usuario.id})" class="text-${activo ? 'red' : 'green'}-600 hover:text-${activo ? 'red' : 'green'}-700 font-semibold">
+                                <i class="fas fa-${activo ? 'ban' : 'check-circle'}"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function cargarFiltroUsuarios() {
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const select = document.getElementById('filtroUsuario');
+
+            usuarios.forEach(usuario => {
+                const option = document.createElement('option');
+                option.value = usuario.nombre;
+                option.textContent = usuario.nombre;
+                select.appendChild(option);
+            });
+        }
+
+        function toggleEstadoUsuario(id) {
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const usuario = usuarios.find(u => u.id === id);
+
+            if (!usuario) return;
+
+            usuario.activo = !usuario.activo;
+            localStorage.setItem('usuarios_cmg', JSON.stringify(usuarios));
+
+            registrarAccion(usuarioActual, 'cambio_estado_usuario', `${usuario.nombre} ahora está ${usuario.activo ? 'activo' : 'inactivo'}`);
+
+            cargarUsuarios();
+        }
+
+        // ========== FUNCIONES DE AUDITORÍA ==========
+        function cargarAuditoria() {
+            const filtroUsuario = document.getElementById('filtroUsuario').value;
+            const auditoria = filtroUsuario
+                ? obtenerAuditoriaPorUsuario(filtroUsuario)
+                : obtenerAuditoria(50);
+
+            const container = document.getElementById('listaAuditoria');
+
+            if (auditoria.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay registros de auditoría</p>';
+                return;
+            }
+
+            container.innerHTML = auditoria.map(registro => {
+                const fecha = new Date(registro.timestamp);
+                const tipoClase = registro.accion.replace(/_/g, '-');
+
+                return `
+                    <div class="audit-entry ${tipoClase}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-semibold text-gray-800">
+                                    ${registro.usuario}
+                                    <span class="role-badge role-${registro.rol} ml-2">${registro.rol}</span>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <strong>${registro.accion}:</strong> ${registro.detalles}
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 text-right">
+                                <div>${fecha.toLocaleDateString()}</div>
+                                <div>${fecha.toLocaleTimeString()}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function exportarAuditoria() {
+            const auditoria = obtenerAuditoria(1000);
+            const csv = [
+                ['Fecha', 'Hora', 'Usuario', 'Rol', 'Acción', 'Detalles'],
+                ...auditoria.map(r => {
+                    const fecha = new Date(r.timestamp);
+                    return [
+                        fecha.toLocaleDateString(),
+                        fecha.toLocaleTimeString(),
+                        r.usuario,
+                        r.rol,
+                        r.accion,
+                        r.detalles
+                    ];
+                })
+            ].map(row => row.join(',')).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `auditoria_cmg_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+
+            registrarAccion(usuarioActual, 'exportar_auditoria', 'Exportó historial de auditoría');
+        }
+
+        // ========== FUNCIONES DE MODAL ==========
+        function abrirModalNuevoUsuario() {
+            document.getElementById('modalTitulo').textContent = 'Nuevo Usuario';
+            document.getElementById('formUsuario').reset();
+            document.getElementById('modalUsuario').classList.add('show');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalUsuario').classList.remove('show');
+        }
+
+        document.getElementById('formUsuario').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+
+            const nuevoUsuario = {
+                id: usuarios.length > 0 ? Math.max(...usuarios.map(u => u.id)) + 1 : 1,
+                usuario: document.getElementById('inputUsuario').value,
+                nombre: document.getElementById('inputNombre').value,
+                contrasena: document.getElementById('inputContrasena').value,
+                rol: document.getElementById('inputRol').value,
+                activo: true,
+                fechaCreacion: new Date().toISOString().split('T')[0]
+            };
+
+            usuarios.push(nuevoUsuario);
+            localStorage.setItem('usuarios_cmg', JSON.stringify(usuarios));
+
+            registrarAccion(usuarioActual, 'crear_usuario', `Creó usuario: ${nuevoUsuario.nombre} (${nuevoUsuario.rol})`);
+
+            cerrarModal();
+            cargarUsuarios();
+            cargarFiltroUsuarios();
+
+            alert('✅ Usuario creado exitosamente');
+        });
+
+        // ========== FUNCIONES DE TABS ==========
+        function cambiarTab(tab) {
+            // Actualizar tabs
+            document.getElementById('tab-usuarios').className = 'flex-1 px-6 py-4 text-center font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-800';
+            document.getElementById('tab-auditoria').className = 'flex-1 px-6 py-4 text-center font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-800';
+            document.getElementById(`tab-${tab}`).className = 'flex-1 px-6 py-4 text-center font-semibold border-b-2 border-purple-600 text-purple-600';
+
+            // Actualizar paneles
+            document.getElementById('panel-usuarios').style.display = 'none';
+            document.getElementById('panel-auditoria').style.display = 'none';
+            document.getElementById(`panel-${tab}`).style.display = 'block';
+
+            // Recargar datos
+            if (tab === 'auditoria') {
+                cargarAuditoria();
+            }
+        }
+
+        function cerrarSesionYRedirigir() {
+            if (confirm('¿Estás seguro que deseas cerrar sesión?')) {
+                cerrarSesion();
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Inicializar localStorage de usuarios si no existe
+        if (!localStorage.getItem('usuarios_cmg')) {
+            localStorage.setItem('usuarios_cmg', JSON.stringify(USUARIOS));
+        }
+    </script>
+</body>
+</html>
