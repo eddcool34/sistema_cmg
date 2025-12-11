@@ -404,6 +404,100 @@
             return datosGuardados;
         };
 
+        // ========== CONFIGURACIÓN DEL SISTEMA ==========
+        const CONFIG_DEFAULT = {
+            // Configuración de negocio
+            negocio: {
+                nombre: 'Sistema CMG - Paquetería',
+                direccion: '',
+                telefono: '',
+                email: '',
+                sitioWeb: '',
+                logo: '', // Base64 o URL
+                colorPrincipal: '#3B82F6',
+                colorSecundario: '#10B981'
+            },
+
+            // Cajeros configurados
+            cajeros: [
+                { id: 1, nombre: 'Mariana', activo: true, usuario: 'mariana', contrasena: 'mariana123' },
+                { id: 2, nombre: 'Edgar', activo: true, usuario: 'edgar', contrasena: 'edgar123' },
+                { id: 3, nombre: 'Cris', activo: true, usuario: 'cris', contrasena: 'cris123' }
+            ],
+
+            // Paqueterías configurables
+            paqueterias: ['fedex', 'estafeta', 'dhl', 'mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'],
+
+            // Servicios configurables
+            servicios: [
+                { id: 'localizacion', nombre: 'SERVICIO DE LOCALIZACION POR COORDENADAS MUNICIPAL', precio: 100, precioFijo: true },
+                { id: 'visa', nombre: 'VISA AMERICANA', precio: 6200, precioFijo: true },
+                { id: 'pasaporte', nombre: 'PASAPORTE MEX', precio: 6000, precioFijo: true },
+                { id: 'paquete_visa_pasaporte', nombre: 'PAQUETE DE VIAJE VISA Y PASAPORTE', precio: 10000, precioFijo: true },
+                { id: 'documentos', nombre: 'DOCUMENTOS DE IDENTIDAD', precio: 200, precioFijo: true },
+                { id: 'boleto_viva', nombre: 'BOLETO DE VIVA AEROBUS', precio: 0, precioFijo: false },
+                { id: 'boleto_volaris', nombre: 'BOLETO DE VOLARIS', precio: 0, precioFijo: false },
+                { id: 'boleto_autobus', nombre: 'BOLETOS DE AUTOBUS', precio: 0, precioFijo: false }
+            ],
+
+            // Configuración de Google Sheets
+            googleSheets: {
+                scriptUrl: 'https://script.google.com/macros/s/AKfycbzogyvznEQB286BUgsG5U_i4vF1G2G7jQR93sjbMK1se9ElYteqXaWq-yHd6hv2IQQlig/exec',
+                sheetId: '1YourSheetIdHere',
+                sincronizacionAutomatica: true,
+                intervalo: 5 // minutos
+            },
+
+            // Configuración de caja
+            caja: {
+                fondoInicial: 1000,
+                denominaciones: [1000, 500, 200, 100, 50, 20],
+                moneda: 'MXN',
+                formatoMoneda: 'es-MX'
+            },
+
+            // Configuración de seguridad
+            seguridad: {
+                contraseñaSistema: 'cmg2025',
+                timeoutSesion: 30, // minutos
+                intentosMaximos: 3,
+                bloqueoAutomatico: true
+            }
+        };
+
+        // Cargar configuración
+        const cargarConfiguracion = () => {
+            try {
+                const configGuardada = JSON.parse(localStorage.getItem('cmg_configuracion') || '{}');
+                // Merge profundo para mantener estructura por defecto
+                const configMerged = {
+                    negocio: { ...CONFIG_DEFAULT.negocio, ...(configGuardada.negocio || {}) },
+                    cajeros: configGuardada.cajeros || CONFIG_DEFAULT.cajeros,
+                    paqueterias: configGuardada.paqueterias || CONFIG_DEFAULT.paqueterias,
+                    servicios: configGuardada.servicios || CONFIG_DEFAULT.servicios,
+                    googleSheets: { ...CONFIG_DEFAULT.googleSheets, ...(configGuardada.googleSheets || {}) },
+                    caja: { ...CONFIG_DEFAULT.caja, ...(configGuardada.caja || {}) },
+                    seguridad: { ...CONFIG_DEFAULT.seguridad, ...(configGuardada.seguridad || {}) }
+                };
+                return configMerged;
+            } catch (error) {
+                console.error('❌ Error al cargar configuración:', error);
+                return CONFIG_DEFAULT;
+            }
+        };
+
+        // Guardar configuración
+        const guardarConfiguracion = (config) => {
+            try {
+                localStorage.setItem('cmg_configuracion', JSON.stringify(config));
+                console.log('✅ Configuración guardada');
+                return true;
+            } catch (error) {
+                console.error('❌ Error al guardar configuración:', error);
+                return false;
+            }
+        };
+
         // Función para respaldar todos los datos en Google Sheets
         const respaldarDatos = async (ventas = [], setNotification) => {
             try {
@@ -706,6 +800,15 @@
             const [showVueloForm, setShowVueloForm] = useState(false);
             const [showTareaForm, setShowTareaForm] = useState(false);
 
+            // ========== Estados para Configuración ==========
+            const [configuracion, setConfiguracion] = useState(CONFIG_DEFAULT);
+            const [showConfigModal, setShowConfigModal] = useState(false);
+            const [configTab, setConfigTab] = useState('general');
+            const [logoPreview, setLogoPreview] = useState('');
+            const [nuevoCajero, setNuevoCajero] = useState({ nombre: '', usuario: '', contrasena: '' });
+            const [nuevaPaqueteria, setNuevaPaqueteria] = useState('');
+            const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', precio: '', precioFijo: false });
+
             // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
@@ -717,6 +820,189 @@
                 }, 3000);
             };
 
+            // ========== FUNCIONES DE GESTIÓN DE CONFIGURACIÓN ==========
+
+            // Guardar toda la configuración
+            const handleGuardarConfiguracion = () => {
+                const exito = guardarConfiguracion(configuracion);
+                if (exito) {
+                    showNotification('✅ Configuración guardada exitosamente', 'success');
+                } else {
+                    showNotification('❌ Error al guardar configuración', 'error');
+                }
+            };
+
+            // Actualizar datos del negocio
+            const handleActualizarNegocio = (campo, valor) => {
+                setConfiguracion(prev => ({
+                    ...prev,
+                    negocio: { ...prev.negocio, [campo]: valor }
+                }));
+            };
+
+            // Gestión de cajeros
+            const handleAgregarCajero = () => {
+                if (!nuevoCajero.nombre || !nuevoCajero.usuario || !nuevoCajero.contrasena) {
+                    showNotification('⚠️ Completa todos los campos del cajero', 'warning');
+                    return;
+                }
+
+                const nuevoId = Math.max(...configuracion.cajeros.map(c => c.id), 0) + 1;
+                const cajeroCompleto = { ...nuevoCajero, id: nuevoId, activo: true };
+
+                setConfiguracion(prev => ({
+                    ...prev,
+                    cajeros: [...prev.cajeros, cajeroCompleto]
+                }));
+
+                setNuevoCajero({ nombre: '', usuario: '', contrasena: '' });
+                showNotification('✅ Cajero agregado', 'success');
+            };
+
+            const handleEliminarCajero = (id) => {
+                if (configuracion.cajeros.length <= 1) {
+                    showNotification('⚠️ Debe haber al menos un cajero', 'warning');
+                    return;
+                }
+
+                setConfiguracion(prev => ({
+                    ...prev,
+                    cajeros: prev.cajeros.filter(c => c.id !== id)
+                }));
+
+                showNotification('✅ Cajero eliminado', 'success');
+            };
+
+            const handleActualizarCajero = (id, campo, valor) => {
+                setConfiguracion(prev => ({
+                    ...prev,
+                    cajeros: prev.cajeros.map(c =>
+                        c.id === id ? { ...c, [campo]: valor } : c
+                    )
+                }));
+            };
+
+            // Gestión de paqueterías
+            const handleAgregarPaqueteria = () => {
+                if (!nuevaPaqueteria.trim()) {
+                    showNotification('⚠️ Ingresa el nombre de la paquetería', 'warning');
+                    return;
+                }
+
+                if (configuracion.paqueterias.includes(nuevaPaqueteria.toLowerCase())) {
+                    showNotification('⚠️ Esta paquetería ya existe', 'warning');
+                    return;
+                }
+
+                setConfiguracion(prev => ({
+                    ...prev,
+                    paqueterias: [...prev.paqueterias, nuevaPaqueteria.toLowerCase()]
+                }));
+
+                setNuevaPaqueteria('');
+                showNotification('✅ Paquetería agregada', 'success');
+            };
+
+            const handleEliminarPaqueteria = (paqueteria) => {
+                setConfiguracion(prev => ({
+                    ...prev,
+                    paqueterias: prev.paqueterias.filter(p => p !== paqueteria)
+                }));
+
+                showNotification('✅ Paquetería eliminada', 'success');
+            };
+
+            // Gestión de servicios
+            const handleAgregarServicio = () => {
+                if (!nuevoServicio.nombre || !nuevoServicio.precio) {
+                    showNotification('⚠️ Completa todos los campos del servicio', 'warning');
+                    return;
+                }
+
+                const servicioCompleto = {
+                    id: Date.now().toString(),
+                    nombre: nuevoServicio.nombre,
+                    precio: parseFloat(nuevoServicio.precio),
+                    precioFijo: nuevoServicio.precioFijo
+                };
+
+                setConfiguracion(prev => ({
+                    ...prev,
+                    servicios: [...prev.servicios, servicioCompleto]
+                }));
+
+                setNuevoServicio({ nombre: '', precio: '', precioFijo: false });
+                showNotification('✅ Servicio agregado', 'success');
+            };
+
+            const handleEliminarServicio = (id) => {
+                setConfiguracion(prev => ({
+                    ...prev,
+                    servicios: prev.servicios.filter(s => s.id !== id)
+                }));
+
+                showNotification('✅ Servicio eliminado', 'success');
+            };
+
+            // Subir logo
+            const handleLogoUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Validar tipo de archivo
+                if (!file.type.startsWith('image/')) {
+                    showNotification('⚠️ Solo se permiten imágenes', 'warning');
+                    return;
+                }
+
+                // Validar tamaño (máx 500KB)
+                if (file.size > 500000) {
+                    showNotification('⚠️ La imagen debe ser menor a 500KB', 'warning');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const logoBase64 = reader.result;
+                    setLogoPreview(logoBase64);
+                    handleActualizarNegocio('logo', logoBase64);
+                    showNotification('✅ Logo cargado', 'success');
+                };
+                reader.readAsDataURL(file);
+            };
+
+            // Exportar configuración
+            const handleExportarConfiguracion = () => {
+                const dataStr = JSON.stringify(configuracion, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `config-cmg-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showNotification('✅ Configuración exportada', 'success');
+            };
+
+            // Importar configuración
+            const handleImportarConfiguracion = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const config = JSON.parse(event.target.result);
+                        setConfiguracion(config);
+                        guardarConfiguracion(config);
+                        showNotification('✅ Configuración importada', 'success');
+                    } catch (error) {
+                        showNotification('❌ Error al importar configuración', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+
             // Cargar todos los datos al iniciar (CONSOLIDADO)
             useEffect(() => {
                 const cargarDatos = async () => {
@@ -725,6 +1011,10 @@
 
                     // 1. Cargar datos desde localStorage primero (rápido)
                     const datosCargados = cargarDatosPersistentes();
+                    const configLocal = cargarConfiguracion();
+
+                    // Establecer configuración
+                    setConfiguracion(configLocal);
 
                     // Cargar ventas desde localStorage
                     if (datosCargados.ventas.length > 0) {
@@ -2947,8 +3237,19 @@
                                     </div>
                                 </div>
 
-                                {/* Indicador de Turno */}
-                                <div className="text-right">
+                                {/* Botón de Configuraciones */}
+                                <div className="flex gap-4 items-center">
+                                    <button
+                                        onClick={() => setShowConfigModal(true)}
+                                        className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
+                                        title="Configuraciones del Sistema"
+                                    >
+                                        <i className="fas fa-cog text-lg"></i>
+                                        <span className="font-semibold">Configuraciones</span>
+                                    </button>
+
+                                    {/* Indicador de Turno */}
+                                    <div className="text-right">
                                     {turnoActual ? (
                                         <div className="bg-green-100 border border-green-300 rounded-lg p-4">
                                             <p className="text-sm font-semibold text-green-800">
@@ -2982,6 +3283,7 @@
                                             </button>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -6145,6 +6447,546 @@
                                         >
                                             <i className="fas fa-times mr-2"></i>
                                             Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ========== MODAL DE CONFIGURACIONES ========== */}
+                        {showConfigModal && (
+                            <div className="modal-overlay" onClick={() => setShowConfigModal(false)}>
+                                <div className="modal-content w-full max-w-6xl p-6" onClick={(e) => e.stopPropagation()}>
+                                    {/* Header del Modal */}
+                                    <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                                        <h2 className="text-3xl font-bold text-gray-800">
+                                            <i className="fas fa-cog mr-3 text-purple-600"></i>
+                                            Configuraciones del Sistema
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowConfigModal(false)}
+                                            className="text-gray-500 hover:text-gray-700 text-3xl transition-colors"
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    {/* Tabs de Configuración */}
+                                    <div className="flex border-b mb-6 overflow-x-auto">
+                                        {[
+                                            { id: 'general', icon: 'fa-building', label: 'Datos del Negocio' },
+                                            { id: 'cajeros', icon: 'fa-users', label: 'Cajeros' },
+                                            { id: 'paqueterias', icon: 'fa-truck', label: 'Paqueterías' },
+                                            { id: 'servicios', icon: 'fa-concierge-bell', label: 'Servicios' },
+                                            { id: 'sheets', icon: 'fa-table', label: 'Google Sheets' },
+                                            { id: 'respaldo', icon: 'fa-database', label: 'Respaldos' }
+                                        ].map(tab => (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => setConfigTab(tab.id)}
+                                                className={`px-6 py-3 font-semibold transition-colors whitespace-nowrap ${
+                                                    configTab === tab.id
+                                                        ? 'border-b-4 border-purple-600 text-purple-600'
+                                                        : 'text-gray-600 hover:text-purple-600'
+                                                }`}
+                                            >
+                                                <i className={`fas ${tab.icon} mr-2`}></i>
+                                                {tab.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Contenido de las Tabs */}
+                                    <div className="max-h-[60vh] overflow-y-auto">
+                                        {/* TAB: Datos del Negocio */}
+                                        {configTab === 'general' && (
+                                            <div className="space-y-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    <i className="fas fa-building mr-2"></i>Información del Negocio
+                                                </h3>
+
+                                                {/* Logo del Negocio */}
+                                                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                        <i className="fas fa-image mr-2"></i>Logo del Negocio
+                                                    </label>
+                                                    <div className="flex items-center gap-6">
+                                                        {(logoPreview || configuracion.negocio.logo) && (
+                                                            <div className="w-32 h-32 border-4 border-white rounded-lg shadow-lg overflow-hidden">
+                                                                <img
+                                                                    src={logoPreview || configuracion.negocio.logo}
+                                                                    alt="Logo"
+                                                                    className="w-full h-full object-contain bg-white"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={handleLogoUpload}
+                                                                className="hidden"
+                                                                id="logoInput"
+                                                            />
+                                                            <label
+                                                                htmlFor="logoInput"
+                                                                className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg inline-flex items-center gap-2 transition-colors"
+                                                            >
+                                                                <i className="fas fa-upload"></i>
+                                                                Subir Logo
+                                                            </label>
+                                                            <p className="text-xs text-gray-500 mt-2">
+                                                                Máx. 500KB - Formatos: JPG, PNG, SVG
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Información del Negocio */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            <i className="fas fa-store mr-2"></i>Nombre del Negocio
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={configuracion.negocio.nombre}
+                                                            onChange={(e) => handleActualizarNegocio('nombre', e.target.value)}
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                            placeholder="Sistema CMG - Paquetería"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            <i className="fas fa-phone mr-2"></i>Teléfono
+                                                        </label>
+                                                        <input
+                                                            type="tel"
+                                                            value={configuracion.negocio.telefono}
+                                                            onChange={(e) => handleActualizarNegocio('telefono', e.target.value)}
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                            placeholder="+52 XXX XXX XXXX"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            <i className="fas fa-envelope mr-2"></i>Email
+                                                        </label>
+                                                        <input
+                                                            type="email"
+                                                            value={configuracion.negocio.email}
+                                                            onChange={(e) => handleActualizarNegocio('email', e.target.value)}
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                            placeholder="contacto@cmg.com"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            <i className="fas fa-globe mr-2"></i>Sitio Web
+                                                        </label>
+                                                        <input
+                                                            type="url"
+                                                            value={configuracion.negocio.sitioWeb}
+                                                            onChange={(e) => handleActualizarNegocio('sitioWeb', e.target.value)}
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                            placeholder="https://www.cmg.com"
+                                                        />
+                                                    </div>
+
+                                                    <div className="md:col-span-2">
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            <i className="fas fa-map-marker-alt mr-2"></i>Dirección
+                                                        </label>
+                                                        <textarea
+                                                            value={configuracion.negocio.direccion}
+                                                            onChange={(e) => handleActualizarNegocio('direccion', e.target.value)}
+                                                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                            rows="2"
+                                                            placeholder="Calle, Número, Colonia, Ciudad, Estado, CP"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* TAB: Cajeros */}
+                                        {configTab === 'cajeros' && (
+                                            <div className="space-y-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    <i className="fas fa-users mr-2"></i>Gestión de Cajeros
+                                                </h3>
+
+                                                {/* Agregar Nuevo Cajero */}
+                                                <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                                                    <h4 className="font-semibold text-green-800 mb-4">
+                                                        <i className="fas fa-user-plus mr-2"></i>Agregar Nuevo Cajero
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Nombre completo"
+                                                            value={nuevoCajero.nombre}
+                                                            onChange={(e) => setNuevoCajero({...nuevoCajero, nombre: e.target.value})}
+                                                            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Usuario"
+                                                            value={nuevoCajero.usuario}
+                                                            onChange={(e) => setNuevoCajero({...nuevoCajero, usuario: e.target.value})}
+                                                            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                                        />
+                                                        <input
+                                                            type="password"
+                                                            placeholder="Contraseña"
+                                                            value={nuevoCajero.contrasena}
+                                                            onChange={(e) => setNuevoCajero({...nuevoCajero, contrasena: e.target.value})}
+                                                            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                                        />
+                                                        <button
+                                                            onClick={handleAgregarCajero}
+                                                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                                                        >
+                                                            <i className="fas fa-plus mr-2"></i>Agregar
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Lista de Cajeros */}
+                                                <div className="space-y-3">
+                                                    {configuracion.cajeros.map(cajero => (
+                                                        <div key={cajero.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                                                                <div>
+                                                                    <label className="text-xs text-gray-500">Nombre</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={cajero.nombre}
+                                                                        onChange={(e) => handleActualizarCajero(cajero.id, 'nombre', e.target.value)}
+                                                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-gray-500">Usuario</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={cajero.usuario}
+                                                                        onChange={(e) => handleActualizarCajero(cajero.id, 'usuario', e.target.value)}
+                                                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-gray-500">Contraseña</label>
+                                                                    <input
+                                                                        type="password"
+                                                                        value={cajero.contrasena}
+                                                                        onChange={(e) => handleActualizarCajero(cajero.id, 'contrasena', e.target.value)}
+                                                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={cajero.activo}
+                                                                        onChange={(e) => handleActualizarCajero(cajero.id, 'activo', e.target.checked)}
+                                                                        className="w-5 h-5"
+                                                                    />
+                                                                    <label className="text-sm">Activo</label>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleEliminarCajero(cajero.id)}
+                                                                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                                                >
+                                                                    <i className="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* TAB: Paqueterías */}
+                                        {configTab === 'paqueterias' && (
+                                            <div className="space-y-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    <i className="fas fa-truck mr-2"></i>Gestión de Paqueterías
+                                                </h3>
+
+                                                {/* Agregar Paquetería */}
+                                                <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                                                    <h4 className="font-semibold text-blue-800 mb-4">
+                                                        <i className="fas fa-plus-circle mr-2"></i>Agregar Nueva Paquetería
+                                                    </h4>
+                                                    <div className="flex gap-4">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Nombre de la paquetería"
+                                                            value={nuevaPaqueteria}
+                                                            onChange={(e) => setNuevaPaqueteria(e.target.value)}
+                                                            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                        />
+                                                        <button
+                                                            onClick={handleAgregarPaqueteria}
+                                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                                                        >
+                                                            <i className="fas fa-plus mr-2"></i>Agregar
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Lista de Paqueterías */}
+                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                    {configuracion.paqueterias.map((paqueteria, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="bg-white border rounded-lg p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+                                                        >
+                                                            <span className="font-semibold text-gray-700 capitalize">
+                                                                <i className="fas fa-box mr-2 text-blue-500"></i>
+                                                                {paqueteria}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => handleEliminarPaqueteria(paqueteria)}
+                                                                className="text-red-500 hover:text-red-700 transition-colors"
+                                                            >
+                                                                <i className="fas fa-times"></i>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* TAB: Servicios */}
+                                        {configTab === 'servicios' && (
+                                            <div className="space-y-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    <i className="fas fa-concierge-bell mr-2"></i>Gestión de Servicios
+                                                </h3>
+
+                                                {/* Agregar Servicio */}
+                                                <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
+                                                    <h4 className="font-semibold text-purple-800 mb-4">
+                                                        <i className="fas fa-plus-circle mr-2"></i>Agregar Nuevo Servicio
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Nombre del servicio"
+                                                            value={nuevoServicio.nombre}
+                                                            onChange={(e) => setNuevoServicio({...nuevoServicio, nombre: e.target.value})}
+                                                            className="md:col-span-2 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Precio"
+                                                            value={nuevoServicio.precio}
+                                                            onChange={(e) => setNuevoServicio({...nuevoServicio, precio: e.target.value})}
+                                                            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                        />
+                                                        <button
+                                                            onClick={handleAgregarServicio}
+                                                            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                                                        >
+                                                            <i className="fas fa-plus mr-2"></i>Agregar
+                                                        </button>
+                                                    </div>
+                                                    <div className="mt-3 flex items-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={nuevoServicio.precioFijo}
+                                                            onChange={(e) => setNuevoServicio({...nuevoServicio, precioFijo: e.target.checked})}
+                                                            className="w-5 h-5 mr-2"
+                                                        />
+                                                        <label className="text-sm text-gray-700">Precio fijo</label>
+                                                    </div>
+                                                </div>
+
+                                                {/* Lista de Servicios */}
+                                                <div className="space-y-3">
+                                                    {configuracion.servicios.map(servicio => (
+                                                        <div key={servicio.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex-1">
+                                                                    <h5 className="font-semibold text-gray-800">{servicio.nombre}</h5>
+                                                                    <p className="text-sm text-gray-600">
+                                                                        Precio: ${servicio.precio.toFixed(2)}
+                                                                        {servicio.precioFijo && <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Fijo</span>}
+                                                                    </p>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleEliminarServicio(servicio.id)}
+                                                                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                                                >
+                                                                    <i className="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* TAB: Google Sheets */}
+                                        {configTab === 'sheets' && (
+                                            <div className="space-y-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    <i className="fab fa-google mr-2"></i>Configuración de Google Sheets
+                                                </h3>
+
+                                                <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                                                    <div className="space-y-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                <i className="fas fa-link mr-2"></i>URL del Script de Google
+                                                            </label>
+                                                            <input
+                                                                type="url"
+                                                                value={configuracion.googleSheets.scriptUrl}
+                                                                onChange={(e) => setConfiguracion(prev => ({
+                                                                    ...prev,
+                                                                    googleSheets: { ...prev.googleSheets, scriptUrl: e.target.value }
+                                                                }))}
+                                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                                                                placeholder="https://script.google.com/macros/s/..."
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                <i className="fas fa-table mr-2"></i>ID de la Hoja de Cálculo
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                value={configuracion.googleSheets.sheetId}
+                                                                onChange={(e) => setConfiguracion(prev => ({
+                                                                    ...prev,
+                                                                    googleSheets: { ...prev.googleSheets, sheetId: e.target.value }
+                                                                }))}
+                                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                                                                placeholder="1YourSheetIdHere"
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex items-center gap-4">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={configuracion.googleSheets.sincronizacionAutomatica}
+                                                                onChange={(e) => setConfiguracion(prev => ({
+                                                                    ...prev,
+                                                                    googleSheets: { ...prev.googleSheets, sincronizacionAutomatica: e.target.checked }
+                                                                }))}
+                                                                className="w-5 h-5"
+                                                            />
+                                                            <label className="text-sm font-medium text-gray-700">Sincronización automática</label>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                Intervalo de sincronización (minutos)
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                max="60"
+                                                                value={configuracion.googleSheets.intervalo}
+                                                                onChange={(e) => setConfiguracion(prev => ({
+                                                                    ...prev,
+                                                                    googleSheets: { ...prev.googleSheets, intervalo: parseInt(e.target.value) }
+                                                                }))}
+                                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                                    <p className="text-sm text-blue-800">
+                                                        <i className="fas fa-info-circle mr-2"></i>
+                                                        <strong>Nota:</strong> Para obtener tu Script URL y Sheet ID, sigue las instrucciones en la documentación de Google Apps Script.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* TAB: Respaldos */}
+                                        {configTab === 'respaldo' && (
+                                            <div className="space-y-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    <i className="fas fa-database mr-2"></i>Respaldos y Restauración
+                                                </h3>
+
+                                                {/* Exportar Configuración */}
+                                                <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                                                    <h4 className="font-semibold text-green-800 mb-3">
+                                                        <i className="fas fa-download mr-2"></i>Exportar Configuración
+                                                    </h4>
+                                                    <p className="text-sm text-gray-600 mb-4">
+                                                        Descarga toda la configuración del sistema en formato JSON
+                                                    </p>
+                                                    <button
+                                                        onClick={handleExportarConfiguracion}
+                                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors"
+                                                    >
+                                                        <i className="fas fa-file-download mr-2"></i>
+                                                        Exportar Configuración
+                                                    </button>
+                                                </div>
+
+                                                {/* Importar Configuración */}
+                                                <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                                                    <h4 className="font-semibold text-blue-800 mb-3">
+                                                        <i className="fas fa-upload mr-2"></i>Importar Configuración
+                                                    </h4>
+                                                    <p className="text-sm text-gray-600 mb-4">
+                                                        Restaura la configuración desde un archivo JSON previamente exportado
+                                                    </p>
+                                                    <input
+                                                        type="file"
+                                                        accept=".json"
+                                                        onChange={handleImportarConfiguracion}
+                                                        className="hidden"
+                                                        id="importConfigInput"
+                                                    />
+                                                    <label
+                                                        htmlFor="importConfigInput"
+                                                        className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg inline-flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <i className="fas fa-file-upload"></i>
+                                                        Importar Configuración
+                                                    </label>
+                                                </div>
+
+                                                {/* Advertencia */}
+                                                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                                    <p className="text-sm text-yellow-800">
+                                                        <i className="fas fa-exclamation-triangle mr-2"></i>
+                                                        <strong>Advertencia:</strong> Importar una configuración sobrescribirá todos los ajustes actuales. Asegúrate de tener un respaldo antes de continuar.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Footer con botones de acción */}
+                                    <div className="flex justify-end gap-4 mt-6 pt-4 border-t">
+                                        <button
+                                            onClick={() => setShowConfigModal(false)}
+                                            className="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-times mr-2"></i>
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleGuardarConfiguracion}
+                                            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg transition-colors shadow-lg"
+                                        >
+                                            <i className="fas fa-save mr-2"></i>
+                                            Guardar Configuración
                                         </button>
                                     </div>
                                 </div>
