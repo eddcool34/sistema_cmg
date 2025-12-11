@@ -445,6 +445,477 @@
             }
         };
 
+        // ========== SISTEMA DE BACKUP AUTOMÁTICO MEJORADO ==========
+
+        /**
+         * BackupManager - Sistema completo de respaldo automático
+         *
+         * Características:
+         * - Backup automático cada 5 minutos (localStorage)
+         * - Backup diario descargable (JSON)
+         * - Sistema de versiones (historial 30 días)
+         * - Verificación de integridad de datos
+         * - Notificaciones de estado
+         * - Restauración con 1 click
+         */
+        const BackupManager = {
+            // Configuración
+            config: {
+                INTERVALO_BACKUP_LOCAL: 5 * 60 * 1000,      // 5 minutos
+                INTERVALO_BACKUP_DIARIO: 24 * 60 * 60 * 1000, // 24 horas
+                DIAS_HISTORIAL: 30,                          // Mantener 30 días
+                MAX_BACKUPS_LOCAL: 100,                      // Máximo 100 backups locales
+                PREFIJO_BACKUP: 'cmg_backup_',
+                PREFIJO_HISTORIAL: 'cmg_historial_backups'
+            },
+
+            /**
+             * Generar ID único para backup
+             */
+            generarIdBackup() {
+                const fecha = new Date();
+                const timestamp = fecha.getTime();
+                const fechaStr = fecha.toISOString().split('T')[0];
+                const horaStr = fecha.toTimeString().split(' ')[0].replace(/:/g, '-');
+                return `${fechaStr}_${horaStr}_${timestamp}`;
+            },
+
+            /**
+             * Obtener todos los datos del sistema
+             */
+            obtenerDatosSistema() {
+                return {
+                    ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                    clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                    gastos: JSON.parse(localStorage.getItem('gastos') || '[]'),
+                    turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null'),
+                    turnosCerrados: JSON.parse(localStorage.getItem('turnosCerrados') || '[]'),
+                    vuelosPendientes: JSON.parse(localStorage.getItem('vuelosPendientes') || '[]'),
+                    tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]')
+                };
+            },
+
+            /**
+             * Calcular checksum MD5 simple de datos (para verificar integridad)
+             */
+            calcularChecksum(datos) {
+                const str = JSON.stringify(datos);
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                return Math.abs(hash).toString(16);
+            },
+
+            /**
+             * Verificar integridad de los datos
+             */
+            verificarIntegridad(datos) {
+                const errores = [];
+
+                try {
+                    // Verificar que los arrays sean válidos
+                    if (!Array.isArray(datos.ventas)) errores.push('Ventas no es un array válido');
+                    if (!Array.isArray(datos.clientes)) errores.push('Clientes no es un array válido');
+                    if (!Array.isArray(datos.gastos)) errores.push('Gastos no es un array válido');
+                    if (!Array.isArray(datos.vuelosPendientes)) errores.push('Vuelos pendientes no es un array válido');
+                    if (!Array.isArray(datos.tareasPendientes)) errores.push('Tareas pendientes no es un array válido');
+
+                    // Verificar estructura de ventas
+                    if (datos.ventas.length > 0) {
+                        const ventaEjemplo = datos.ventas[0];
+                        if (!ventaEjemplo.id || !ventaEjemplo.fecha) {
+                            errores.push('Estructura de ventas inválida');
+                        }
+                    }
+
+                    // Verificar turno actual
+                    if (datos.turnoActual !== null && typeof datos.turnoActual !== 'object') {
+                        errores.push('Turno actual tiene formato inválido');
+                    }
+
+                    return {
+                        valido: errores.length === 0,
+                        errores: errores
+                    };
+                } catch (error) {
+                    return {
+                        valido: false,
+                        errores: ['Error al verificar integridad: ' + error.message]
+                    };
+                }
+            },
+
+            /**
+             * Crear backup local en localStorage
+             */
+            crearBackupLocal() {
+                try {
+                    const datos = this.obtenerDatosSistema();
+                    const checksum = this.calcularChecksum(datos);
+                    const integridad = this.verificarIntegridad(datos);
+
+                    if (!integridad.valido) {
+                        console.error('⚠️ Advertencia: Datos con problemas de integridad:', integridad.errores);
+                    }
+
+                    const backup = {
+                        id: this.generarIdBackup(),
+                        timestamp: new Date().toISOString(),
+                        fecha: new Date().toLocaleString('es-MX'),
+                        checksum: checksum,
+                        integridad: integridad,
+                        datos: datos,
+                        estadisticas: {
+                            totalVentas: datos.ventas.length,
+                            totalClientes: datos.clientes.length,
+                            totalGastos: datos.gastos.length,
+                            turnoAbierto: datos.turnoActual !== null,
+                            totalVuelos: datos.vuelosPendientes.length,
+                            totalTareas: datos.tareasPendientes.length
+                        }
+                    };
+
+                    // Guardar backup
+                    const claveBackup = this.config.PREFIJO_BACKUP + backup.id;
+                    localStorage.setItem(claveBackup, JSON.stringify(backup));
+
+                    // Actualizar historial
+                    this.actualizarHistorial(backup);
+
+                    // Limpiar backups antiguos
+                    this.limpiarBackupsAntiguos();
+
+                    console.log('✅ Backup local creado:', backup.id);
+                    return { exitoso: true, backup: backup };
+
+                } catch (error) {
+                    console.error('❌ Error al crear backup local:', error);
+                    return { exitoso: false, error: error.message };
+                }
+            },
+
+            /**
+             * Actualizar historial de backups
+             */
+            actualizarHistorial(backup) {
+                try {
+                    const historial = this.obtenerHistorial();
+
+                    // Agregar nuevo backup al historial
+                    historial.push({
+                        id: backup.id,
+                        timestamp: backup.timestamp,
+                        fecha: backup.fecha,
+                        checksum: backup.checksum,
+                        estadisticas: backup.estadisticas,
+                        integridadValida: backup.integridad.valido
+                    });
+
+                    // Ordenar por timestamp descendente
+                    historial.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                    // Guardar historial
+                    localStorage.setItem(this.config.PREFIJO_HISTORIAL, JSON.stringify(historial));
+
+                } catch (error) {
+                    console.error('❌ Error al actualizar historial:', error);
+                }
+            },
+
+            /**
+             * Obtener historial de backups
+             */
+            obtenerHistorial() {
+                try {
+                    const historialStr = localStorage.getItem(this.config.PREFIJO_HISTORIAL);
+                    return historialStr ? JSON.parse(historialStr) : [];
+                } catch (error) {
+                    console.error('❌ Error al obtener historial:', error);
+                    return [];
+                }
+            },
+
+            /**
+             * Limpiar backups antiguos (más de 30 días)
+             */
+            limpiarBackupsAntiguos() {
+                try {
+                    const historial = this.obtenerHistorial();
+                    const ahora = new Date();
+                    const diasMs = this.config.DIAS_HISTORIAL * 24 * 60 * 60 * 1000;
+
+                    let eliminados = 0;
+                    const historialActualizado = [];
+
+                    historial.forEach(item => {
+                        const fechaBackup = new Date(item.timestamp);
+                        const diferencia = ahora - fechaBackup;
+
+                        if (diferencia > diasMs || eliminados < historial.length - this.config.MAX_BACKUPS_LOCAL) {
+                            // Eliminar backup antiguo
+                            const clave = this.config.PREFIJO_BACKUP + item.id;
+                            localStorage.removeItem(clave);
+                            eliminados++;
+                        } else {
+                            historialActualizado.push(item);
+                        }
+                    });
+
+                    // Actualizar historial
+                    if (eliminados > 0) {
+                        localStorage.setItem(this.config.PREFIJO_HISTORIAL, JSON.stringify(historialActualizado));
+                        console.log(`🗑️ ${eliminados} backup(s) antiguo(s) eliminado(s)`);
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error al limpiar backups antiguos:', error);
+                }
+            },
+
+            /**
+             * Restaurar backup por ID
+             */
+            restaurarBackup(backupId) {
+                try {
+                    const clave = this.config.PREFIJO_BACKUP + backupId;
+                    const backupStr = localStorage.getItem(clave);
+
+                    if (!backupStr) {
+                        return { exitoso: false, error: 'Backup no encontrado' };
+                    }
+
+                    const backup = JSON.parse(backupStr);
+
+                    // Verificar integridad antes de restaurar
+                    const integridad = this.verificarIntegridad(backup.datos);
+                    if (!integridad.valido) {
+                        console.warn('⚠️ Advertencia: Restaurando backup con problemas de integridad');
+                    }
+
+                    // Crear backup de seguridad antes de restaurar
+                    const backupSeguridad = this.crearBackupLocal();
+
+                    // Restaurar datos
+                    const datos = backup.datos;
+                    localStorage.setItem('ventas', JSON.stringify(datos.ventas));
+                    localStorage.setItem('clientes', JSON.stringify(datos.clientes));
+                    localStorage.setItem('gastos', JSON.stringify(datos.gastos));
+                    localStorage.setItem('turnoActual', JSON.stringify(datos.turnoActual));
+                    localStorage.setItem('turnosCerrados', JSON.stringify(datos.turnosCerrados || []));
+                    localStorage.setItem('vuelosPendientes', JSON.stringify(datos.vuelosPendientes));
+                    localStorage.setItem('tareasPendientes', JSON.stringify(datos.tareasPendientes));
+
+                    console.log('✅ Backup restaurado exitosamente:', backupId);
+                    return {
+                        exitoso: true,
+                        backup: backup,
+                        backupSeguridad: backupSeguridad.backup
+                    };
+
+                } catch (error) {
+                    console.error('❌ Error al restaurar backup:', error);
+                    return { exitoso: false, error: error.message };
+                }
+            },
+
+            /**
+             * Descargar backup como archivo JSON
+             */
+            descargarBackup(backupId = null) {
+                try {
+                    let backup;
+
+                    if (backupId) {
+                        // Descargar backup específico
+                        const clave = this.config.PREFIJO_BACKUP + backupId;
+                        const backupStr = localStorage.getItem(clave);
+                        if (!backupStr) {
+                            return { exitoso: false, error: 'Backup no encontrado' };
+                        }
+                        backup = JSON.parse(backupStr);
+                    } else {
+                        // Crear nuevo backup y descargarlo
+                        const resultado = this.crearBackupLocal();
+                        if (!resultado.exitoso) {
+                            return resultado;
+                        }
+                        backup = resultado.backup;
+                    }
+
+                    // Crear archivo JSON
+                    const dataStr = JSON.stringify(backup, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+
+                    // Crear link de descarga
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `backup_sistema_cmg_${backup.id}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    console.log('📥 Backup descargado:', backup.id);
+                    return { exitoso: true, backup: backup };
+
+                } catch (error) {
+                    console.error('❌ Error al descargar backup:', error);
+                    return { exitoso: false, error: error.message };
+                }
+            },
+
+            /**
+             * Importar backup desde archivo JSON
+             */
+            async importarBackup(archivo) {
+                try {
+                    const texto = await archivo.text();
+                    const backup = JSON.parse(texto);
+
+                    // Verificar que sea un backup válido
+                    if (!backup.id || !backup.datos) {
+                        return { exitoso: false, error: 'Formato de backup inválido' };
+                    }
+
+                    // Verificar integridad
+                    const integridad = this.verificarIntegridad(backup.datos);
+                    if (!integridad.valido) {
+                        console.warn('⚠️ Advertencia: Backup importado con problemas de integridad');
+                    }
+
+                    // Crear backup de seguridad
+                    const backupSeguridad = this.crearBackupLocal();
+
+                    // Guardar backup importado
+                    const nuevoId = this.generarIdBackup();
+                    backup.id = nuevoId;
+                    backup.importado = true;
+                    backup.fechaImportacion = new Date().toISOString();
+
+                    const clave = this.config.PREFIJO_BACKUP + nuevoId;
+                    localStorage.setItem(clave, JSON.stringify(backup));
+
+                    // Actualizar historial
+                    this.actualizarHistorial(backup);
+
+                    console.log('✅ Backup importado exitosamente:', nuevoId);
+                    return {
+                        exitoso: true,
+                        backup: backup,
+                        backupSeguridad: backupSeguridad.backup
+                    };
+
+                } catch (error) {
+                    console.error('❌ Error al importar backup:', error);
+                    return { exitoso: false, error: error.message };
+                }
+            },
+
+            /**
+             * Sincronizar backup con Google Sheets
+             */
+            async sincronizarConSheets(ventas = []) {
+                try {
+                    console.log('📤 Iniciando sincronización con Google Sheets...');
+
+                    // Respaldar ventas que no están respaldadas
+                    const ventasPendientes = ventas.filter(v => !v.respaldadoEnSheets);
+
+                    if (ventasPendientes.length === 0) {
+                        console.log('✅ Todas las ventas ya están respaldadas en Google Sheets');
+                        return { exitoso: true, ventasRespaldadas: 0 };
+                    }
+
+                    let exitosas = 0;
+                    let errores = 0;
+
+                    for (const venta of ventasPendientes) {
+                        try {
+                            const resultado = await guardarVentaEnSheets(venta);
+                            if (resultado) {
+                                exitosas++;
+                                venta.respaldadoEnSheets = true;
+                            } else {
+                                errores++;
+                            }
+
+                            // Pausa para no saturar la API
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        } catch (error) {
+                            console.error('Error al respaldar venta:', error);
+                            errores++;
+                        }
+                    }
+
+                    // Actualizar ventas en localStorage
+                    if (exitosas > 0) {
+                        localStorage.setItem('ventas', JSON.stringify(ventas));
+                    }
+
+                    console.log(`✅ Sincronización completada: ${exitosas} exitosas, ${errores} errores`);
+                    return { exitoso: true, ventasRespaldadas: exitosas, errores };
+
+                } catch (error) {
+                    console.error('❌ Error en sincronización con Google Sheets:', error);
+                    return { exitoso: false, error: error.message };
+                }
+            },
+
+            /**
+             * Obtener estadísticas de backups
+             */
+            obtenerEstadisticas() {
+                try {
+                    const historial = this.obtenerHistorial();
+                    const ahora = new Date();
+
+                    let totalBackups = historial.length;
+                    let backupsHoy = 0;
+                    let backupsSemana = 0;
+                    let ultimoBackup = null;
+
+                    historial.forEach(item => {
+                        const fecha = new Date(item.timestamp);
+                        const diferenciaDias = Math.floor((ahora - fecha) / (1000 * 60 * 60 * 24));
+
+                        if (diferenciaDias === 0) backupsHoy++;
+                        if (diferenciaDias <= 7) backupsSemana++;
+
+                        if (!ultimoBackup || fecha > new Date(ultimoBackup.timestamp)) {
+                            ultimoBackup = item;
+                        }
+                    });
+
+                    // Calcular tamaño total de backups
+                    let tamañoTotal = 0;
+                    historial.forEach(item => {
+                        const clave = this.config.PREFIJO_BACKUP + item.id;
+                        const backup = localStorage.getItem(clave);
+                        if (backup) {
+                            tamañoTotal += backup.length;
+                        }
+                    });
+
+                    return {
+                        totalBackups,
+                        backupsHoy,
+                        backupsSemana,
+                        ultimoBackup,
+                        tamañoTotal: (tamañoTotal / 1024).toFixed(2) + ' KB',
+                        espacioDisponible: this.config.MAX_BACKUPS_LOCAL - totalBackups
+                    };
+
+                } catch (error) {
+                    console.error('❌ Error al obtener estadísticas:', error);
+                    return null;
+                }
+            }
+        };
+
         // ========== COMPONENTE DE AUTOCOMPLETADO ==========
         function AutocompleteInput({
             label,
@@ -706,6 +1177,16 @@
             const [showVueloForm, setShowVueloForm] = useState(false);
             const [showTareaForm, setShowTareaForm] = useState(false);
 
+            // ========== Estados para Sistema de Backup ==========
+            const [backupStatus, setBackupStatus] = useState({
+                ultimoBackup: null,
+                backupEnProgreso: false,
+                mensaje: ''
+            });
+            const [showBackupModal, setShowBackupModal] = useState(false);
+            const [historialBackups, setHistorialBackups] = useState([]);
+            const [estadisticasBackup, setEstadisticasBackup] = useState(null);
+
             // Logo en SVG
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
@@ -863,6 +1344,108 @@
                     }
                 }
             }, [showAperturaTurno]);
+
+            // ========== SISTEMA DE BACKUP AUTOMÁTICO ==========
+            useEffect(() => {
+                console.log('🔒 Iniciando sistema de backup automático...');
+
+                // Función para ejecutar backup automático
+                const ejecutarBackupAutomatico = () => {
+                    if (!backupStatus.backupEnProgreso) {
+                        console.log('⏰ Ejecutando backup automático programado...');
+                        setBackupStatus(prev => ({ ...prev, backupEnProgreso: true }));
+
+                        const resultado = BackupManager.crearBackupLocal();
+
+                        if (resultado.exitoso) {
+                            setBackupStatus({
+                                ultimoBackup: resultado.backup.fecha,
+                                backupEnProgreso: false,
+                                mensaje: 'Backup automático exitoso'
+                            });
+                            console.log('✅ Backup automático completado:', resultado.backup.id);
+                        } else {
+                            setBackupStatus(prev => ({
+                                ...prev,
+                                backupEnProgreso: false,
+                                mensaje: 'Error en backup automático'
+                            }));
+                            console.error('❌ Error en backup automático:', resultado.error);
+                        }
+                    }
+                };
+
+                // Función para backup diario descargable
+                const ejecutarBackupDiario = () => {
+                    console.log('📅 Ejecutando backup diario descargable...');
+                    const resultado = BackupManager.descargarBackup();
+
+                    if (resultado.exitoso) {
+                        showNotification('Backup diario descargado exitosamente', 'success');
+                        console.log('✅ Backup diario descargado');
+                    } else {
+                        console.error('❌ Error en backup diario:', resultado.error);
+                    }
+                };
+
+                // Crear backup inicial al cargar
+                ejecutarBackupAutomatico();
+
+                // Configurar intervalo para backup automático cada 5 minutos
+                const intervaloBackupLocal = setInterval(
+                    ejecutarBackupAutomatico,
+                    BackupManager.config.INTERVALO_BACKUP_LOCAL
+                );
+
+                // Configurar intervalo para backup diario (cada 24 horas)
+                const intervaloBackupDiario = setInterval(
+                    ejecutarBackupDiario,
+                    BackupManager.config.INTERVALO_BACKUP_DIARIO
+                );
+
+                // Función para sincronización automática con Google Sheets
+                const ejecutarSincronizacionSheets = async () => {
+                    console.log('☁️ Ejecutando sincronización automática con Google Sheets...');
+                    const ventasActuales = JSON.parse(localStorage.getItem('ventas') || '[]');
+                    const resultado = await BackupManager.sincronizarConSheets(ventasActuales);
+
+                    if (resultado.exitoso && resultado.ventasRespaldadas > 0) {
+                        console.log(`✅ ${resultado.ventasRespaldadas} ventas sincronizadas con Google Sheets`);
+                    }
+                };
+
+                // Configurar intervalo para sincronización con Google Sheets (cada hora)
+                const intervaloSheetsSync = setInterval(
+                    ejecutarSincronizacionSheets,
+                    60 * 60 * 1000 // 1 hora
+                );
+
+                // Actualizar estadísticas de backup cada minuto
+                const intervaloEstadisticas = setInterval(() => {
+                    const stats = BackupManager.obtenerEstadisticas();
+                    setEstadisticasBackup(stats);
+                }, 60000); // 1 minuto
+
+                // Limpiar intervalos al desmontar componente
+                return () => {
+                    clearInterval(intervaloBackupLocal);
+                    clearInterval(intervaloBackupDiario);
+                    clearInterval(intervaloSheetsSync);
+                    clearInterval(intervaloEstadisticas);
+                    console.log('🔒 Sistema de backup automático detenido');
+                };
+            }, []);
+
+            // Cargar historial de backups cuando se abre el modal
+            useEffect(() => {
+                if (showBackupModal) {
+                    const historial = BackupManager.obtenerHistorial();
+                    setHistorialBackups(historial);
+
+                    const stats = BackupManager.obtenerEstadisticas();
+                    setEstadisticasBackup(stats);
+                }
+            }, [showBackupModal]);
 
             // Guardar en localStorage cuando cambian las ventas
             useEffect(() => {
@@ -2947,9 +3530,34 @@
                                     </div>
                                 </div>
 
-                                {/* Indicador de Turno */}
-                                <div className="text-right">
-                                    {turnoActual ? (
+                                {/* Botón de Backup y Indicador de Turno */}
+                                <div className="flex gap-4 items-center">
+                                    {/* Indicador de Backup */}
+                                    <div className="text-center">
+                                        <button
+                                            onClick={() => setShowBackupModal(true)}
+                                            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors shadow-md"
+                                            title="Gestión de Backups"
+                                        >
+                                            <i className="fas fa-database mr-2"></i>
+                                            Backups
+                                        </button>
+                                        {backupStatus.ultimoBackup && (
+                                            <p className="text-xs text-gray-600 mt-1">
+                                                Último: {backupStatus.ultimoBackup}
+                                            </p>
+                                        )}
+                                        {backupStatus.backupEnProgreso && (
+                                            <p className="text-xs text-purple-600 mt-1">
+                                                <i className="fas fa-sync fa-spin mr-1"></i>
+                                                Respaldando...
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Indicador de Turno */}
+                                    <div className="text-right">
+                                        {turnoActual ? (
                                         <div className="bg-green-100 border border-green-300 rounded-lg p-4">
                                             <p className="text-sm font-semibold text-green-800">
                                                 <i className="fas fa-user-check mr-1"></i>
@@ -2982,6 +3590,7 @@
                                             </button>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -5852,6 +6461,255 @@
                                                 </p>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MODAL DE GESTIÓN DE BACKUPS */}
+                        {showBackupModal && (
+                            <div className="modal-overlay" onClick={() => setShowBackupModal(false)}>
+                                <div className="modal-content p-6 w-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-3xl font-bold text-gray-800">
+                                            <i className="fas fa-database mr-2 text-purple-600"></i>
+                                            Gestión de Backups
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowBackupModal(false)}
+                                            className="text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    {/* Estadísticas */}
+                                    {estadisticasBackup && (
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                            <div className="bg-blue-100 border border-blue-300 rounded-lg p-4">
+                                                <p className="text-sm text-blue-700 font-semibold">Total Backups</p>
+                                                <p className="text-2xl font-bold text-blue-900">{estadisticasBackup.totalBackups}</p>
+                                            </div>
+                                            <div className="bg-green-100 border border-green-300 rounded-lg p-4">
+                                                <p className="text-sm text-green-700 font-semibold">Hoy</p>
+                                                <p className="text-2xl font-bold text-green-900">{estadisticasBackup.backupsHoy}</p>
+                                            </div>
+                                            <div className="bg-purple-100 border border-purple-300 rounded-lg p-4">
+                                                <p className="text-sm text-purple-700 font-semibold">Esta Semana</p>
+                                                <p className="text-2xl font-bold text-purple-900">{estadisticasBackup.backupsSemana}</p>
+                                            </div>
+                                            <div className="bg-orange-100 border border-orange-300 rounded-lg p-4">
+                                                <p className="text-sm text-orange-700 font-semibold">Tamaño Total</p>
+                                                <p className="text-2xl font-bold text-orange-900">{estadisticasBackup.tamañoTotal}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Acciones rápidas */}
+                                    <div className="flex flex-wrap gap-3 mb-6 pb-6 border-b">
+                                        <button
+                                            onClick={() => {
+                                                const resultado = BackupManager.crearBackupLocal();
+                                                if (resultado.exitoso) {
+                                                    showNotification('Backup manual creado exitosamente', 'success');
+                                                    setHistorialBackups(BackupManager.obtenerHistorial());
+                                                    setEstadisticasBackup(BackupManager.obtenerEstadisticas());
+                                                } else {
+                                                    showNotification('Error al crear backup: ' + resultado.error, 'error');
+                                                }
+                                            }}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-save mr-2"></i>
+                                            Crear Backup Manual
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                const resultado = BackupManager.descargarBackup();
+                                                if (resultado.exitoso) {
+                                                    showNotification('Backup descargado exitosamente', 'success');
+                                                } else {
+                                                    showNotification('Error al descargar backup: ' + resultado.error, 'error');
+                                                }
+                                            }}
+                                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-download mr-2"></i>
+                                            Descargar Backup Actual
+                                        </button>
+
+                                        <label className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer">
+                                            <i className="fas fa-upload mr-2"></i>
+                                            Importar Backup
+                                            <input
+                                                type="file"
+                                                accept=".json"
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const archivo = e.target.files[0];
+                                                    if (archivo) {
+                                                        const resultado = await BackupManager.importarBackup(archivo);
+                                                        if (resultado.exitoso) {
+                                                            showNotification('Backup importado exitosamente', 'success');
+                                                            setHistorialBackups(BackupManager.obtenerHistorial());
+                                                            setEstadisticasBackup(BackupManager.obtenerEstadisticas());
+                                                        } else {
+                                                            showNotification('Error al importar backup: ' + resultado.error, 'error');
+                                                        }
+                                                    }
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                        </label>
+
+                                        <button
+                                            onClick={() => {
+                                                BackupManager.limpiarBackupsAntiguos();
+                                                showNotification('Backups antiguos limpiados', 'success');
+                                                setHistorialBackups(BackupManager.obtenerHistorial());
+                                                setEstadisticasBackup(BackupManager.obtenerEstadisticas());
+                                            }}
+                                            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-broom mr-2"></i>
+                                            Limpiar Antiguos
+                                        </button>
+
+                                        <button
+                                            onClick={async () => {
+                                                showNotification('Sincronizando con Google Sheets...', 'success');
+                                                const resultado = await BackupManager.sincronizarConSheets(ventas);
+                                                if (resultado.exitoso) {
+                                                    showNotification(`Sincronizado: ${resultado.ventasRespaldadas} ventas respaldadas`, 'success');
+                                                } else {
+                                                    showNotification('Error al sincronizar con Google Sheets', 'error');
+                                                }
+                                            }}
+                                            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                        >
+                                            <i className="fas fa-cloud-upload-alt mr-2"></i>
+                                            Sincronizar con Google Sheets
+                                        </button>
+                                    </div>
+
+                                    {/* Historial de Backups */}
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                        <i className="fas fa-history mr-2"></i>
+                                        Historial de Backups
+                                    </h3>
+
+                                    <div className="overflow-y-auto max-h-96">
+                                        {historialBackups.length === 0 ? (
+                                            <div className="text-center py-8 text-gray-500">
+                                                <i className="fas fa-inbox text-4xl mb-2"></i>
+                                                <p>No hay backups disponibles</p>
+                                            </div>
+                                        ) : (
+                                            <table className="w-full">
+                                                <thead className="bg-gray-100 sticky top-0">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left">Fecha/Hora</th>
+                                                        <th className="px-4 py-2 text-left">Ventas</th>
+                                                        <th className="px-4 py-2 text-left">Clientes</th>
+                                                        <th className="px-4 py-2 text-left">Gastos</th>
+                                                        <th className="px-4 py-2 text-left">Estado</th>
+                                                        <th className="px-4 py-2 text-right">Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {historialBackups.map((backup, index) => (
+                                                        <tr key={backup.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                            <td className="px-4 py-3 text-sm">
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-800">{backup.fecha}</p>
+                                                                    <p className="text-xs text-gray-500">{backup.checksum.substring(0, 8)}</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                                                                    {backup.estadisticas.totalVentas}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                                                                    {backup.estadisticas.totalClientes}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm">
+                                                                    {backup.estadisticas.totalGastos}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {backup.integridadValida ? (
+                                                                    <span className="text-green-600">
+                                                                        <i className="fas fa-check-circle mr-1"></i>
+                                                                        Válido
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-orange-600">
+                                                                        <i className="fas fa-exclamation-triangle mr-1"></i>
+                                                                        Advertencia
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (confirm('¿Estás seguro de restaurar este backup? Se creará un backup de seguridad antes de restaurar.')) {
+                                                                            const resultado = BackupManager.restaurarBackup(backup.id);
+                                                                            if (resultado.exitoso) {
+                                                                                showNotification('Backup restaurado exitosamente. Recargando página...', 'success');
+                                                                                setTimeout(() => {
+                                                                                    window.location.reload();
+                                                                                }, 2000);
+                                                                            } else {
+                                                                                showNotification('Error al restaurar backup: ' + resultado.error, 'error');
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm mr-2"
+                                                                    title="Restaurar"
+                                                                >
+                                                                    <i className="fas fa-undo"></i>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const resultado = BackupManager.descargarBackup(backup.id);
+                                                                        if (resultado.exitoso) {
+                                                                            showNotification('Backup descargado', 'success');
+                                                                        } else {
+                                                                            showNotification('Error al descargar: ' + resultado.error, 'error');
+                                                                        }
+                                                                    }}
+                                                                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                                                    title="Descargar"
+                                                                >
+                                                                    <i className="fas fa-download"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+
+                                    {/* Información adicional */}
+                                    <div className="mt-6 pt-4 border-t bg-blue-50 rounded-lg p-4">
+                                        <h4 className="font-bold text-blue-900 mb-2">
+                                            <i className="fas fa-info-circle mr-2"></i>
+                                            Información del Sistema de Backup
+                                        </h4>
+                                        <ul className="text-sm text-blue-800 space-y-1">
+                                            <li><i className="fas fa-check mr-2"></i>Backup local automático cada 5 minutos</li>
+                                            <li><i className="fas fa-check mr-2"></i>Backup diario descargable (cada 24 horas)</li>
+                                            <li><i className="fas fa-check mr-2"></i>Sincronización con Google Sheets cada hora</li>
+                                            <li><i className="fas fa-check mr-2"></i>Historial de 30 días</li>
+                                            <li><i className="fas fa-check mr-2"></i>Verificación de integridad automática</li>
+                                            <li><i className="fas fa-check mr-2"></i>Máximo 100 backups locales</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
