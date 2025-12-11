@@ -221,6 +221,102 @@
         </div>
     </div>
 
+    <!-- Modal Cambiar Nombre -->
+    <div id="modalCambiarNombre" class="modal">
+        <div class="modal-content">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-6 rounded-t-lg">
+                <h3 class="text-2xl font-bold">
+                    <i class="fas fa-edit mr-2"></i>Cambiar Nombre de Usuario
+                </h3>
+            </div>
+            <form id="formCambiarNombre" class="p-6">
+                <input type="hidden" id="editarNombreUsuarioId">
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-user mr-2"></i>Usuario actual
+                    </label>
+                    <input type="text" id="editarNombreUsuarioActual" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" disabled>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-id-card mr-2"></i>Nombre completo actual
+                    </label>
+                    <input type="text" id="editarNombreActual" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" disabled>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-id-card mr-2 text-blue-600"></i>Nuevo nombre completo
+                    </label>
+                    <input type="text" id="editarNombreNuevo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required placeholder="Ingrese el nuevo nombre completo">
+                </div>
+
+                <div class="flex gap-4 mt-6">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">
+                        <i class="fas fa-save mr-2"></i>Guardar Cambios
+                    </button>
+                    <button type="button" onclick="cerrarModalCambiarNombre()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Cambiar Contraseña -->
+    <div id="modalCambiarContrasena" class="modal">
+        <div class="modal-content">
+            <div class="bg-gradient-to-r from-purple-600 to-purple-500 text-white p-6 rounded-t-lg">
+                <h3 class="text-2xl font-bold">
+                    <i class="fas fa-key mr-2"></i>Cambiar Contraseña
+                </h3>
+            </div>
+            <form id="formCambiarContrasena" class="p-6">
+                <input type="hidden" id="editarContrasenaUsuarioId">
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-user mr-2"></i>Usuario
+                    </label>
+                    <input type="text" id="editarContrasenaUsuario" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" disabled>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-id-card mr-2"></i>Nombre
+                    </label>
+                    <input type="text" id="editarContrasenaNombre" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" disabled>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2 text-purple-600"></i>Nueva contraseña
+                    </label>
+                    <input type="password" id="editarContrasenaNueva" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" required placeholder="Ingrese la nueva contraseña" minlength="6">
+                    <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2 text-purple-600"></i>Confirmar nueva contraseña
+                    </label>
+                    <input type="password" id="editarContrasenaConfirmar" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" required placeholder="Confirme la nueva contraseña" minlength="6">
+                </div>
+
+                <div class="flex gap-4 mt-6">
+                    <button type="submit" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition font-semibold">
+                        <i class="fas fa-save mr-2"></i>Guardar Cambios
+                    </button>
+                    <button type="button" onclick="cerrarModalCambiarContrasena()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition font-semibold">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Importar RBAC Config -->
     <script src="rbac-config.js"></script>
 
@@ -284,7 +380,13 @@
                                 <i class="fas fa-circle mr-1"></i>
                                 ${activo ? 'Activo' : 'Inactivo'}
                             </span>
-                            <button onclick="toggleEstadoUsuario(${usuario.id})" class="text-${activo ? 'red' : 'green'}-600 hover:text-${activo ? 'red' : 'green'}-700 font-semibold">
+                            <button onclick="abrirModalCambiarNombre(${usuario.id})" class="text-blue-600 hover:text-blue-700 font-semibold px-2 py-1 rounded hover:bg-blue-50" title="Cambiar nombre">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="abrirModalCambiarContrasena(${usuario.id})" class="text-purple-600 hover:text-purple-700 font-semibold px-2 py-1 rounded hover:bg-purple-50" title="Cambiar contraseña">
+                                <i class="fas fa-key"></i>
+                            </button>
+                            <button onclick="toggleEstadoUsuario(${usuario.id})" class="text-${activo ? 'red' : 'green'}-600 hover:text-${activo ? 'red' : 'green'}-700 font-semibold px-2 py-1 rounded hover:bg-${activo ? 'red' : 'green'}-50" title="${activo ? 'Desactivar' : 'Activar'}">
                                 <i class="fas fa-${activo ? 'ban' : 'check-circle'}"></i>
                             </button>
                         </div>
@@ -397,6 +499,49 @@
             document.getElementById('modalUsuario').classList.remove('show');
         }
 
+        // ========== FUNCIONES PARA CAMBIAR NOMBRE ==========
+        function abrirModalCambiarNombre(id) {
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const usuario = usuarios.find(u => u.id === id);
+
+            if (!usuario) {
+                alert('❌ Usuario no encontrado');
+                return;
+            }
+
+            document.getElementById('editarNombreUsuarioId').value = usuario.id;
+            document.getElementById('editarNombreUsuarioActual').value = usuario.usuario;
+            document.getElementById('editarNombreActual').value = usuario.nombre;
+            document.getElementById('editarNombreNuevo').value = '';
+            document.getElementById('modalCambiarNombre').classList.add('show');
+        }
+
+        function cerrarModalCambiarNombre() {
+            document.getElementById('modalCambiarNombre').classList.remove('show');
+        }
+
+        // ========== FUNCIONES PARA CAMBIAR CONTRASEÑA ==========
+        function abrirModalCambiarContrasena(id) {
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const usuario = usuarios.find(u => u.id === id);
+
+            if (!usuario) {
+                alert('❌ Usuario no encontrado');
+                return;
+            }
+
+            document.getElementById('editarContrasenaUsuarioId').value = usuario.id;
+            document.getElementById('editarContrasenaUsuario').value = usuario.usuario;
+            document.getElementById('editarContrasenaNombre').value = usuario.nombre;
+            document.getElementById('editarContrasenaNueva').value = '';
+            document.getElementById('editarContrasenaConfirmar').value = '';
+            document.getElementById('modalCambiarContrasena').classList.add('show');
+        }
+
+        function cerrarModalCambiarContrasena() {
+            document.getElementById('modalCambiarContrasena').classList.remove('show');
+        }
+
         document.getElementById('formUsuario').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -448,6 +593,87 @@
                 window.location.href = 'login.html';
             }
         }
+
+        // ========== EVENT LISTENER PARA CAMBIAR NOMBRE ==========
+        document.getElementById('formCambiarNombre').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const id = parseInt(document.getElementById('editarNombreUsuarioId').value);
+            const nuevoNombre = document.getElementById('editarNombreNuevo').value.trim();
+
+            if (!nuevoNombre) {
+                alert('❌ Por favor ingrese un nombre válido');
+                return;
+            }
+
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const usuario = usuarios.find(u => u.id === id);
+
+            if (!usuario) {
+                alert('❌ Usuario no encontrado');
+                return;
+            }
+
+            const nombreAnterior = usuario.nombre;
+            usuario.nombre = nuevoNombre;
+
+            localStorage.setItem('usuarios_cmg', JSON.stringify(usuarios));
+
+            // Si el usuario actual cambió su propio nombre, actualizar la sesión
+            if (usuarioActual.id === id) {
+                const sesion = JSON.parse(localStorage.getItem('sesion_cmg'));
+                sesion.nombre = nuevoNombre;
+                localStorage.setItem('sesion_cmg', JSON.stringify(sesion));
+            }
+
+            registrarAccion(usuarioActual, 'cambiar_nombre', `Cambió nombre de "${nombreAnterior}" a "${nuevoNombre}" (@${usuario.usuario})`);
+
+            cerrarModalCambiarNombre();
+            cargarUsuarios();
+
+            if (usuarioActual.id === id) {
+                mostrarInfoUsuarioActual();
+            }
+
+            alert('✅ Nombre actualizado exitosamente');
+        });
+
+        // ========== EVENT LISTENER PARA CAMBIAR CONTRASEÑA ==========
+        document.getElementById('formCambiarContrasena').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const id = parseInt(document.getElementById('editarContrasenaUsuarioId').value);
+            const nuevaContrasena = document.getElementById('editarContrasenaNueva').value;
+            const confirmarContrasena = document.getElementById('editarContrasenaConfirmar').value;
+
+            if (nuevaContrasena.length < 6) {
+                alert('❌ La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+
+            if (nuevaContrasena !== confirmarContrasena) {
+                alert('❌ Las contraseñas no coinciden');
+                return;
+            }
+
+            const usuarios = JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS));
+            const usuario = usuarios.find(u => u.id === id);
+
+            if (!usuario) {
+                alert('❌ Usuario no encontrado');
+                return;
+            }
+
+            usuario.contrasena = nuevaContrasena;
+
+            localStorage.setItem('usuarios_cmg', JSON.stringify(usuarios));
+
+            registrarAccion(usuarioActual, 'cambiar_contrasena', `Cambió contraseña del usuario @${usuario.usuario} (${usuario.nombre})`);
+
+            cerrarModalCambiarContrasena();
+
+            alert('✅ Contraseña actualizada exitosamente');
+        });
 
         // Inicializar localStorage de usuarios si no existe
         if (!localStorage.getItem('usuarios_cmg')) {
