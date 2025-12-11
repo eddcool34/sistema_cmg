@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpieza de Caché - Sistema CMG</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+        }
+
+        .info-box li {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(252, 182, 159, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(168, 237, 234, 0.4);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .cache-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .cache-info h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .cache-info pre {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpieza de Caché</h1>
+        <p class="subtitle">Sistema de Gestión CMG</p>
+
+        <div class="info-box">
+            <h3>⚠️ Importante</h3>
+            <ul>
+                <li><strong>Limpieza Total:</strong> Elimina TODOS los datos incluyendo clientes, guías y configuración</li>
+                <li><strong>Limpieza de Configuración:</strong> Solo elimina la configuración del negocio (logo, nombre, etc.)</li>
+                <li><strong>Ver Caché Actual:</strong> Muestra los datos almacenados actualmente</li>
+            </ul>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="verCache()">
+                👁️ Ver Caché Actual
+            </button>
+
+            <button class="btn-warning" onclick="limpiarConfiguracion()">
+                🔧 Limpiar Solo Configuración
+            </button>
+
+            <button class="btn-danger" onclick="limpiarTodo()">
+                🗑️ Limpiar Todo el Caché
+            </button>
+
+            <button class="btn-success" onclick="volverSistema()">
+                ← Volver al Sistema
+            </button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="cacheInfo" class="cache-info" style="display: none;"></div>
+    </div>
+
+    <script>
+        function mostrarEstado(mensaje, tipo = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = mensaje;
+            statusDiv.className = `status ${tipo}`;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function verCache() {
+            const cacheInfoDiv = document.getElementById('cacheInfo');
+            const datos = {
+                configuracionNegocio: localStorage.getItem('configuracionNegocio'),
+                clientes: localStorage.getItem('clientes'),
+                guias: localStorage.getItem('guias'),
+                vuelosPendientes: localStorage.getItem('vuelosPendientes'),
+                tareasPendientes: localStorage.getItem('tareasPendientes'),
+                paqueteriasEnvio: localStorage.getItem('paqueteriasEnvio'),
+                paqueteriasEntrega: localStorage.getItem('paqueteriasEntrega'),
+                usuarios: localStorage.getItem('usuarios'),
+                usuarioActual: localStorage.getItem('usuarioActual')
+            };
+
+            let html = '<h4>📦 Datos en Caché</h4><pre>';
+            for (const [key, value] of Object.entries(datos)) {
+                if (value) {
+                    const preview = value.length > 100 ? value.substring(0, 100) + '...' : value;
+                    html += `<strong>${key}:</strong>\n${preview}\n\n`;
+                } else {
+                    html += `<strong>${key}:</strong> (vacío)\n\n`;
+                }
+            }
+            html += '</pre>';
+
+            cacheInfoDiv.innerHTML = html;
+            cacheInfoDiv.style.display = 'block';
+            mostrarEstado('Caché mostrado correctamente', 'info');
+        }
+
+        function limpiarConfiguracion() {
+            if (confirm('⚠️ ¿Estás seguro de que quieres limpiar la configuración del negocio?\n\nEsto eliminará:\n- Logo del negocio\n- Nombre del negocio\n- Dirección\n- Teléfono\n\nLos clientes y guías NO se verán afectados.')) {
+                const keysAEliminar = [
+                    'configuracionNegocio'
+                ];
+
+                keysAEliminar.forEach(key => {
+                    localStorage.removeItem(key);
+                });
+
+                mostrarEstado('✅ Configuración eliminada. Refresca la página para aplicar cambios.', 'success');
+
+                setTimeout(() => {
+                    if (confirm('¿Deseas refrescar la página ahora?')) {
+                        window.location.href = 'sistema_cmg.html';
+                    }
+                }, 1000);
+            }
+        }
+
+        function limpiarTodo() {
+            if (confirm('⚠️ ¡PELIGRO! ¿Estás seguro de que quieres eliminar TODOS los datos?\n\nEsto eliminará:\n- Todos los clientes\n- Todas las guías\n- Toda la configuración\n- Todos los usuarios\n- Todo el historial\n\nEsta acción NO se puede deshacer.')) {
+                if (confirm('🚨 ÚLTIMA CONFIRMACIÓN: Esta acción eliminará PERMANENTEMENTE todos los datos. ¿Continuar?')) {
+                    localStorage.clear();
+                    mostrarEstado('✅ Caché completamente limpiado. Redirigiendo al login...', 'success');
+
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                }
+            }
+        }
+
+        function volverSistema() {
+            window.location.href = 'sistema_cmg.html';
+        }
+
+        // Mostrar información al cargar
+        window.addEventListener('load', () => {
+            const totalItems = Object.keys(localStorage).length;
+            if (totalItems > 0) {
+                mostrarEstado(`📊 Hay ${totalItems} elementos en el caché`, 'info');
+            } else {
+                mostrarEstado('📭 El caché está vacío', 'info');
+            }
+        });
+    </script>
+</body>
+</html>
