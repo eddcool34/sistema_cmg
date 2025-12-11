@@ -379,6 +379,72 @@
             }
         };
 
+        // ========== FUNCIONES DE CARGA Y RESPALDO DE DATOS ==========
+
+        // Función para cargar todos los datos persistentes al iniciar
+        const cargarDatosPersistentes = () => {
+            const datosGuardados = {
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                gastos: JSON.parse(localStorage.getItem('gastos') || '[]'),
+                turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null'),
+                vuelosPendientes: JSON.parse(localStorage.getItem('vuelosPendientes') || '[]'),
+                tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]')
+            };
+
+            console.log('📂 Datos cargados desde localStorage:', {
+                ventas: datosGuardados.ventas.length,
+                clientes: datosGuardados.clientes.length,
+                gastos: datosGuardados.gastos.length,
+                turno: datosGuardados.turnoActual ? 'Sí' : 'No',
+                vuelos: datosGuardados.vuelosPendientes.length,
+                tareas: datosGuardados.tareasPendientes.length
+            });
+
+            return datosGuardados;
+        };
+
+        // Función para respaldar todos los datos en Google Sheets
+        const respaldarDatos = async (ventas = [], setNotification) => {
+            try {
+                console.log('🔄 Iniciando respaldo de datos...');
+                let ventasRespaldadas = 0;
+                let errores = 0;
+
+                // Respaldar solo ventas que no han sido respaldadas
+                for (const venta of ventas) {
+                    if (!venta.respaldadoEnSheets) {
+                        const exitoVenta = await guardarVentaEnSheets(venta);
+                        if (exitoVenta) {
+                            ventasRespaldadas++;
+                            // Marcar como respaldada
+                            venta.respaldadoEnSheets = true;
+                        } else {
+                            errores++;
+                        }
+
+                        // Pequeña pausa para no saturar la API
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+
+                const mensaje = `✅ Respaldo completado: ${ventasRespaldadas} ventas respaldadas${errores > 0 ? `, ${errores} errores` : ''}`;
+                console.log(mensaje);
+
+                if (setNotification) {
+                    setNotification(mensaje, errores > 0 ? 'warning' : 'success');
+                }
+
+                return { exitoso: true, ventasRespaldadas, errores };
+            } catch (error) {
+                console.error('❌ Error en respaldo:', error);
+                if (setNotification) {
+                    setNotification('❌ Error al respaldar datos', 'error');
+                }
+                return { exitoso: false, ventasRespaldadas: 0, errores: 1 };
+            }
+        };
+
         // ========== COMPONENTE DE AUTOCOMPLETADO ==========
         function AutocompleteInput({
             label,
@@ -651,109 +717,117 @@
                 }, 3000);
             };
 
-            // Cargar datos al iniciar
+            // Cargar todos los datos al iniciar (CONSOLIDADO)
             useEffect(() => {
                 const cargarDatos = async () => {
+                    console.log('🚀 Iniciando carga de datos...');
                     setSyncStatus({ syncing: true, message: 'Cargando datos...' });
-                    
-                    // Intentar cargar desde Google Sheets primero
-                    const ventasSheets = await cargarVentasDesdeSheets();
-                    
-                    if (ventasSheets.length > 0) {
-                        // Convertir las ventas de Sheets al formato de la app
-                        const ventasConvertidas = ventasSheets.map(v => ({
-                            id: v.numeroGuia || `ENV-${Date.now()}`,
-                            fecha: v.fecha || v.fechaRegistro || new Date().toISOString(), // Usar fecha original de Sheets
-                            nombreRemitente: v.remitente,
-                            telefonoRemitente: v.telRemitente,
-                            nombreDestinatario: v.destinatario,
-                            telefonoDestinatario: v.telDestinatario,
-                            direccion: v.direccion,
-                            codigoPostal: v.codigoPostal,
-                            colonia: v.ciudad,
-                            estado: v.estado,
-                            pais: v.pais,
-                            paqueteria: v.paqueteria,
-                            tipoServicio: v.servicio,
-                            precio: v.precio,
-                            costo: v.costo,
-                            tipoOperacion: 'envio',
-                            estadoVenta: 'activa'
-                        }));
-                        
-                        setVentas(ventasConvertidas);
-                        localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
-                        setSyncStatus({ syncing: false, message: '✅ Sincronizado con Google Sheets' });
+
+                    // 1. Cargar datos desde localStorage primero (rápido)
+                    const datosCargados = cargarDatosPersistentes();
+
+                    // Cargar ventas desde localStorage
+                    if (datosCargados.ventas.length > 0) {
+                        setVentas(datosCargados.ventas);
+                        console.log(`✅ ${datosCargados.ventas.length} ventas cargadas desde localStorage`);
+                    }
+
+                    // Cargar gastos
+                    if (datosCargados.gastos.length > 0) {
+                        setGastos(datosCargados.gastos);
+                        console.log(`✅ ${datosCargados.gastos.length} gastos cargados`);
+                    }
+
+                    // Cargar vuelos pendientes
+                    if (datosCargados.vuelosPendientes.length > 0) {
+                        setVuelosPendientes(datosCargados.vuelosPendientes);
+                        console.log(`✅ ${datosCargados.vuelosPendientes.length} vuelos pendientes cargados`);
+                    }
+
+                    // Cargar tareas pendientes
+                    if (datosCargados.tareasPendientes.length > 0) {
+                        setTareasPendientes(datosCargados.tareasPendientes);
+                        console.log(`✅ ${datosCargados.tareasPendientes.length} tareas pendientes cargadas`);
+                    }
+
+                    // Cargar y validar turno actual
+                    if (datosCargados.turnoActual) {
+                        const turno = datosCargados.turnoActual;
+                        const fechaHoy = new Date().toLocaleDateString('es-MX');
+
+                        if (turno.fecha === fechaHoy) {
+                            setTurnoActual(turno);
+                            console.log('✅ Turno cargado:', turno.turno_id, '- Cajero:', turno.cajero);
+                        } else {
+                            localStorage.removeItem('turnoActual');
+                            console.log('⚠️ Turno expirado eliminado. Se requiere nueva apertura.');
+                        }
                     } else {
-                        // Si no hay datos en Sheets, cargar desde localStorage
-                        const ventasGuardadas = localStorage.getItem('ventas');
-                        if (ventasGuardadas) {
-                            try {
-                                setVentas(JSON.parse(ventasGuardadas));
+                        console.log('⚠️ No hay turno guardado en localStorage');
+                    }
+
+                    // 2. Intentar sincronizar con Google Sheets (en segundo plano)
+                    try {
+                        const ventasSheets = await cargarVentasDesdeSheets();
+
+                        if (ventasSheets.length > 0) {
+                            // Convertir las ventas de Sheets al formato de la app
+                            const ventasConvertidas = ventasSheets.map(v => ({
+                                id: v.numeroGuia || `ENV-${Date.now()}`,
+                                fecha: v.fecha || v.fechaRegistro || new Date().toISOString(),
+                                nombreRemitente: v.remitente,
+                                telefonoRemitente: v.telRemitente,
+                                nombreDestinatario: v.destinatario,
+                                telefonoDestinatario: v.telDestinatario,
+                                direccion: v.direccion,
+                                codigoPostal: v.codigoPostal,
+                                colonia: v.ciudad,
+                                estado: v.estado,
+                                pais: v.pais,
+                                paqueteria: v.paqueteria,
+                                tipoServicio: v.servicio,
+                                precio: v.precio,
+                                costo: v.costo,
+                                tipoOperacion: 'envio',
+                                estadoVenta: 'activa',
+                                respaldadoEnSheets: true // Marcar como respaldadas
+                            }));
+
+                            // Solo actualizar si hay más datos en Sheets que localmente
+                            if (ventasConvertidas.length > datosCargados.ventas.length) {
+                                setVentas(ventasConvertidas);
+                                localStorage.setItem('ventas', JSON.stringify(ventasConvertidas));
+                                console.log(`✅ ${ventasConvertidas.length} ventas sincronizadas desde Google Sheets`);
+                                setSyncStatus({ syncing: false, message: '✅ Sincronizado con Google Sheets' });
+                            } else {
                                 setSyncStatus({ syncing: false, message: '📂 Datos cargados localmente' });
-                            } catch (error) {
-                                console.error('Error al cargar ventas:', error);
-                                setSyncStatus({ syncing: false, message: '⚠️ Error al cargar datos' });
                             }
                         } else {
-                            setSyncStatus({ syncing: false, message: '📋 Sin datos registrados' });
+                            setSyncStatus({ syncing: false, message: datosCargados.ventas.length > 0 ? '📂 Datos cargados localmente' : '📋 Sin datos registrados' });
                         }
+                    } catch (error) {
+                        console.error('⚠️ No se pudo conectar con Google Sheets:', error);
+                        setSyncStatus({ syncing: false, message: '📂 Datos cargados localmente (sin conexión)' });
                     }
 
                     // Event listener para cargar PDF de guía
                     const fileInput = document.getElementById('guiaFileInput');
-                    fileInput.addEventListener('change', handleGuiaFileSelect);
-                    
-                    return () => {
-                        fileInput.removeEventListener('change', handleGuiaFileSelect);
-                    };
+                    if (fileInput) {
+                        fileInput.addEventListener('change', handleGuiaFileSelect);
+                    }
+
+                    console.log('✅ Carga de datos completada');
                 };
 
                 cargarDatos();
-            }, []);
 
-            // Cargar turno actual desde localStorage
-            useEffect(() => {
-                console.log('🔄 Verificando estado del turno...');
-                const turnoGuardado = localStorage.getItem('turnoActual');
-
-                if (turnoGuardado) {
-                    try {
-                        const turno = JSON.parse(turnoGuardado);
-
-                        // Validar que el turno sea del día actual
-                        const fechaHoy = new Date().toLocaleDateString('es-MX');
-                        console.log('📅 Fecha de hoy:', fechaHoy);
-                        console.log('📅 Fecha del turno:', turno.fecha);
-
-                        if (turno.fecha === fechaHoy) {
-                            setTurnoActual(turno);
-                            console.log('✅ Turno cargado desde localStorage:', turno.turno_id);
-                            console.log('👤 Cajero:', turno.cajero);
-                        } else {
-                            // El turno es de otro día, eliminarlo y requerir nueva apertura
-                            localStorage.removeItem('turnoActual');
-                            console.log('⚠️ Turno expirado eliminado. Se requiere nueva apertura de turno.');
-                            console.log('🔓 Mostrando pantalla de apertura de turno...');
-                        }
-                    } catch (error) {
-                        console.error('❌ Error al cargar turno:', error);
-                        localStorage.removeItem('turnoActual');
+                // Cleanup function
+                return () => {
+                    const fileInput = document.getElementById('guiaFileInput');
+                    if (fileInput) {
+                        fileInput.removeEventListener('change', handleGuiaFileSelect);
                     }
-                } else {
-                    console.log('⚠️ No hay turno guardado en localStorage');
-                    console.log('🔓 Mostrando pantalla de apertura de turno...');
-                }
-
-                // Cargar gastos desde localStorage
-                const gastosGuardados = localStorage.getItem('gastos');
-                if (gastosGuardados) {
-                    try {
-                        setGastos(JSON.parse(gastosGuardados));
-                    } catch (error) {
-                        console.error('Error al cargar gastos:', error);
-                    }
-                }
+                };
             }, []);
 
             // Calcular fondo inicial al abrir modal de apertura según día de la semana
@@ -800,27 +874,6 @@
                     }
                 }
             }, [ventas]);
-
-            // Cargar pendientes desde localStorage al iniciar
-            useEffect(() => {
-                const vuelosGuardados = localStorage.getItem('vuelosPendientes');
-                if (vuelosGuardados) {
-                    try {
-                        setVuelosPendientes(JSON.parse(vuelosGuardados));
-                    } catch (error) {
-                        console.error('Error al cargar vuelos pendientes:', error);
-                    }
-                }
-
-                const tareasGuardadas = localStorage.getItem('tareasPendientes');
-                if (tareasGuardadas) {
-                    try {
-                        setTareasPendientes(JSON.parse(tareasGuardadas));
-                    } catch (error) {
-                        console.error('Error al cargar tareas pendientes:', error);
-                    }
-                }
-            }, []);
 
             // Guardar pendientes en localStorage cuando cambian
             useEffect(() => {
@@ -1933,6 +1986,35 @@
                             showNotification('Paquete marcado localmente, sin conexión con Google Sheets', 'warning');
                         }
                     }
+                }
+            };
+
+            // Función para manejar el respaldo manual de datos
+            const handleRespaldar = async () => {
+                if (!window.confirm('¿Deseas respaldar todos los datos en Google Sheets? Esto puede tardar unos momentos.')) {
+                    return;
+                }
+
+                setLoading(true);
+                setSyncStatus({ syncing: true, message: 'Respaldando datos...' });
+
+                try {
+                    const resultado = await respaldarDatos(ventas, showNotification);
+
+                    if (resultado.exitoso) {
+                        setSyncStatus({ syncing: false, message: '✅ Respaldo completado' });
+
+                        // Actualizar ventas con la marca de respaldadas
+                        localStorage.setItem('ventas', JSON.stringify(ventas));
+                    } else {
+                        setSyncStatus({ syncing: false, message: '⚠️ Error en respaldo' });
+                    }
+                } catch (error) {
+                    console.error('Error al respaldar:', error);
+                    setSyncStatus({ syncing: false, message: '❌ Error en respaldo' });
+                    showNotification('Error al respaldar datos', 'error');
+                } finally {
+                    setLoading(false);
                 }
             };
 
@@ -6034,6 +6116,19 @@
                                 </div>
                             </div>
                         )}
+
+                        {/* Botón flotante de respaldo */}
+                        <button
+                            onClick={handleRespaldar}
+                            disabled={loading || syncStatus.syncing}
+                            className="fixed bottom-6 right-6 bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed z-50"
+                            title="Respaldar datos a Google Sheets"
+                            style={{
+                                boxShadow: '0 4px 15px rgba(34, 197, 94, 0.4)'
+                            }}
+                        >
+                            <i className={`fas ${syncStatus.syncing ? 'fa-spinner fa-spin' : 'fa-cloud-upload-alt'} text-xl`}></i>
+                        </button>
                     </div>
                 </div>
             );
