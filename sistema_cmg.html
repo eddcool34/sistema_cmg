@@ -71,8 +71,8 @@
         const GOOGLE_SHEET_ID = '1YourSheetIdHere'; // ⚠️ REEMPLAZAR CON TU ID REAL
 
         // Constantes para evitar "magic numbers" y strings repetitivos
-        const PAQUETERIAS = ['fedex', 'estafeta', 'dhl'];
-        const PAQUETERIAS_ENTREGA = ['mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'];
+        const PAQUETERIAS_DEFAULT = ['fedex', 'estafeta', 'dhl'];
+        const PAQUETERIAS_ENTREGA_DEFAULT = ['mercado libre', 'amazon', 'shein', 'temu', 'ali express', 'otra'];
         const TIPOS_SERVICIO = ['nacional', 'internacional'];
         const TIPOS_OPERACION = ['envio', 'devolucion', 'entrega', 'servicio'];
 
@@ -392,7 +392,15 @@
                 gastos: JSON.parse(localStorage.getItem('gastos') || '[]'),
                 turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null'),
                 vuelosPendientes: JSON.parse(localStorage.getItem('vuelosPendientes') || '[]'),
-                tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]')
+                tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]'),
+                configuracionNegocio: JSON.parse(localStorage.getItem('configuracionNegocio') || JSON.stringify({
+                    nombreNegocio: 'Paquetería CMG',
+                    direccion: '',
+                    telefono: '',
+                    logo: '' // Base64 de la imagen
+                })),
+                paqueteriasEnvio: JSON.parse(localStorage.getItem('paqueteriasEnvio') || JSON.stringify(PAQUETERIAS_DEFAULT)),
+                paqueteriasEntrega: JSON.parse(localStorage.getItem('paqueteriasEntrega') || JSON.stringify(PAQUETERIAS_ENTREGA_DEFAULT))
             };
 
             console.log('📂 Datos cargados desde localStorage:', {
@@ -401,7 +409,10 @@
                 gastos: datosGuardados.gastos.length,
                 turno: datosGuardados.turnoActual ? 'Sí' : 'No',
                 vuelos: datosGuardados.vuelosPendientes.length,
-                tareas: datosGuardados.tareasPendientes.length
+                tareas: datosGuardados.tareasPendientes.length,
+                configuracion: datosGuardados.configuracionNegocio.nombreNegocio,
+                paqueteriasEnvio: datosGuardados.paqueteriasEnvio.length,
+                paqueteriasEntrega: datosGuardados.paqueteriasEntrega.length
             });
 
             return datosGuardados;
@@ -1132,7 +1143,7 @@
                 pais: 'México',
                 tipoServicio: 'nacional',
                 devolucion: 'no',
-                paqueteria: 'fedex',
+                paqueteria: PAQUETERIAS_DEFAULT[0],
                 precio: '',
                 costo: '',
                 impuesto: '0',
@@ -1140,12 +1151,12 @@
                 vendedor: 'Mariana', // Vendedor por defecto
                 comision: '0', // Comisión calculada automáticamente
                 // Campos para devolución
-                paqueteriaDevolucion: 'fedex',
+                paqueteriaDevolucion: PAQUETERIAS_DEFAULT[0],
                 numeroGuia: '',
                 caducidadDevolucion: '',
                 // Campos para entregas
                 nombreEntrega: '',
-                paqueteriaEntrega: 'mercado libre',
+                paqueteriaEntrega: PAQUETERIAS_ENTREGA_DEFAULT[0],
                 fechaRegistro: '',
                 horaRegistro: '',
                 fechaLiberacion: '',
@@ -1154,7 +1165,7 @@
                 // Tabla de declaración
                 declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
                 // Paquetería de pago
-                paqueteriaPago: 'fedex',
+                paqueteriaPago: PAQUETERIAS_DEFAULT[0],
                 // Campos para servicios
                 tipoServicioSeleccionado: '',
                 nombreCliente: '',
@@ -1193,7 +1204,19 @@
             const [historialBackups, setHistorialBackups] = useState([]);
             const [estadisticasBackup, setEstadisticasBackup] = useState(null);
 
-            // Logo en SVG
+            // ========== Estados para Configuración del Negocio ==========
+            const [configuracionNegocio, setConfiguracionNegocio] = useState({
+                nombreNegocio: 'Paquetería CMG',
+                direccion: '',
+                telefono: '',
+                logo: ''
+            });
+            const [paqueteriasEnvio, setPaqueteriasEnvio] = useState(PAQUETERIAS_DEFAULT);
+            const [paqueteriasEntrega, setPaqueteriasEntrega] = useState(PAQUETERIAS_ENTREGA_DEFAULT);
+            const [nuevaPaqueteria, setNuevaPaqueteria] = useState('');
+            const [tipoPaqueteria, setTipoPaqueteria] = useState('envio'); // 'envio' o 'entrega'
+
+            // Logo en SVG (por defecto)
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
 
             // Mostrar notificación
@@ -1252,6 +1275,15 @@
                     } else {
                         console.log('⚠️ No hay turno guardado en localStorage');
                     }
+
+                    // Cargar configuración del negocio
+                    setConfiguracionNegocio(datosCargados.configuracionNegocio);
+                    console.log('✅ Configuración del negocio cargada:', datosCargados.configuracionNegocio.nombreNegocio);
+
+                    // Cargar paqueterías
+                    setPaqueteriasEnvio(datosCargados.paqueteriasEnvio);
+                    setPaqueteriasEntrega(datosCargados.paqueteriasEntrega);
+                    console.log('✅ Paqueterías cargadas -', 'Envío:', datosCargados.paqueteriasEnvio.length, 'Entrega:', datosCargados.paqueteriasEntrega.length);
 
                     // 2. Intentar sincronizar con Google Sheets (en segundo plano)
                     try {
@@ -2013,17 +2045,17 @@
                     pais: venta.pais || 'México',
                     tipoServicio: venta.tipoServicio || 'nacional',
                     devolucion: venta.tipoOperacion === 'devolucion' ? 'si' : 'no',
-                    paqueteria: venta.paqueteria || 'fedex',
+                    paqueteria: venta.paqueteria || paqueteriasEnvio[0] || PAQUETERIAS_DEFAULT[0],
                     precio: venta.precio || '',
                     costo: venta.costo || '',
                     impuesto: venta.impuesto || '0',
                     metodoPago: venta.metodoPago || 'efectivo',
-                    paqueteriaDevolucion: venta.paqueteriaDevolucion || 'fedex',
+                    paqueteriaDevolucion: venta.paqueteriaDevolucion || paqueteriasEnvio[0] || PAQUETERIAS_DEFAULT[0],
                     numeroGuia: venta.numeroGuia || '',
                     caducidadDevolucion: venta.caducidadDevolucion || '',
                     nombreEntrega: venta.nombreEntrega || '',
                     telefonoEntrega: venta.telefonoEntrega || '',
-                    paqueteriaEntrega: venta.paqueteriaEntrega || 'fedex',
+                    paqueteriaEntrega: venta.paqueteriaEntrega || paqueteriasEntrega[0] || PAQUETERIAS_ENTREGA_DEFAULT[0],
                     detallesEntrega: venta.detallesEntrega || '',
                     declaraciones: declaracionesNormalizadas
                 });
@@ -2070,10 +2102,128 @@
                 setVentaEditando(null);
             };
 
+            // ========== FUNCIONES PARA CONFIGURACIÓN DEL NEGOCIO ==========
+
+            // Guardar configuración del negocio
+            const guardarConfiguracionNegocio = (config) => {
+                localStorage.setItem('configuracionNegocio', JSON.stringify(config));
+                setConfiguracionNegocio(config);
+                showNotification('Configuración guardada exitosamente', 'success');
+                console.log('✅ Configuración del negocio guardada:', config);
+            };
+
+            // Manejar subida de logo
+            const handleLogoUpload = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    if (!file.type.startsWith('image/')) {
+                        showNotification('Por favor selecciona un archivo de imagen válido', 'error');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const logoBase64 = reader.result;
+                        const nuevaConfig = {
+                            ...configuracionNegocio,
+                            logo: logoBase64
+                        };
+                        guardarConfiguracionNegocio(nuevaConfig);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            // Agregar nueva paquetería
+            const agregarPaqueteria = () => {
+                if (!nuevaPaqueteria.trim()) {
+                    showNotification('Por favor ingresa el nombre de la paquetería', 'error');
+                    return;
+                }
+
+                const paqueteriaNormalizada = nuevaPaqueteria.trim().toLowerCase();
+
+                if (tipoPaqueteria === 'envio') {
+                    if (paqueteriasEnvio.includes(paqueteriaNormalizada)) {
+                        showNotification('Esta paquetería ya existe en la lista de envíos', 'error');
+                        return;
+                    }
+                    const nuevaLista = [...paqueteriasEnvio, paqueteriaNormalizada];
+                    setPaqueteriasEnvio(nuevaLista);
+                    localStorage.setItem('paqueteriasEnvio', JSON.stringify(nuevaLista));
+                    showNotification(`Paquetería "${nuevaPaqueteria}" agregada a envíos`, 'success');
+                } else {
+                    if (paqueteriasEntrega.includes(paqueteriaNormalizada)) {
+                        showNotification('Esta paquetería ya existe en la lista de entregas', 'error');
+                        return;
+                    }
+                    const nuevaLista = [...paqueteriasEntrega, paqueteriaNormalizada];
+                    setPaqueteriasEntrega(nuevaLista);
+                    localStorage.setItem('paqueteriasEntrega', JSON.stringify(nuevaLista));
+                    showNotification(`Paquetería "${nuevaPaqueteria}" agregada a entregas`, 'success');
+                }
+
+                setNuevaPaqueteria('');
+            };
+
+            // Eliminar paquetería
+            const eliminarPaqueteria = (paqueteria, tipo) => {
+                if (!confirm(`¿Estás seguro de eliminar "${paqueteria}" de la lista de ${tipo === 'envio' ? 'envíos' : 'entregas'}?`)) {
+                    return;
+                }
+
+                if (tipo === 'envio') {
+                    const nuevaLista = paqueteriasEnvio.filter(p => p !== paqueteria);
+                    if (nuevaLista.length === 0) {
+                        showNotification('Debe haber al menos una paquetería de envío', 'error');
+                        return;
+                    }
+                    setPaqueteriasEnvio(nuevaLista);
+                    localStorage.setItem('paqueteriasEnvio', JSON.stringify(nuevaLista));
+                    showNotification(`Paquetería "${paqueteria}" eliminada de envíos`, 'success');
+                } else {
+                    const nuevaLista = paqueteriasEntrega.filter(p => p !== paqueteria);
+                    if (nuevaLista.length === 0) {
+                        showNotification('Debe haber al menos una paquetería de entrega', 'error');
+                        return;
+                    }
+                    setPaqueteriasEntrega(nuevaLista);
+                    localStorage.setItem('paqueteriasEntrega', JSON.stringify(nuevaLista));
+                    showNotification(`Paquetería "${paqueteria}" eliminada de entregas`, 'success');
+                }
+            };
+
             const generarPDF = (venta) => {
                 try {
                     const doc = new jsPDF();
-                    
+
+                    // Logo en la esquina superior izquierda
+                    if (configuracionNegocio.logo) {
+                        try {
+                            doc.addImage(configuracionNegocio.logo, 'PNG', 15, 8, 25, 25);
+                        } catch (error) {
+                            console.log('No se pudo agregar el logo al PDF:', error);
+                        }
+                    }
+
+                    // Información del negocio en el header
+                    doc.setFontSize(18);
+                    doc.setFont(undefined, 'bold');
+                    const nombreNegocio = configuracionNegocio.nombreNegocio || 'Paquetería CMG';
+                    doc.text(nombreNegocio.toUpperCase(), 105, 15, { align: 'center' });
+
+                    // Datos de contacto del negocio
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'normal');
+                    let yContacto = 20;
+                    if (configuracionNegocio.direccion) {
+                        doc.text(configuracionNegocio.direccion, 105, yContacto, { align: 'center' });
+                        yContacto += 4;
+                    }
+                    if (configuracionNegocio.telefono) {
+                        doc.text(`Tel: ${configuracionNegocio.telefono}`, 105, yContacto, { align: 'center' });
+                    }
+
                     // Fecha en la parte superior derecha
                     doc.setFontSize(10);
                     doc.setFont(undefined, 'normal');
@@ -2084,51 +2234,51 @@
                     });
                     doc.text(fechaActual, 190, 10, { align: 'right' });
 
-                    doc.setFontSize(20);
+                    doc.setFontSize(16);
                     doc.setFont(undefined, 'bold');
-                    doc.text('COMPROBANTE DE ENVÍO - CMG', 105, 30, { align: 'center' });
-                    
+                    doc.text('COMPROBANTE DE ENVÍO', 105, 35, { align: 'center' });
+
                     doc.setDrawColor(0, 0, 0);
-                    doc.line(20, 35, 190, 35);
+                    doc.line(20, 38, 190, 38);
 
                     if (venta.tipoOperacion === 'devolucion') {
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('DEVOLUCIÓN', 20, 45);
-                        
+                        doc.text('DEVOLUCIÓN', 20, 48);
+
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Remitente: ${venta.nombreRemitente}`, 20, 52);
-                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 58);
-                        doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 20, 64);
-                        doc.text(`No. de Guía: ${venta.numeroGuia}`, 20, 70);
+                        doc.text(`Remitente: ${venta.nombreRemitente}`, 20, 55);
+                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 61);
+                        doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 20, 67);
+                        doc.text(`No. de Guía: ${venta.numeroGuia}`, 20, 73);
                     } else {
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('REMITENTE', 20, 45);
-                        
+                        doc.text('REMITENTE', 20, 48);
+
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Nombre: ${venta.nombreRemitente}`, 20, 52);
-                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 58);
+                        doc.text(`Nombre: ${venta.nombreRemitente}`, 20, 55);
+                        doc.text(`Teléfono: ${venta.telefonoRemitente}`, 20, 61);
 
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('DESTINATARIO', 20, 70);
-                        
+                        doc.text('DESTINATARIO', 20, 73);
+
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Nombre: ${venta.nombreDestinatario}`, 20, 77);
-                        doc.text(`Teléfono: ${venta.telefonoDestinatario}`, 20, 83);
-                        doc.text(`Dirección: ${venta.direccion} #${venta.numero}`, 20, 89);
-                        doc.text(`Colonia: ${venta.colonia}`, 20, 95);
-                        doc.text(`C.P.: ${venta.codigoPostal}`, 20, 101);
-                        doc.text(`Estado: ${venta.estado}`, 20, 107);
-                        doc.text(`País: ${venta.pais}`, 20, 113);
+                        doc.text(`Nombre: ${venta.nombreDestinatario}`, 20, 80);
+                        doc.text(`Teléfono: ${venta.telefonoDestinatario}`, 20, 86);
+                        doc.text(`Dirección: ${venta.direccion} #${venta.numero}`, 20, 92);
+                        doc.text(`Colonia: ${venta.colonia}`, 20, 98);
+                        doc.text(`C.P.: ${venta.codigoPostal}`, 20, 104);
+                        doc.text(`Estado: ${venta.estado}`, 20, 110);
+                        doc.text(`País: ${venta.pais}`, 20, 116);
 
                         doc.setFontSize(14);
                         doc.setFont(undefined, 'bold');
-                        doc.text('DETALLES DEL SERVICIO', 20, 125);
+                        doc.text('DETALLES DEL SERVICIO', 20, 128);
                         
                         doc.setFontSize(11);
                         doc.setFont(undefined, 'normal');
@@ -2253,87 +2403,145 @@
                 try {
                     const doc = new jsPDF({ format: [80, 250] });
 
-                    doc.setFontSize(12);
+                    let yPos = 10;
+
+                    // Logo si existe
+                    if (configuracionNegocio.logo) {
+                        try {
+                            doc.addImage(configuracionNegocio.logo, 'PNG', 30, yPos, 20, 20);
+                            yPos += 22;
+                        } catch (error) {
+                            console.log('No se pudo agregar el logo al ticket:', error);
+                        }
+                    }
+
+                    // Nombre del negocio
+                    doc.setFontSize(11);
                     doc.setFont(undefined, 'bold');
+                    const nombreNegocio = configuracionNegocio.nombreNegocio || 'Paquetería CMG';
+                    doc.text(nombreNegocio.toUpperCase(), 40, yPos, { align: 'center' });
+                    yPos += 5;
+
+                    // Datos de contacto
+                    doc.setFontSize(7);
+                    doc.setFont(undefined, 'normal');
+                    if (configuracionNegocio.direccion) {
+                        doc.text(configuracionNegocio.direccion, 40, yPos, { align: 'center' });
+                        yPos += 3;
+                    }
+                    if (configuracionNegocio.telefono) {
+                        doc.text(`Tel: ${configuracionNegocio.telefono}`, 40, yPos, { align: 'center' });
+                        yPos += 3;
+                    }
 
                     // Título según tipo de operación
+                    yPos += 2;
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'bold');
                     if (venta.tipoOperacion === 'entrega') {
-                        doc.text('COMPROBANTE DE ENTREGA', 40, 10, { align: 'center' });
+                        doc.text('COMPROBANTE DE ENTREGA', 40, yPos, { align: 'center' });
                     } else {
-                        doc.text('TICKET DE PAGO', 40, 10, { align: 'center' });
+                        doc.text('TICKET DE PAGO', 40, yPos, { align: 'center' });
                     }
-                    doc.text('PAQUETERÍA CMG', 40, 16, { align: 'center' });
+                    yPos += 5;
 
                     doc.setFontSize(8);
                     doc.setFont(undefined, 'normal');
-                    doc.text('------------------------', 40, 21, { align: 'center' });
+                    doc.text('------------------------', 40, yPos, { align: 'center' });
+                    yPos += 5;
 
-                    doc.text(`Folio: ${venta.id}`, 5, 26);
-                    doc.text(`Fecha: ${new Date(venta.fecha).toLocaleDateString('es-MX')}`, 5, 31);
-                    doc.text(`Hora: ${new Date(venta.fecha).toLocaleTimeString('es-MX')}`, 5, 36);
+                    doc.text(`Folio: ${venta.id}`, 5, yPos);
+                    yPos += 5;
+                    doc.text(`Fecha: ${new Date(venta.fecha).toLocaleDateString('es-MX')}`, 5, yPos);
+                    yPos += 5;
+                    doc.text(`Hora: ${new Date(venta.fecha).toLocaleTimeString('es-MX')}`, 5, yPos);
+                    yPos += 5;
 
-                    doc.text('------------------------', 40, 41, { align: 'center' });
+                    doc.text('------------------------', 40, yPos, { align: 'center' });
+                    yPos += 5;
 
                     // Para entregas, mostrar información diferente
                     if (venta.tipoOperacion === 'entrega') {
                         doc.setFont(undefined, 'bold');
-                        doc.text('DESTINATARIO', 5, 46);
+                        doc.text('DESTINATARIO', 5, yPos);
+                        yPos += 5;
                         doc.setFont(undefined, 'normal');
-                        doc.text(`${venta.nombreEntrega}`, 5, 51);
+                        doc.text(`${venta.nombreEntrega}`, 5, yPos);
+                        yPos += 5;
 
-                        doc.text('------------------------', 40, 56, { align: 'center' });
+                        doc.text('------------------------', 40, yPos, { align: 'center' });
+                        yPos += 5;
 
                         doc.setFont(undefined, 'bold');
-                        doc.text('PAQUETERÍA', 5, 61);
+                        doc.text('PAQUETERÍA', 5, yPos);
+                        yPos += 5;
                         doc.setFont(undefined, 'normal');
                         const paqEntrega = venta.paqueteriaEntrega ?
                             venta.paqueteriaEntrega.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'N/A';
-                        doc.text(paqEntrega, 5, 66);
+                        doc.text(paqEntrega, 5, yPos);
+                        yPos += 5;
 
-                        doc.text('------------------------', 40, 71, { align: 'center' });
+                        doc.text('------------------------', 40, yPos, { align: 'center' });
+                        yPos += 5;
 
                         doc.setFont(undefined, 'bold');
-                        doc.text('FECHAS', 5, 76);
+                        doc.text('FECHAS', 5, yPos);
+                        yPos += 5;
                         doc.setFont(undefined, 'normal');
-                        doc.text(`Registro: ${venta.fechaRegistro || new Date(venta.fecha).toLocaleDateString('es-MX')}`, 5, 81);
+                        doc.text(`Registro: ${venta.fechaRegistro || new Date(venta.fecha).toLocaleDateString('es-MX')}`, 5, yPos);
+                        yPos += 5;
                         if (venta.estadoEntrega === 'entregado' && venta.fechaLiberacion) {
-                            doc.text(`Entregado: ${venta.fechaLiberacion}`, 5, 86);
+                            doc.text(`Entregado: ${venta.fechaLiberacion}`, 5, yPos);
                         } else {
-                            doc.text('Estado: PENDIENTE', 5, 86);
+                            doc.text('Estado: PENDIENTE', 5, yPos);
                         }
+                        yPos += 5;
 
-                        doc.text('------------------------', 40, 91, { align: 'center' });
+                        doc.text('------------------------', 40, yPos, { align: 'center' });
+                        yPos += 5;
                         doc.setFontSize(7);
-                        doc.text('¡Gracias!', 40, 96, { align: 'center' });
+                        doc.text('¡Gracias!', 40, yPos, { align: 'center' });
                     } else {
                         // Código original para envíos y devoluciones
                         doc.setFont(undefined, 'bold');
-                        doc.text('CLIENTE', 5, 46);
+                        doc.text('CLIENTE', 5, yPos);
+                        yPos += 5;
                         doc.setFont(undefined, 'normal');
-                        doc.text(`${venta.nombreRemitente}`, 5, 51);
-                        doc.text(`Tel: ${venta.telefonoRemitente}`, 5, 56);
+                        doc.text(`${venta.nombreRemitente}`, 5, yPos);
+                        yPos += 5;
+                        doc.text(`Tel: ${venta.telefonoRemitente}`, 5, yPos);
+                        yPos += 5;
 
-                        doc.text('------------------------', 40, 61, { align: 'center' });
+                        doc.text('------------------------', 40, yPos, { align: 'center' });
+                        yPos += 5;
 
                         doc.setFont(undefined, 'bold');
-                        doc.text('SERVICIO', 5, 66);
+                        doc.text('SERVICIO', 5, yPos);
+                        yPos += 5;
                         doc.setFont(undefined, 'normal');
 
                         if (venta.tipoOperacion === 'devolucion') {
-                            doc.text('DEVOLUCIÓN', 5, 71);
-                            doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 5, 76);
-                            doc.text(`Guía: ${venta.numeroGuia}`, 5, 81);
+                            doc.text('DEVOLUCIÓN', 5, yPos);
+                            yPos += 5;
+                            doc.text(`Paquetería: ${venta.paqueteriaDevolucion.toUpperCase()}`, 5, yPos);
+                            yPos += 5;
+                            doc.text(`Guía: ${venta.numeroGuia}`, 5, yPos);
+                            yPos += 5;
                         } else {
-                            doc.text(`${venta.paqueteria.toUpperCase()}`, 5, 71);
-                            doc.text(`Tipo: ${venta.tipoServicio}`, 5, 76);
-                            doc.text(`Destino: ${venta.estado}`, 5, 81);
+                            doc.text(`${venta.paqueteria.toUpperCase()}`, 5, yPos);
+                            yPos += 5;
+                            doc.text(`Tipo: ${venta.tipoServicio}`, 5, yPos);
+                            yPos += 5;
+                            doc.text(`Destino: ${venta.estado}`, 5, yPos);
+                            yPos += 5;
                         }
 
-                        doc.text('------------------------', 40, 86, { align: 'center' });
+                        doc.text('------------------------', 40, yPos, { align: 'center' });
+                        yPos += 5;
 
                         doc.setFontSize(7);
                         doc.setFont(undefined, 'normal');
-                        doc.text('¡Gracias por su compra!', 40, 91, { align: 'center' });
+                        doc.text('¡Gracias por su compra!', 40, yPos, { align: 'center' });
                     }
 
                     doc.save(`Ticket-${venta.id}.pdf`);
@@ -2493,23 +2701,23 @@
                     pais: 'México',
                     tipoServicio: 'nacional',
                     devolucion: 'no',
-                    paqueteria: 'fedex',
+                    paqueteria: paqueteriasEnvio[0] || PAQUETERIAS_DEFAULT[0],
                     precio: '',
                     costo: '',
                     impuesto: '0',
                     metodoPago: 'efectivo',
-                    paqueteriaDevolucion: 'fedex',
+                    paqueteriaDevolucion: paqueteriasEnvio[0] || PAQUETERIAS_DEFAULT[0],
                     numeroGuia: '',
                     caducidadDevolucion: '',
                     nombreEntrega: '',
-                    paqueteriaEntrega: 'mercado libre',
+                    paqueteriaEntrega: paqueteriasEntrega[0] || PAQUETERIAS_ENTREGA_DEFAULT[0],
                     fechaRegistro: '',
                     horaRegistro: '',
                     fechaLiberacion: '',
                     horaLiberacion: '',
                     estadoEntrega: 'pendiente',
                     declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
-                    paqueteriaPago: 'fedex'
+                    paqueteriaPago: paqueteriasEnvio[0] || PAQUETERIAS_DEFAULT[0]
                 });
 
                 // Resetear campos de pago en efectivo
@@ -3523,12 +3731,32 @@
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div dangerouslySetInnerHTML={{ __html: logoSVG }} />
+                                    {/* Logo personalizado o SVG por defecto */}
+                                    {configuracionNegocio.logo ? (
+                                        <img
+                                            src={configuracionNegocio.logo}
+                                            alt="Logo"
+                                            className="w-16 h-16 object-contain rounded-lg"
+                                        />
+                                    ) : (
+                                        <div dangerouslySetInnerHTML={{ __html: logoSVG }} />
+                                    )}
                                     <div>
                                         <h1 className="text-3xl font-bold text-gray-800">
-                                            Sistema CMG
+                                            {configuracionNegocio.nombreNegocio || 'Sistema CMG'}
                                         </h1>
-                                        <p className="text-lg text-gray-600">Paquetería CMG</p>
+                                        {configuracionNegocio.direccion && (
+                                            <p className="text-sm text-gray-600">
+                                                <i className="fas fa-map-marker-alt mr-1"></i>
+                                                {configuracionNegocio.direccion}
+                                            </p>
+                                        )}
+                                        {configuracionNegocio.telefono && (
+                                            <p className="text-sm text-gray-600">
+                                                <i className="fas fa-phone mr-1"></i>
+                                                {configuracionNegocio.telefono}
+                                            </p>
+                                        )}
                                         <p className="text-xs text-green-600 mt-1">
                                             <i className="fas fa-cloud mr-1"></i>
                                             Conectado a Google Sheets
@@ -3713,6 +3941,19 @@
                                 >
                                     <i className="fas fa-tasks mr-2"></i>Pendientes
                                 </button>
+                                {/* Pestaña de Configuraciones - Solo para Administradores */}
+                                {usuarioActual && window.tienePermiso && window.tienePermiso('ver_configuracion', usuarioActual) && (
+                                    <button
+                                        onClick={() => setActiveTab('configuraciones')}
+                                        className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
+                                            activeTab === 'configuraciones'
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        <i className="fas fa-cog mr-2"></i>Configuraciones
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -3818,7 +4059,7 @@
                                                         onChange={handleInputChange}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                                     >
-                                                        {PAQUETERIAS_ENTREGA.map(paq => (
+                                                        {paqueteriasEntrega.map(paq => (
                                                             <option key={paq} value={paq}>
                                                                 {paq.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                                                             </option>
@@ -3851,7 +4092,7 @@
                                                         onChange={handleInputChange}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     >
-                                                        {PAQUETERIAS.map(paq => (
+                                                        {paqueteriasEnvio.map(paq => (
                                                             <option key={paq} value={paq}>{paq.toUpperCase()}</option>
                                                         ))}
                                                     </select>
@@ -4110,7 +4351,7 @@
                                                             onChange={handleInputChange}
                                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         >
-                                                            {PAQUETERIAS.map(paq => (
+                                                            {paqueteriasEnvio.map(paq => (
                                                                 <option key={paq} value={paq}>{paq.toUpperCase()}</option>
                                                             ))}
                                                         </select>
@@ -6505,6 +6746,240 @@
                                                     Esta sección es únicamente para recordatorio. Los vuelos y tareas marcados como realizados no se eliminan y no afectan al corte de caja.
                                                 </p>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Contenido - Configuraciones */}
+                        {activeTab === 'configuraciones' && (
+                            <div className="space-y-6">
+                                {/* Configuración del Negocio */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-store mr-2"></i>Información del Negocio
+                                    </h2>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Logo del Negocio */}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-image mr-2"></i>Logo del Negocio
+                                            </label>
+                                            <div className="flex items-center gap-4">
+                                                {configuracionNegocio.logo ? (
+                                                    <div className="relative">
+                                                        <img
+                                                            src={configuracionNegocio.logo}
+                                                            alt="Logo actual"
+                                                            className="w-32 h-32 object-contain border-2 border-gray-300 rounded-lg p-2"
+                                                        />
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('¿Eliminar logo actual?')) {
+                                                                    const nuevaConfig = { ...configuracionNegocio, logo: '' };
+                                                                    guardarConfiguracionNegocio(nuevaConfig);
+                                                                }
+                                                            }}
+                                                            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                                                            title="Eliminar logo"
+                                                        >
+                                                            <i className="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400">
+                                                        <i className="fas fa-image text-4xl"></i>
+                                                    </div>
+                                                )}
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="file"
+                                                        id="logoUpload"
+                                                        accept="image/*"
+                                                        onChange={handleLogoUpload}
+                                                        className="hidden"
+                                                    />
+                                                    <label
+                                                        htmlFor="logoUpload"
+                                                        className="inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
+                                                    >
+                                                        <i className="fas fa-upload mr-2"></i>
+                                                        {configuracionNegocio.logo ? 'Cambiar Logo' : 'Subir Logo'}
+                                                    </label>
+                                                    <p className="text-sm text-gray-500 mt-2">
+                                                        El logo se mostrará en el header del sistema y en los PDFs generados
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Nombre del Negocio */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-building mr-2"></i>Nombre del Negocio *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={configuracionNegocio.nombreNegocio}
+                                                onChange={(e) => setConfiguracionNegocio({ ...configuracionNegocio, nombreNegocio: e.target.value })}
+                                                onBlur={() => guardarConfiguracionNegocio(configuracionNegocio)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ej: Paquetería CMG"
+                                            />
+                                        </div>
+
+                                        {/* Teléfono */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-phone mr-2"></i>Teléfono
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={configuracionNegocio.telefono}
+                                                onChange={(e) => setConfiguracionNegocio({ ...configuracionNegocio, telefono: e.target.value })}
+                                                onBlur={() => guardarConfiguracionNegocio(configuracionNegocio)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ej: (123) 456-7890"
+                                            />
+                                        </div>
+
+                                        {/* Dirección */}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-map-marker-alt mr-2"></i>Dirección
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={configuracionNegocio.direccion}
+                                                onChange={(e) => setConfiguracionNegocio({ ...configuracionNegocio, direccion: e.target.value })}
+                                                onBlur={() => guardarConfiguracionNegocio(configuracionNegocio)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ej: Calle Principal #123, Col. Centro, Ciudad, Estado, CP"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Gestión de Paqueterías de Envío */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-shipping-fast mr-2"></i>Paqueterías de Envío
+                                    </h2>
+
+                                    <div className="mb-6">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={tipoPaqueteria === 'envio' ? nuevaPaqueteria : ''}
+                                                onChange={(e) => {
+                                                    setTipoPaqueteria('envio');
+                                                    setNuevaPaqueteria(e.target.value);
+                                                }}
+                                                onClick={() => setTipoPaqueteria('envio')}
+                                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Nombre de la nueva paquetería de envío"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    setTipoPaqueteria('envio');
+                                                    agregarPaqueteria();
+                                                }}
+                                                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors font-semibold"
+                                            >
+                                                <i className="fas fa-plus mr-2"></i>Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                        {paqueteriasEnvio.map((paq) => (
+                                            <div
+                                                key={paq}
+                                                className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3"
+                                            >
+                                                <span className="text-gray-800 font-medium capitalize">
+                                                    <i className="fas fa-box mr-2 text-blue-500"></i>
+                                                    {paq}
+                                                </span>
+                                                <button
+                                                    onClick={() => eliminarPaqueteria(paq, 'envio')}
+                                                    className="text-red-500 hover:text-red-700 transition-colors"
+                                                    title="Eliminar paquetería"
+                                                >
+                                                    <i className="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Gestión de Paqueterías de Entrega */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-truck mr-2"></i>Paqueterías de Entrega
+                                    </h2>
+
+                                    <div className="mb-6">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={tipoPaqueteria === 'entrega' ? nuevaPaqueteria : ''}
+                                                onChange={(e) => {
+                                                    setTipoPaqueteria('entrega');
+                                                    setNuevaPaqueteria(e.target.value);
+                                                }}
+                                                onClick={() => setTipoPaqueteria('entrega')}
+                                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Nombre de la nueva paquetería de entrega"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    setTipoPaqueteria('entrega');
+                                                    agregarPaqueteria();
+                                                }}
+                                                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors font-semibold"
+                                            >
+                                                <i className="fas fa-plus mr-2"></i>Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                        {paqueteriasEntrega.map((paq) => (
+                                            <div
+                                                key={paq}
+                                                className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3"
+                                            >
+                                                <span className="text-gray-800 font-medium capitalize">
+                                                    <i className="fas fa-store mr-2 text-purple-500"></i>
+                                                    {paq}
+                                                </span>
+                                                <button
+                                                    onClick={() => eliminarPaqueteria(paq, 'entrega')}
+                                                    className="text-red-500 hover:text-red-700 transition-colors"
+                                                    title="Eliminar paquetería"
+                                                >
+                                                    <i className="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Nota Informativa */}
+                                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                                    <div className="flex">
+                                        <i className="fas fa-info-circle text-blue-400 mr-3 mt-1"></i>
+                                        <div>
+                                            <p className="text-sm text-blue-700 font-semibold mb-1">Información importante</p>
+                                            <ul className="text-sm text-blue-600 list-disc list-inside space-y-1">
+                                                <li>Los cambios en la configuración del negocio se guardan automáticamente</li>
+                                                <li>El logo se mostrará en el sistema y en los PDFs generados</li>
+                                                <li>Las paqueterías aparecerán en los selectores de registro de ventas y devoluciones</li>
+                                                <li>Debe haber al menos una paquetería de cada tipo (envío y entrega)</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
