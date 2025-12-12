@@ -527,9 +527,17 @@
                 // Guardar sesión
                 guardarSesion(usuarioAutenticado);
 
+                // Obtener parámetro redirect de la URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirect = urlParams.get('redirect');
+
                 // Redirigir al sistema principal después de 1 segundo
                 setTimeout(() => {
-                    window.location.href = 'sistema_cmg.html';
+                    if (redirect) {
+                        window.location.href = `sistema_cmg.html?tab=${redirect}`;
+                    } else {
+                        window.location.href = 'sistema_cmg.html';
+                    }
                 }, 1000);
             } else {
                 // Login fallido
@@ -551,8 +559,17 @@
             const sesionActual = obtenerSesionActual();
             if (sesionActual) {
                 mostrarAlerta('success', `Ya tienes una sesión activa como ${sesionActual.nombre}`);
+
+                // Obtener parámetro redirect de la URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirect = urlParams.get('redirect');
+
                 setTimeout(() => {
-                    window.location.href = 'sistema_cmg.html';
+                    if (redirect) {
+                        window.location.href = `sistema_cmg.html?tab=${redirect}`;
+                    } else {
+                        window.location.href = 'sistema_cmg.html';
+                    }
                 }, 1500);
             }
         });
