@@ -399,11 +399,19 @@
                     nombreNegocio: 'Paquetería CMG',
                     direccion: '',
                     telefono: '',
+                    slogan: 'Tu mejor socio en logística',
                     logo: '' // Base64 de la imagen
                 })),
                 paqueteriasEnvio: JSON.parse(localStorage.getItem('paqueteriasEnvio') || JSON.stringify(PAQUETERIAS_DEFAULT)),
-                paqueteriasEntrega: JSON.parse(localStorage.getItem('paqueteriasEntrega') || JSON.stringify(PAQUETERIAS_ENTREGA_DEFAULT))
+                paqueteriasEntrega: JSON.parse(localStorage.getItem('paqueteriasEntrega') || JSON.stringify(PAQUETERIAS_ENTREGA_DEFAULT)),
+                usuarios: JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS)),
+                porcentajeComision: parseFloat(localStorage.getItem('porcentajeComision') || '0')
             };
+
+            // Asegurar que configuracionNegocio tenga todos los campos necesarios
+            if (!datosGuardados.configuracionNegocio.slogan) {
+                datosGuardados.configuracionNegocio.slogan = 'Tu mejor socio en logística';
+            }
 
             console.log('📂 Datos cargados desde localStorage:', {
                 ventas: datosGuardados.ventas.length,
@@ -414,7 +422,9 @@
                 tareas: datosGuardados.tareasPendientes.length,
                 configuracion: datosGuardados.configuracionNegocio.nombreNegocio,
                 paqueteriasEnvio: datosGuardados.paqueteriasEnvio.length,
-                paqueteriasEntrega: datosGuardados.paqueteriasEntrega.length
+                paqueteriasEntrega: datosGuardados.paqueteriasEntrega.length,
+                usuarios: datosGuardados.usuarios.length,
+                comision: datosGuardados.porcentajeComision + '%'
             });
 
             return datosGuardados;
@@ -1069,7 +1079,14 @@
             // ========== USUARIO ACTUAL (desde RBAC) ==========
             const usuarioActual = usuarioSesion;
 
-            const [activeTab, setActiveTab] = useState('registro');
+            // Leer parámetro ?tab= de la URL para redirección directa
+            const getInitialTab = () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const tabParam = urlParams.get('tab');
+                return tabParam || 'registro';
+            };
+
+            const [activeTab, setActiveTab] = useState(getInitialTab());
             const [ventas, setVentas] = useState([]);
             const [searchTerm, setSearchTerm] = useState('');
             const [tipoOperacion, setTipoOperacion] = useState('envio');
@@ -1211,12 +1228,31 @@
                 nombreNegocio: 'Paquetería CMG',
                 direccion: '',
                 telefono: '',
+                slogan: 'Tu mejor socio en logística',
                 logo: ''
             });
             const [paqueteriasEnvio, setPaqueteriasEnvio] = useState(PAQUETERIAS_DEFAULT);
             const [paqueteriasEntrega, setPaqueteriasEntrega] = useState(PAQUETERIAS_ENTREGA_DEFAULT);
             const [nuevaPaqueteria, setNuevaPaqueteria] = useState('');
             const [tipoPaqueteria, setTipoPaqueteria] = useState('envio'); // 'envio' o 'entrega'
+
+            // ========== Estados para Gestión de Usuarios ==========
+            const [usuarios, setUsuarios] = useState([]);
+            const [showAgregarUsuario, setShowAgregarUsuario] = useState(false);
+            const [showCambiarPassword, setShowCambiarPassword] = useState(false);
+            const [usuarioEditando, setUsuarioEditando] = useState(null);
+            const [formUsuario, setFormUsuario] = useState({
+                usuario: '',
+                nombre: '',
+                contrasena: '',
+                confirmarContrasena: '',
+                rol: 'CAJERO'
+            });
+            const [nuevaContrasena, setNuevaContrasena] = useState('');
+            const [confirmarNuevaContrasena, setConfirmarNuevaContrasena] = useState('');
+
+            // ========== Estado para Porcentaje de Comisiones ==========
+            const [porcentajeComision, setPorcentajeComision] = useState(0);
 
             // Logo en SVG (por defecto)
             const logoSVG = `<svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgb(219,39,119);stop-opacity:1" /><stop offset="50%" style="stop-color:rgb(168,85,247);stop-opacity:1" /><stop offset="100%" style="stop-color:rgb(99,102,241);stop-opacity:1" /></linearGradient></defs><path d="M 50 10 L 90 30 L 90 70 L 50 90 L 10 70 L 10 30 Z" fill="url(#grad)" opacity="0.9"/><rect x="30" y="30" width="40" height="40" fill="white" opacity="0.3"/><rect x="20" y="45" width="20" height="30" fill="white" opacity="0.4"/><rect x="60" y="45" width="20" height="30" fill="white" opacity="0.4"/></svg>`;
@@ -1286,6 +1322,14 @@
                     setPaqueteriasEnvio(datosCargados.paqueteriasEnvio);
                     setPaqueteriasEntrega(datosCargados.paqueteriasEntrega);
                     console.log('✅ Paqueterías cargadas -', 'Envío:', datosCargados.paqueteriasEnvio.length, 'Entrega:', datosCargados.paqueteriasEntrega.length);
+
+                    // Cargar usuarios
+                    setUsuarios(datosCargados.usuarios);
+                    console.log('✅ Usuarios cargados:', datosCargados.usuarios.length);
+
+                    // Cargar porcentaje de comisión
+                    setPorcentajeComision(datosCargados.porcentajeComision);
+                    console.log('✅ Porcentaje de comisión:', datosCargados.porcentajeComision + '%');
 
                     // 2. Intentar sincronizar con Google Sheets (en segundo plano)
                     try {
@@ -2195,6 +2239,130 @@
                 }
             };
 
+            // ========== FUNCIONES DE GESTIÓN DE USUARIOS ==========
+
+            // Guardar usuarios en localStorage
+            const guardarUsuarios = (listaUsuarios) => {
+                localStorage.setItem('usuarios_cmg', JSON.stringify(listaUsuarios));
+                setUsuarios(listaUsuarios);
+            };
+
+            // Agregar nuevo usuario
+            const agregarUsuario = () => {
+                // Validaciones
+                if (!formUsuario.usuario.trim() || !formUsuario.nombre.trim()) {
+                    showNotification('Por favor completa todos los campos obligatorios', 'error');
+                    return;
+                }
+
+                if (!formUsuario.contrasena || formUsuario.contrasena.length < 6) {
+                    showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+                    return;
+                }
+
+                if (formUsuario.contrasena !== formUsuario.confirmarContrasena) {
+                    showNotification('Las contraseñas no coinciden', 'error');
+                    return;
+                }
+
+                // Verificar si el usuario ya existe
+                if (usuarios.find(u => u.usuario.toLowerCase() === formUsuario.usuario.toLowerCase())) {
+                    showNotification('El nombre de usuario ya existe', 'error');
+                    return;
+                }
+
+                // Crear nuevo usuario
+                const nuevoUsuario = {
+                    id: Date.now(),
+                    usuario: formUsuario.usuario.trim(),
+                    nombre: formUsuario.nombre.trim(),
+                    contrasena: formUsuario.contrasena,
+                    rol: formUsuario.rol,
+                    activo: true,
+                    fechaCreacion: new Date().toLocaleDateString('es-MX')
+                };
+
+                const nuevaLista = [...usuarios, nuevoUsuario];
+                guardarUsuarios(nuevaLista);
+
+                showNotification(`Usuario "${nuevoUsuario.nombre}" creado exitosamente`, 'success');
+
+                // Resetear formulario y cerrar modal
+                setFormUsuario({
+                    usuario: '',
+                    nombre: '',
+                    contrasena: '',
+                    confirmarContrasena: '',
+                    rol: 'CAJERO'
+                });
+                setShowAgregarUsuario(false);
+            };
+
+            // Eliminar usuario
+            const eliminarUsuario = (usuario) => {
+                // No permitir eliminar el último administrador
+                const admins = usuarios.filter(u => u.rol === 'ADMINISTRADOR' && u.activo);
+                if (usuario.rol === 'ADMINISTRADOR' && admins.length === 1) {
+                    showNotification('No puedes eliminar el último administrador del sistema', 'error');
+                    return;
+                }
+
+                // No permitir eliminar el usuario actual
+                if (usuario.usuario === usuarioActual.usuario) {
+                    showNotification('No puedes eliminar tu propio usuario', 'error');
+                    return;
+                }
+
+                if (!confirm(`¿Estás seguro de eliminar al usuario "${usuario.nombre}"?`)) {
+                    return;
+                }
+
+                const nuevaLista = usuarios.filter(u => u.id !== usuario.id);
+                guardarUsuarios(nuevaLista);
+                showNotification(`Usuario "${usuario.nombre}" eliminado`, 'success');
+            };
+
+            // Cambiar contraseña de usuario
+            const cambiarPasswordUsuario = () => {
+                if (!nuevaContrasena || nuevaContrasena.length < 6) {
+                    showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+                    return;
+                }
+
+                if (nuevaContrasena !== confirmarNuevaContrasena) {
+                    showNotification('Las contraseñas no coinciden', 'error');
+                    return;
+                }
+
+                const nuevaLista = usuarios.map(u => {
+                    if (u.id === usuarioEditando.id) {
+                        return { ...u, contrasena: nuevaContrasena };
+                    }
+                    return u;
+                });
+
+                guardarUsuarios(nuevaLista);
+                showNotification(`Contraseña de "${usuarioEditando.nombre}" actualizada`, 'success');
+
+                // Resetear y cerrar modal
+                setNuevaContrasena('');
+                setConfirmarNuevaContrasena('');
+                setUsuarioEditando(null);
+                setShowCambiarPassword(false);
+            };
+
+            // Guardar porcentaje de comisión
+            const guardarPorcentajeComision = (porcentaje) => {
+                const valor = parseFloat(porcentaje);
+                if (isNaN(valor) || valor < 0 || valor > 100) {
+                    showNotification('Porcentaje de comisión inválido (0-100%)', 'error');
+                    return;
+                }
+                localStorage.setItem('porcentajeComision', valor.toString());
+                setPorcentajeComision(valor);
+                showNotification(`Porcentaje de comisión actualizado a ${valor}%`, 'success');
+            };
+
             const generarPDF = (venta) => {
                 try {
                     const doc = new jsPDF();
@@ -2855,8 +3023,12 @@
             };
 
             const getGananciasHoy = () => {
-                return getVentasHoy().reduce((sum, v) =>
-                    sum + (parseFloat(v.precio) - parseFloat(v.costo)), 0);
+                return getVentasHoy().reduce((sum, v) => {
+                    const gananciaBruta = parseFloat(v.precio) - parseFloat(v.costo);
+                    const comision = gananciaBruta * (porcentajeComision / 100);
+                    const gananciaNeta = gananciaBruta - comision;
+                    return sum + gananciaNeta;
+                }, 0);
             };
 
             // Función para obtener estadísticas de ventas por vendedor
@@ -4597,10 +4769,42 @@
 
                                         {formData.precio && formData.costo && (
                                             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                                <p className="text-lg font-semibold text-green-700">
-                                                    <i className="fas fa-coins mr-2"></i>
-                                                    Ganancia: {formatCurrency(parseFloat(formData.precio) - parseFloat(formData.costo))}
-                                                </p>
+                                                {(() => {
+                                                    const gananciaB = parseFloat(formData.precio) - parseFloat(formData.costo);
+                                                    const comision = gananciaB * (porcentajeComision / 100);
+                                                    const gananciaNeta = gananciaB - comision;
+
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-sm text-gray-600">Ganancia bruta:</span>
+                                                                <span className="text-lg font-semibold text-gray-700">{formatCurrency(gananciaB)}</span>
+                                                            </div>
+                                                            {porcentajeComision > 0 && (
+                                                                <>
+                                                                    <div className="flex justify-between items-center border-t pt-2">
+                                                                        <span className="text-sm text-gray-600">Comisión ({porcentajeComision}%):</span>
+                                                                        <span className="text-sm font-medium text-red-600">-{formatCurrency(comision)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center border-t pt-2">
+                                                                        <span className="text-base font-semibold text-green-700">
+                                                                            <i className="fas fa-coins mr-2"></i>Ganancia neta:
+                                                                        </span>
+                                                                        <span className="text-xl font-bold text-green-700">{formatCurrency(gananciaNeta)}</span>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                            {porcentajeComision === 0 && (
+                                                                <div className="flex justify-between items-center border-t pt-2">
+                                                                    <span className="text-base font-semibold text-green-700">
+                                                                        <i className="fas fa-coins mr-2"></i>Ganancia:
+                                                                    </span>
+                                                                    <span className="text-xl font-bold text-green-700">{formatCurrency(gananciaB)}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
                                     </div>
@@ -6857,6 +7061,21 @@
                                             />
                                         </div>
 
+                                        {/* Slogan */}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-quote-left mr-2"></i>Slogan
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={configuracionNegocio.slogan || ''}
+                                                onChange={(e) => setConfiguracionNegocio({ ...configuracionNegocio, slogan: e.target.value })}
+                                                onBlur={() => guardarConfiguracionNegocio(configuracionNegocio)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ej: Tu mejor socio en logística"
+                                            />
+                                        </div>
+
                                         {/* Dirección */}
                                         <div className="md:col-span-2">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -6870,6 +7089,162 @@
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                 placeholder="Ej: Calle Principal #123, Col. Centro, Ciudad, Estado, CP"
                                             />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Gestión de Usuarios */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            <i className="fas fa-users-cog mr-2"></i>Gestión de Usuarios
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowAgregarUsuario(true)}
+                                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-user-plus mr-2"></i>Agregar Usuario
+                                        </button>
+                                    </div>
+
+                                    {/* Lista de Usuarios por Rol */}
+                                    {['ADMINISTRADOR', 'SUPERVISOR', 'CAJERO', 'AUDITOR'].map((rol) => {
+                                        const usuariosDelRol = usuarios.filter(u => u.rol === rol && u.activo);
+                                        if (usuariosDelRol.length === 0) return null;
+
+                                        const colorMap = {
+                                            'ADMINISTRADOR': { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-500' },
+                                            'SUPERVISOR': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-500' },
+                                            'CAJERO': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-500' },
+                                            'AUDITOR': { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', badge: 'bg-purple-500' }
+                                        };
+                                        const colors = colorMap[rol];
+
+                                        return (
+                                            <div key={rol} className="mb-6">
+                                                <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                                                    <i className="fas fa-user-shield mr-2"></i>{ROLES[rol].nombre}s ({usuariosDelRol.length})
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {usuariosDelRol.map((usuario) => (
+                                                        <div
+                                                            key={usuario.id}
+                                                            className={`flex items-center justify-between ${colors.bg} border ${colors.border} rounded-lg p-4`}
+                                                        >
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="font-bold text-gray-800">{usuario.nombre}</span>
+                                                                    <span className={`px-2 py-1 rounded text-xs text-white ${colors.badge}`}>
+                                                                        {ROLES[rol].nombre}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-sm text-gray-600">
+                                                                    <i className="fas fa-user mr-1"></i>
+                                                                    Usuario: <span className="font-medium">{usuario.usuario}</span>
+                                                                </div>
+                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                    Creado: {usuario.fechaCreacion}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setUsuarioEditando(usuario);
+                                                                        setShowCambiarPassword(true);
+                                                                    }}
+                                                                    className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm"
+                                                                    title="Cambiar contraseña"
+                                                                >
+                                                                    <i className="fas fa-key"></i>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => eliminarUsuario(usuario)}
+                                                                    className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
+                                                                    title="Eliminar usuario"
+                                                                >
+                                                                    <i className="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Nota Informativa */}
+                                    <div className="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                                        <div className="flex">
+                                            <i className="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
+                                            <div>
+                                                <p className="text-sm text-yellow-700 font-semibold mb-1">Importante</p>
+                                                <ul className="text-sm text-yellow-600 list-disc list-inside space-y-1">
+                                                    <li>No puedes eliminar el último administrador del sistema</li>
+                                                    <li>Los cambios en usuarios requieren que los usuarios vuelvan a iniciar sesión</li>
+                                                    <li>Las contraseñas se almacenan en texto plano - usar solo para pruebas</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Porcentaje de Comisiones */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-percentage mr-2"></i>Porcentaje de Comisiones
+                                    </h2>
+
+                                    <div className="max-w-md">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <i className="fas fa-dollar-sign mr-2"></i>Porcentaje de comisión sobre ventas
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.1"
+                                                value={porcentajeComision}
+                                                onChange={(e) => setPorcentajeComision(parseFloat(e.target.value) || 0)}
+                                                onBlur={() => guardarPorcentajeComision(porcentajeComision)}
+                                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="0"
+                                            />
+                                            <div className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg flex items-center">
+                                                <span className="text-gray-700 font-medium">%</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-2">
+                                            Este porcentaje se aplicará automáticamente en el cálculo de utilidades de cada venta
+                                        </p>
+
+                                        {/* Ejemplo de cálculo */}
+                                        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                            <p className="text-sm font-semibold text-blue-700 mb-2">
+                                                <i className="fas fa-calculator mr-2"></i>Ejemplo de cálculo
+                                            </p>
+                                            <div className="text-sm text-blue-600 space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span>Precio de venta:</span>
+                                                    <span className="font-medium">$100.00</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Costo:</span>
+                                                    <span className="font-medium">$70.00</span>
+                                                </div>
+                                                <div className="flex justify-between border-t border-blue-300 pt-1">
+                                                    <span>Utilidad bruta:</span>
+                                                    <span className="font-medium">$30.00</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Comisión ({porcentajeComision}%):</span>
+                                                    <span className="font-medium text-red-600">-${(30 * porcentajeComision / 100).toFixed(2)}</span>
+                                                </div>
+                                                <div className="flex justify-between border-t border-blue-300 pt-1 font-bold">
+                                                    <span>Utilidad neta:</span>
+                                                    <span className="text-green-600">${(30 * (1 - porcentajeComision / 100)).toFixed(2)}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -6994,6 +7369,194 @@
                                             </ul>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MODAL AGREGAR USUARIO */}
+                        {showAgregarUsuario && (
+                            <div className="modal-overlay" onClick={() => setShowAgregarUsuario(false)}>
+                                <div className="modal-content p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-3xl font-bold text-gray-800">
+                                            <i className="fas fa-user-plus mr-2 text-green-600"></i>
+                                            Agregar Nuevo Usuario
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowAgregarUsuario(false)}
+                                            className="text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {/* Nombre */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-user mr-2"></i>Nombre Completo *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formUsuario.nombre}
+                                                onChange={(e) => setFormUsuario({ ...formUsuario, nombre: e.target.value })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ej: Juan Pérez"
+                                            />
+                                        </div>
+
+                                        {/* Usuario */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-at mr-2"></i>Nombre de Usuario *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formUsuario.usuario}
+                                                onChange={(e) => setFormUsuario({ ...formUsuario, usuario: e.target.value })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ej: jperez"
+                                            />
+                                        </div>
+
+                                        {/* Rol */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-user-tag mr-2"></i>Rol *
+                                            </label>
+                                            <select
+                                                value={formUsuario.rol}
+                                                onChange={(e) => setFormUsuario({ ...formUsuario, rol: e.target.value })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="ADMINISTRADOR">Administrador - Acceso Total</option>
+                                                <option value="SUPERVISOR">Supervisor - Gerente/Encargado</option>
+                                                <option value="CAJERO">Cajero - Empleado Normal</option>
+                                                <option value="AUDITOR">Auditor - Solo Lectura</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Contraseña */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-lock mr-2"></i>Contraseña * (mínimo 6 caracteres)
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={formUsuario.contrasena}
+                                                onChange={(e) => setFormUsuario({ ...formUsuario, contrasena: e.target.value })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="••••••"
+                                            />
+                                        </div>
+
+                                        {/* Confirmar Contraseña */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-lock mr-2"></i>Confirmar Contraseña *
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={formUsuario.confirmarContrasena}
+                                                onChange={(e) => setFormUsuario({ ...formUsuario, confirmarContrasena: e.target.value })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="••••••"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Botones */}
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            onClick={agregarUsuario}
+                                            className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-check mr-2"></i>Crear Usuario
+                                        </button>
+                                        <button
+                                            onClick={() => setShowAgregarUsuario(false)}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-times mr-2"></i>Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MODAL CAMBIAR CONTRASEÑA */}
+                        {showCambiarPassword && (
+                            <div className="modal-overlay" onClick={() => setShowCambiarPassword(false)}>
+                                <div className="modal-content p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            <i className="fas fa-key mr-2 text-blue-600"></i>
+                                            Cambiar Contraseña
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowCambiarPassword(false)}
+                                            className="text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    {usuarioEditando && (
+                                        <>
+                                            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                                <p className="text-sm text-blue-700">
+                                                    <i className="fas fa-info-circle mr-2"></i>
+                                                    Cambiando contraseña para: <span className="font-bold">{usuarioEditando.nombre}</span> ({usuarioEditando.usuario})
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {/* Nueva Contraseña */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        <i className="fas fa-lock mr-2"></i>Nueva Contraseña * (mínimo 6 caracteres)
+                                                    </label>
+                                                    <input
+                                                        type="password"
+                                                        value={nuevaContrasena}
+                                                        onChange={(e) => setNuevaContrasena(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        placeholder="••••••"
+                                                    />
+                                                </div>
+
+                                                {/* Confirmar Nueva Contraseña */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        <i className="fas fa-lock mr-2"></i>Confirmar Nueva Contraseña *
+                                                    </label>
+                                                    <input
+                                                        type="password"
+                                                        value={confirmarNuevaContrasena}
+                                                        onChange={(e) => setConfirmarNuevaContrasena(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        placeholder="••••••"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Botones */}
+                                            <div className="flex gap-3 mt-6">
+                                                <button
+                                                    onClick={cambiarPasswordUsuario}
+                                                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors font-semibold"
+                                                >
+                                                    <i className="fas fa-check mr-2"></i>Guardar
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowCambiarPassword(false)}
+                                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg transition-colors font-semibold"
+                                                >
+                                                    <i className="fas fa-times mr-2"></i>Cancelar
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
