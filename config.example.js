@@ -45,8 +45,8 @@ const CONFIG_USUARIOS = [
     {
         id: 1,
         usuario: 'admin',
-        nombre: 'Administrador',
-        contrasena: 'CMG_System2024!Secure', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
+        nombre: 'Cris',
+        contrasena: 'AppUser_CMG2024!Secure', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'ADMINISTRADOR',
         activo: true,
         fechaCreacion: '2025-01-01'
@@ -54,8 +54,8 @@ const CONFIG_USUARIOS = [
     {
         id: 2,
         usuario: 'cajero1',
-        nombre: 'Usuario Cajero',
-        contrasena: 'Cajero#SecurePass24', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
+        nombre: 'Edd',
+        contrasena: 'Qaswed12', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'CAJERO',
         activo: true,
         fechaCreacion: '2025-01-01'
@@ -63,8 +63,8 @@ const CONFIG_USUARIOS = [
     {
         id: 3,
         usuario: 'supervisor1',
-        nombre: 'Supervisor',
-        contrasena: 'Supervisor@Pass2024!', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
+        nombre: 'Edd',
+        contrasena: 'SuperCool', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'SUPERVISOR',
         activo: true,
         fechaCreacion: '2025-01-01'
