@@ -1,11 +1,16 @@
-# ========== ARCHIVOS DE CONFIGURACIÓN ==========
-# Archivo de configuración con credenciales sensibles
+# ========== ARCHIVOS DE CONFIGURACIÓN SENSIBLES ==========
+# ⚠️ CRÍTICO: Nunca versionar archivos con credenciales
 config.js
+database.php
+database.yml
+credentials.json
 
 # ========== DEPENDENCIAS ==========
 node_modules/
 package-lock.json
 yarn.lock
+vendor/
+composer.lock
 
 # ========== ARCHIVOS DE SISTEMA ==========
 .DS_Store
@@ -18,28 +23,60 @@ desktop.ini
 *.swp
 *.swo
 *~
+.project
+.settings/
 
 # ========== ARCHIVOS DE LOG ==========
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+error_log
+debug.log
 
 # ========== ARCHIVOS TEMPORALES ==========
 *.tmp
 *.temp
 .cache/
+tmp/
 
 # ========== BACKUPS LOCALES ==========
 *.backup
 *.bak
 backups/
+*.sql.gz
+*.sql.zip
 
 # ========== ARCHIVOS DE AMBIENTE ==========
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
 # ========== ARCHIVOS DE BUILD ==========
 dist/
 build/
+out/
+
+# ========== ARCHIVOS SENSIBLES DE CODEIGNITER (si aplica) ==========
+application/config/database.php
+application/config/config.php
+
+# ========== ARCHIVOS DE BASE DE DATOS ==========
+*.sqlite
+*.db
+schema.sql
+
+# ========== CLAVES Y CERTIFICADOS ==========
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# ========== DATOS DE PRUEBA Y DESARROLLO ==========
+test-data/
+fixtures/
+seeds/local/
