@@ -203,41 +203,23 @@ const ROLES = {
 };
 
 // ========== BASE DE DATOS DE USUARIOS ==========
-// NOTA: En producción, esto debería estar en una base de datos segura con contraseñas hasheadas
-const USUARIOS = [
+// NOTA: Los usuarios ahora se cargan desde config.js (archivo seguro no versionado)
+// Si config.js no está disponible, se usa un usuario admin por defecto
+
+// Verificar que config.js esté cargado
+if (typeof CONFIG_USUARIOS === 'undefined') {
+    console.warn('⚠️ ADVERTENCIA: config.js no está cargado. Usando usuario por defecto.');
+    console.warn('   Asegúrate de incluir <script src="config.js"></script> antes de rbac-config.js');
+}
+
+// Cargar usuarios desde config.js o usar fallback seguro
+const USUARIOS = typeof CONFIG_USUARIOS !== 'undefined' ? CONFIG_USUARIOS : [
     {
         id: 1,
         usuario: 'admin',
         nombre: 'Administrador',
-        contrasena: 'admin123', // ⚠️ Cambiar en producción
+        contrasena: 'admin123', // ⚠️ Usuario de emergencia - CAMBIAR INMEDIATAMENTE
         rol: 'ADMINISTRADOR',
-        activo: true,
-        fechaCreacion: '2025-01-01'
-    },
-    {
-        id: 2,
-        usuario: 'mariana',
-        nombre: 'Mariana',
-        contrasena: 'mariana123', // ⚠️ Cambiar en producción
-        rol: 'CAJERO',
-        activo: true,
-        fechaCreacion: '2025-01-01'
-    },
-    {
-        id: 3,
-        usuario: 'edgar',
-        nombre: 'Edgar',
-        contrasena: 'edgar123', // ⚠️ Cambiar en producción
-        rol: 'SUPERVISOR',
-        activo: true,
-        fechaCreacion: '2025-01-01'
-    },
-    {
-        id: 4,
-        usuario: 'contador',
-        nombre: 'Contador',
-        contrasena: 'contador123', // ⚠️ Cambiar en producción
-        rol: 'AUDITOR',
         activo: true,
         fechaCreacion: '2025-01-01'
     }
@@ -311,9 +293,11 @@ function obtenerSesionActual() {
     try {
         const sesion = JSON.parse(sesionString);
 
-        // Verificar que la sesión no haya expirado (24 horas)
+        // Verificar que la sesión no haya expirado
         const ahora = new Date().getTime();
-        const tiempoSesion = 24 * 60 * 60 * 1000; // 24 horas
+        const tiempoSesion = (typeof CONFIG_SISTEMA !== 'undefined' && CONFIG_SISTEMA.SESION_DURACION)
+            ? CONFIG_SISTEMA.SESION_DURACION
+            : 24 * 60 * 60 * 1000; // 24 horas por defecto
 
         if (ahora - sesion.timestamp > tiempoSesion) {
             cerrarSesion();
@@ -373,8 +357,12 @@ function registrarAccion(usuario, accion, detalles) {
     // Agregar nuevo registro
     auditoria.push(registro);
 
-    // Mantener solo los últimos 1000 registros
-    if (auditoria.length > 1000) {
+    // Mantener solo los últimos N registros (configurado en CONFIG_SISTEMA)
+    const maxRegistros = (typeof CONFIG_SISTEMA !== 'undefined' && CONFIG_SISTEMA.MAX_REGISTROS_AUDITORIA)
+        ? CONFIG_SISTEMA.MAX_REGISTROS_AUDITORIA
+        : 1000; // Valor por defecto
+
+    if (auditoria.length > maxRegistros) {
         auditoria.shift();
     }
 
