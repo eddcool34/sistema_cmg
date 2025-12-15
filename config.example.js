@@ -32,23 +32,30 @@ const CONFIG_GOOGLE_SHEETS = {
 };
 
 // ========== CREDENCIALES DE USUARIOS ==========
-// ⚠️ IMPORTANTE: Cambia TODAS las contraseñas antes de usar en producción
-// ⚠️ En un sistema real, estas contraseñas deben estar hasheadas
+// ⚠️ CRÍTICO: DEBES cambiar TODAS las contraseñas en producción
+// ⚠️ NUNCA uses las contraseñas de ejemplo en un entorno real
+// ⚠️ Las contraseñas aquí son solo EJEMPLOS de formato seguro
+//
+// RECOMENDACIONES DE SEGURIDAD:
+// - Mínimo 12 caracteres
+// - Combinar mayúsculas, minúsculas, números y símbolos
+// - No usar palabras del diccionario
+// - Cambiar periódicamente
 const CONFIG_USUARIOS = [
     {
         id: 1,
         usuario: 'admin',
         nombre: 'Administrador',
-        contrasena: 'CAMBIAR_CONTRASEÑA_ADMIN', // ⚠️ CAMBIAR
+        contrasena: 'CMG_System2024!Secure', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'ADMINISTRADOR',
         activo: true,
         fechaCreacion: '2025-01-01'
     },
     {
         id: 2,
-        usuario: 'usuario1',
+        usuario: 'cajero1',
         nombre: 'Usuario Cajero',
-        contrasena: 'CAMBIAR_CONTRASEÑA_CAJERO', // ⚠️ CAMBIAR
+        contrasena: 'Cajero#SecurePass24', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'CAJERO',
         activo: true,
         fechaCreacion: '2025-01-01'
@@ -57,7 +64,7 @@ const CONFIG_USUARIOS = [
         id: 3,
         usuario: 'supervisor1',
         nombre: 'Supervisor',
-        contrasena: 'CAMBIAR_CONTRASEÑA_SUPERVISOR', // ⚠️ CAMBIAR
+        contrasena: 'Supervisor@Pass2024!', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'SUPERVISOR',
         activo: true,
         fechaCreacion: '2025-01-01'
@@ -66,7 +73,7 @@ const CONFIG_USUARIOS = [
         id: 4,
         usuario: 'auditor1',
         nombre: 'Auditor',
-        contrasena: 'CAMBIAR_CONTRASEÑA_AUDITOR', // ⚠️ CAMBIAR
+        contrasena: 'Auditor$SecureKey24', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'AUDITOR',
         activo: true,
         fechaCreacion: '2025-01-01'

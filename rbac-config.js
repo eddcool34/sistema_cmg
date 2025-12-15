@@ -204,26 +204,46 @@ const ROLES = {
 
 // ========== BASE DE DATOS DE USUARIOS ==========
 // NOTA: Los usuarios ahora se cargan desde config.js (archivo seguro no versionado)
-// Si config.js no está disponible, se usa un usuario admin por defecto
+// Si config.js no está disponible, el sistema requerirá configuración
 
 // Verificar que config.js esté cargado
 if (typeof CONFIG_USUARIOS === 'undefined') {
-    console.warn('⚠️ ADVERTENCIA: config.js no está cargado. Usando usuario por defecto.');
-    console.warn('   Asegúrate de incluir <script src="config.js"></script> antes de rbac-config.js');
+    console.error('❌ ERROR CRÍTICO: config.js no está cargado.');
+    console.error('   📋 INSTRUCCIONES:');
+    console.error('   1. Copia config.example.js a config.js');
+    console.error('   2. Configura tus credenciales seguras en config.js');
+    console.error('   3. Incluye <script src="config.js"></script> antes de rbac-config.js');
+    console.error('   4. NUNCA uses contraseñas por defecto en producción');
+
+    // Mostrar alerta visible al usuario
+    if (typeof document !== 'undefined') {
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerta = document.createElement('div');
+            alerta.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: #dc2626;
+                color: white;
+                padding: 20px;
+                text-align: center;
+                font-weight: bold;
+                z-index: 99999;
+                font-size: 16px;
+            `;
+            alerta.innerHTML = `
+                ⚠️ ERROR DE CONFIGURACIÓN ⚠️<br>
+                config.js no está configurado. Lee INSTALL.md para instrucciones.
+            `;
+            document.body.insertBefore(alerta, document.body.firstChild);
+        });
+    }
 }
 
-// Cargar usuarios desde config.js o usar fallback seguro
-const USUARIOS = typeof CONFIG_USUARIOS !== 'undefined' ? CONFIG_USUARIOS : [
-    {
-        id: 1,
-        usuario: 'admin',
-        nombre: 'Administrador',
-        contrasena: 'admin123', // ⚠️ Usuario de emergencia - CAMBIAR INMEDIATAMENTE
-        rol: 'ADMINISTRADOR',
-        activo: true,
-        fechaCreacion: '2025-01-01'
-    }
-];
+// Cargar usuarios desde config.js - NO usar fallback inseguro
+// Esto fuerza a los usuarios a configurar el sistema correctamente
+const USUARIOS = typeof CONFIG_USUARIOS !== 'undefined' ? CONFIG_USUARIOS : [];
 
 // ========== FUNCIONES DE AUTENTICACIÓN ==========
 
