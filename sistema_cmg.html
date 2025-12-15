@@ -2845,6 +2845,82 @@
                 // Actualizar estado local
                 setVentas(prev => [...prev, nuevaVenta]);
 
+                // Guardar en Google Sheets usando la nueva función
+                if (tipoOperacion === 'envio' || tipoOperacion === 'devolucion') {
+                    const datosVenta = [
+                        nuevaVenta.id,                              // ID_Venta
+                        new Date(nuevaVenta.fecha).toLocaleDateString('es-MX'), // Fecha
+                        new Date(nuevaVenta.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }), // Hora
+                        nuevaVenta.nombreRemitente || '-',          // Nombre_Cliente/Remitente
+                        nuevaVenta.telefonoRemitente || '-',        // Telefono
+                        nuevaVenta.paqueteria || '-',               // Paqueteria
+                        nuevaVenta.tipoServicio || '-',             // Servicio
+                        nuevaVenta.peso || '-',                     // Peso_KG
+                        nuevaVenta.colonia || '-',                  // Origen
+                        nuevaVenta.estado || '-',                   // Destino
+                        nuevaVenta.precio || '0',                   // Precio
+                        nuevaVenta.costo || '0',                    // Costo
+                        (parseFloat(nuevaVenta.precio || 0) - parseFloat(nuevaVenta.costo || 0)).toFixed(2), // Comision/Ganancia
+                        parseFloat(nuevaVenta.precio || 0).toFixed(2), // Total
+                        nuevaVenta.cajero || 'Sin turno',           // Usuario/Cajero
+                        nuevaVenta.metodoPago || 'efectivo',        // Metodo_Pago
+                        nuevaVenta.estadoVenta || 'activa'          // Status
+                    ];
+
+                    try {
+                        await guardarEnGoogleSheets('VENTAS', datosVenta);
+                        console.log('✅ Venta guardada en Google Sheets (nuevo formato)');
+                    } catch (error) {
+                        console.error('❌ Error al guardar venta en Google Sheets (nuevo formato):', error);
+                    }
+
+                    // Guardar cliente si es nuevo
+                    const clienteExiste = ventas.find(v => v.telefonoRemitente === nuevaVenta.telefonoRemitente);
+                    if (!clienteExiste && nuevaVenta.nombreRemitente && nuevaVenta.telefonoRemitente) {
+                        const datosCliente = [
+                            `CLI-${Date.now()}`,                    // ID_Cliente
+                            new Date().toLocaleDateString('es-MX'), // Fecha_Registro
+                            nuevaVenta.nombreRemitente,             // Nombre
+                            nuevaVenta.telefonoRemitente,           // Telefono
+                            '-',                                    // Email
+                            nuevaVenta.direccion || '-',            // Direccion
+                            nuevaVenta.colonia || '-',              // Ciudad
+                            nuevaVenta.estado || '-',               // Estado
+                            nuevaVenta.codigoPostal || '-',         // CP
+                            '-'                                     // RFC
+                        ];
+
+                        try {
+                            await guardarEnGoogleSheets('CLIENTES', datosCliente);
+                            console.log('✅ Cliente guardado en Google Sheets (nuevo formato)');
+                        } catch (error) {
+                            console.error('❌ Error al guardar cliente en Google Sheets (nuevo formato):', error);
+                        }
+                    }
+                } else if (tipoOperacion === 'servicio') {
+                    const datosServicio = [
+                        nuevaVenta.id,                              // ID_Venta
+                        new Date(nuevaVenta.fecha).toLocaleDateString('es-MX'), // Fecha
+                        new Date(nuevaVenta.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }), // Hora
+                        nuevaVenta.nombreCliente || '-',            // Nombre_Cliente
+                        nuevaVenta.telefonoCliente || '-',          // Telefono_Cliente
+                        nuevaVenta.tipoServicioSeleccionado || '-', // Tipo_Servicio
+                        nuevaVenta.precio || '0',                   // Precio
+                        nuevaVenta.costo || '0',                    // Costo
+                        (parseFloat(nuevaVenta.precio || 0) - parseFloat(nuevaVenta.costo || 0)).toFixed(2), // Ganancia
+                        nuevaVenta.cajero || 'Sin turno',           // Usuario/Cajero
+                        nuevaVenta.metodoPago || 'efectivo',        // Metodo_Pago
+                        nuevaVenta.estadoVenta || 'activa'          // Status
+                    ];
+
+                    try {
+                        await guardarEnGoogleSheets('SERVICIOS', datosServicio);
+                        console.log('✅ Servicio guardado en Google Sheets (nuevo formato)');
+                    } catch (error) {
+                        console.error('❌ Error al guardar servicio en Google Sheets (nuevo formato):', error);
+                    }
+                }
+
                 if (guardadoExitoso) {
                     setSyncStatus({ syncing: false, message: '✅ Guardado en Google Sheets' });
                 } else {
@@ -8185,5 +8261,6 @@
         console.log('%c  verTurno() - Muestra el turno guardado', 'font-size: 12px; color: #2196F3;');
         console.log('%c  limpiarTodo() - Limpia todo el localStorage', 'font-size: 12px; color: #FF5722;');
     </script>
+    <script src="googleSheets.js"></script>
 </body>
 </html>
