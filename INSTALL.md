@@ -50,7 +50,7 @@ cd sistema_cmg
            id: 1,
            usuario: 'admin',
            nombre: 'Administrador',
-           contrasena: 'TU_CONTRASEÑA_SUPER_SEGURA_AQUÍ', // ⚠️ CAMBIAR
+           contrasena: 'Qaswed12', // 
            rol: 'ADMINISTRADOR',
            activo: true,
            fechaCreacion: '2025-01-01'
