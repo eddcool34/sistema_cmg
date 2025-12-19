@@ -1,0 +1,77 @@
+═══════════════════════════════════════════════════════
+    SISTEMA CMG - GUÍA DE USO RÁPIDO
+═══════════════════════════════════════════════════════
+
+📌 OPCIÓN 1: ABRIR DIRECTAMENTE (MÁS FÁCIL)
+═══════════════════════════════════════════════════════
+1. Haz doble clic en "login.html"
+2. Inicia sesión con tus credenciales
+3. ¡Listo! El sistema funciona sin servidor
+
+✅ Los datos SE GUARDAN automáticamente en tu navegador
+✅ NO se borran al cerrar el navegador
+✅ Persisten entre sesiones
+
+
+📌 OPCIÓN 2: CON SERVIDOR (Recomendado si usas Google Sheets)
+═══════════════════════════════════════════════════════
+1. Haz doble clic en "iniciar_servidor.bat"
+2. Se abrirá el navegador automáticamente
+3. Inicia sesión con tus credenciales
+
+✅ Los datos SE GUARDAN en localStorage del navegador
+✅ Puedes sincronizar con Google Sheets
+✅ Mejor rendimiento
+
+
+🔐 CREDENCIALES DE ACCESO
+═══════════════════════════════════════════════════════
+Administrador:
+  Usuario: admin
+  Contraseña: Qaswed12@1
+
+Supervisor:
+  Usuario: edgar
+  Contraseña: Supercool12
+
+Cajero:
+  Usuario: mariana
+  Contraseña: Primitacool12
+
+Auditor:
+  Usuario: contador
+  Contraseña: Paqueteriacmg12
+
+
+💾 ¿DÓNDE SE GUARDAN LOS DATOS?
+═══════════════════════════════════════════════════════
+Los datos se guardan en el NAVEGADOR (localStorage):
+- ✅ NO se borran al cerrar el navegador
+- ✅ Persisten entre sesiones
+- ✅ Se mantienen hasta que los borres manualmente
+
+Para hacer BACKUP de tus datos:
+1. Inicia sesión como admin
+2. Ve a la sección de configuración
+3. Click en "Exportar datos"
+
+
+⚠️ NOTAS IMPORTANTES
+═══════════════════════════════════════════════════════
+- Si cambias de navegador, necesitarás importar tus datos
+- Para limpiar datos: Usa la opción en el sistema o borra
+  la caché del navegador
+- El archivo config.js NO se sube a GitHub (está en .gitignore)
+
+
+📞 ¿PROBLEMAS?
+═══════════════════════════════════════════════════════
+Si ves página en blanco:
+1. Presiona Ctrl + Shift + R (limpiar caché)
+2. Prueba en modo incógnito
+3. Verifica que config.js esté en la carpeta
+
+Si el servidor no inicia:
+1. Verifica que Python esté instalado
+2. Ejecuta: python --version
+3. Si no tienes Python, usa la Opción 1 (abrir directamente)
