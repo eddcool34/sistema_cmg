@@ -4203,7 +4203,7 @@
                                     <i className="fas fa-tasks mr-2"></i>Pendientes
                                 </button>
                                 {/* Pestaña de Configuraciones - Solo para Administradores */}
-                                {usuarioActual && window.tienePermiso && window.tienePermiso('ver_configuracion', usuarioActual) && (
+                                {usuarioActual && window.tienePermiso && window.tienePermiso('configuracion', usuarioActual) && (
                                     <button
                                         onClick={() => setActiveTab('configuraciones')}
                                         className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
@@ -5327,7 +5327,7 @@
                                             </span>
                                         </div>
                                         <div className="space-y-2">
-                                            {PAQUETERIAS.map(paq => {
+                                            {paqueteriasEnvio.map(paq => {
                                                 const count = ventas.filter(v =>
                                                     v.estadoVenta !== 'cancelada' &&
                                                     (v.tipoOperacion === 'devolucion' ? v.paqueteriaDevolucion : v.paqueteria) === paq
