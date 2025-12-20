@@ -396,6 +396,7 @@
                 turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null'),
                 vuelosPendientes: JSON.parse(localStorage.getItem('vuelosPendientes') || '[]'),
                 tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]'),
+                tareasDiarias: JSON.parse(localStorage.getItem('tareasDiarias') || '[]'),
                 configuracionNegocio: JSON.parse(localStorage.getItem('configuracionNegocio') || JSON.stringify({
                     nombreNegocio: 'Paquetería CMG',
                     direccion: '',
@@ -518,7 +519,8 @@
                     turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null'),
                     turnosCerrados: JSON.parse(localStorage.getItem('turnosCerrados') || '[]'),
                     vuelosPendientes: JSON.parse(localStorage.getItem('vuelosPendientes') || '[]'),
-                    tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]')
+                    tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]'),
+                    tareasDiarias: JSON.parse(localStorage.getItem('tareasDiarias') || '[]')
                 };
             },
 
@@ -601,7 +603,8 @@
                             totalGastos: datos.gastos.length,
                             turnoAbierto: datos.turnoActual !== null,
                             totalVuelos: datos.vuelosPendientes.length,
-                            totalTareas: datos.tareasPendientes.length
+                            totalTareas: datos.tareasPendientes.length,
+                            totalTareasDiarias: datos.tareasDiarias.length
                         }
                     };
 
@@ -734,6 +737,7 @@
                     localStorage.setItem('turnosCerrados', JSON.stringify(datos.turnosCerrados || []));
                     localStorage.setItem('vuelosPendientes', JSON.stringify(datos.vuelosPendientes));
                     localStorage.setItem('tareasPendientes', JSON.stringify(datos.tareasPendientes));
+                    localStorage.setItem('tareasDiarias', JSON.stringify(datos.tareasDiarias || []));
 
                     console.log('✅ Backup restaurado exitosamente:', backupId);
                     return {
@@ -1242,6 +1246,34 @@
             const [showAgregarUsuario, setShowAgregarUsuario] = useState(false);
             const [showCambiarPassword, setShowCambiarPassword] = useState(false);
             const [usuarioEditando, setUsuarioEditando] = useState(null);
+
+            // ========== Estados para Tareas Diarias ==========
+            const [tareasDiarias, setTareasDiarias] = useState([]);
+            const [tareasDelDia, setTareasDelDia] = useState({
+                entrada_9am: false,
+                abrir_tienda: false,
+                encender_equipos: false,
+                barrer_entrada: false,
+                limpiar_area: false,
+                acomodar_papeles: false,
+                vaciar_basura: false,
+                limpiar_fabuloso: false,
+                trapear_piso: false,
+                acomodar_basura_bolsas: false,
+                acomodar_almacen: false,
+                reportar_1030am: false,
+                barrer_trapear_tarde: false,
+                acomodar_paquetes: false,
+                lavar_banio: false,
+                acomodar_area_tarde: false,
+                cerrar_turno: false,
+                apagar_equipo: false,
+                reportar_630pm: false,
+                salida_6pm: false
+            });
+            const [elaboradoPor, setElaboradoPor] = useState('');
+            const [reporteInfo, setReporteInfo] = useState('');
+            const [fechaTareas, setFechaTareas] = useState(new Date().toISOString().split('T')[0]);
             const [formUsuario, setFormUsuario] = useState({
                 usuario: '',
                 nombre: '',
@@ -1297,6 +1329,12 @@
                     if (datosCargados.tareasPendientes.length > 0) {
                         setTareasPendientes(datosCargados.tareasPendientes);
                         console.log(`✅ ${datosCargados.tareasPendientes.length} tareas pendientes cargadas`);
+                    }
+
+                    // Cargar tareas diarias
+                    if (datosCargados.tareasDiarias.length > 0) {
+                        setTareasDiarias(datosCargados.tareasDiarias);
+                        console.log(`✅ ${datosCargados.tareasDiarias.length} registros de tareas diarias cargados`);
                     }
 
                     // Cargar y validar turno actual
@@ -3300,6 +3338,79 @@
                 ));
             };
 
+            // ========== FUNCIONES PARA TAREAS DIARIAS ==========
+
+            // Función para manejar cambio en checkbox de tareas
+            const handleCheckTarea = (nombreTarea) => {
+                setTareasDelDia(prev => ({
+                    ...prev,
+                    [nombreTarea]: !prev[nombreTarea]
+                }));
+            };
+
+            // Función para resetear todas las tareas
+            const resetearTareas = () => {
+                setTareasDelDia({
+                    entrada_9am: false,
+                    abrir_tienda: false,
+                    encender_equipos: false,
+                    barrer_entrada: false,
+                    limpiar_area: false,
+                    acomodar_papeles: false,
+                    vaciar_basura: false,
+                    limpiar_fabuloso: false,
+                    trapear_piso: false,
+                    acomodar_basura_bolsas: false,
+                    acomodar_almacen: false,
+                    reportar_1030am: false,
+                    barrer_trapear_tarde: false,
+                    acomodar_paquetes: false,
+                    lavar_banio: false,
+                    acomodar_area_tarde: false,
+                    cerrar_turno: false,
+                    apagar_equipo: false,
+                    reportar_630pm: false,
+                    salida_6pm: false
+                });
+                setElaboradoPor('');
+                setReporteInfo('');
+                setFechaTareas(new Date().toISOString().split('T')[0]);
+            };
+
+            // Función para finalizar y guardar registro de tareas diarias
+            const finalizarTareasDiarias = () => {
+                if (!elaboradoPor) {
+                    showNotification('⚠️ Por favor selecciona quién elaboró las tareas', 'error');
+                    return;
+                }
+
+                const nuevoRegistro = {
+                    id: `TAREAS-${Date.now()}`,
+                    fecha: fechaTareas,
+                    elaboradoPor: elaboradoPor,
+                    tareas: { ...tareasDelDia },
+                    reporteInfo: reporteInfo,
+                    fechaRegistro: new Date().toISOString()
+                };
+
+                const tareasActualizadas = [...tareasDiarias, nuevoRegistro];
+                setTareasDiarias(tareasActualizadas);
+                localStorage.setItem('tareasDiarias', JSON.stringify(tareasActualizadas));
+
+                showNotification('✅ Tareas diarias registradas exitosamente', 'success');
+                resetearTareas();
+            };
+
+            // Función para eliminar registro de tareas
+            const eliminarRegistroTareas = (registroId) => {
+                if (window.confirm('¿Estás seguro de eliminar este registro de tareas?')) {
+                    const tareasActualizadas = tareasDiarias.filter(t => t.id !== registroId);
+                    setTareasDiarias(tareasActualizadas);
+                    localStorage.setItem('tareasDiarias', JSON.stringify(tareasActualizadas));
+                    showNotification('✅ Registro eliminado exitosamente', 'success');
+                }
+            };
+
             // Obtener ventas por fecha
             const getVentasPorFecha = (fecha) => {
                 return ventas.filter(v => {
@@ -4201,6 +4312,16 @@
                                     }`}
                                 >
                                     <i className="fas fa-tasks mr-2"></i>Pendientes
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('tareas-diarias')}
+                                    className={`flex-1 min-w-max py-4 px-6 text-center font-semibold transition-colors ${
+                                        activeTab === 'tareas-diarias'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <i className="fas fa-clipboard-check mr-2"></i>Tareas Diarias
                                 </button>
                                 {/* Pestaña de Configuraciones - Solo para Administradores */}
                                 {usuarioActual && window.tienePermiso && window.tienePermiso('ver_configuracion', usuarioActual) && (
@@ -7633,6 +7754,419 @@
                                                 </button>
                                             </div>
                                         </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Contenido - Tareas Diarias */}
+                        {activeTab === 'tareas-diarias' && (
+                            <div className="space-y-6">
+                                {/* Formulario de Checklist */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-clipboard-check mr-2"></i>Tareas Diarias
+                                    </h2>
+
+                                    {/* Información de Fecha y Elaborado por */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 pb-4 border-b">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-calendar mr-2"></i>Fecha:
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={fechaTareas}
+                                                onChange={(e) => setFechaTareas(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-user mr-2"></i>Elaborado por: *
+                                            </label>
+                                            <select
+                                                value={elaboradoPor}
+                                                onChange={(e) => setElaboradoPor(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="">Seleccionar cajero...</option>
+                                                {CAJEROS.map((cajero, index) => (
+                                                    <option key={index} value={cajero}>{cajero}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Checklist de Tareas */}
+                                    <div className="space-y-4">
+                                        {/* ENTRADA - 9:00 AM */}
+                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                            <h3 className="text-lg font-bold text-blue-800 mb-3">
+                                                <i className="fas fa-door-open mr-2"></i>ENTRADA - 9:00 AM
+                                            </h3>
+                                            <div className="flex items-center mb-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={tareasDelDia.entrada_9am}
+                                                    onChange={() => handleCheckTarea('entrada_9am')}
+                                                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3"
+                                                />
+                                                <label className="text-gray-700 font-medium">Entrada registrada a las 9:00 AM</label>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={tareasDelDia.abrir_tienda}
+                                                    onChange={() => handleCheckTarea('abrir_tienda')}
+                                                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3"
+                                                />
+                                                <label className="text-gray-700 font-medium">Abrir tienda</label>
+                                            </div>
+                                        </div>
+
+                                        {/* Limpieza y Tareas Diarias */}
+                                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                            <h3 className="text-lg font-bold text-green-800 mb-3">
+                                                <i className="fas fa-broom mr-2"></i>Limpieza y Tareas Diarias
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.encender_equipos}
+                                                        onChange={() => handleCheckTarea('encender_equipos')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Encender equipos y abrir turno</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.barrer_entrada}
+                                                        onChange={() => handleCheckTarea('barrer_entrada')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Barrer entrada y piso</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.limpiar_area}
+                                                        onChange={() => handleCheckTarea('limpiar_area')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Limpiar área de trabajo</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.acomodar_papeles}
+                                                        onChange={() => handleCheckTarea('acomodar_papeles')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Acomodar papeles</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.vaciar_basura}
+                                                        onChange={() => handleCheckTarea('vaciar_basura')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Vaciar bote de basura</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.limpiar_fabuloso}
+                                                        onChange={() => handleCheckTarea('limpiar_fabuloso')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Limpiar con Fabuloso muebles y bancas</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.trapear_piso}
+                                                        onChange={() => handleCheckTarea('trapear_piso')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Trapear piso</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.acomodar_basura_bolsas}
+                                                        onChange={() => handleCheckTarea('acomodar_basura_bolsas')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Acomodar basura en bolsas y cerrar</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.acomodar_almacen}
+                                                        onChange={() => handleCheckTarea('acomodar_almacen')}
+                                                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Acomodar almacén (ordenar cajas y paquetes)</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Reporte 10:30 AM */}
+                                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                            <h3 className="text-lg font-bold text-yellow-800 mb-3">
+                                                <i className="fas fa-clock mr-2"></i>Reportar tareas - 10:30 AM
+                                            </h3>
+                                            <div className="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={tareasDelDia.reportar_1030am}
+                                                    onChange={() => handleCheckTarea('reportar_1030am')}
+                                                    className="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500 mr-3"
+                                                />
+                                                <label className="text-gray-700 font-medium">Tareas reportadas a las 10:30 AM</label>
+                                            </div>
+                                        </div>
+
+                                        {/* SALIDA - 6:00 PM */}
+                                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                            <h3 className="text-lg font-bold text-purple-800 mb-3">
+                                                <i className="fas fa-door-closed mr-2"></i>SALIDA - 6:00 PM
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.barrer_trapear_tarde}
+                                                        onChange={() => handleCheckTarea('barrer_trapear_tarde')}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Barrer piso y trapear</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.acomodar_paquetes}
+                                                        onChange={() => handleCheckTarea('acomodar_paquetes')}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Acomodar paquetes</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.lavar_banio}
+                                                        onChange={() => handleCheckTarea('lavar_banio')}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Lavar baño</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.acomodar_area_tarde}
+                                                        onChange={() => handleCheckTarea('acomodar_area_tarde')}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Acomodar área de trabajo</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.cerrar_turno}
+                                                        onChange={() => handleCheckTarea('cerrar_turno')}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Cerrar turno</label>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={tareasDelDia.apagar_equipo}
+                                                        onChange={() => handleCheckTarea('apagar_equipo')}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-3"
+                                                    />
+                                                    <label className="text-gray-700">Apagar equipo y luces</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Reporte 6:30 PM */}
+                                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                                            <h3 className="text-lg font-bold text-orange-800 mb-3">
+                                                <i className="fas fa-file-alt mr-2"></i>Reportar - 6:30 PM
+                                            </h3>
+                                            <div className="flex items-center mb-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={tareasDelDia.reportar_630pm}
+                                                    onChange={() => handleCheckTarea('reportar_630pm')}
+                                                    className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500 mr-3"
+                                                />
+                                                <label className="text-gray-700 font-medium">Reporte completado a las 6:30 PM</label>
+                                            </div>
+                                            <div className="flex items-center mb-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={tareasDelDia.salida_6pm}
+                                                    onChange={() => handleCheckTarea('salida_6pm')}
+                                                    className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500 mr-3"
+                                                />
+                                                <label className="text-gray-700 font-medium">Salida - 6:00 PM</label>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Reportar que:
+                                                </label>
+                                                <textarea
+                                                    value={reporteInfo}
+                                                    onChange={(e) => setReporteInfo(e.target.value)}
+                                                    rows="3"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                    placeholder="Ingresa información adicional del reporte..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Botones de acción */}
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            onClick={finalizarTareasDiarias}
+                                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-check mr-2"></i>Finalizar y Guardar
+                                        </button>
+                                        <button
+                                            onClick={resetearTareas}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-redo mr-2"></i>Limpiar Formulario
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Historial de Registros */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        <i className="fas fa-history mr-2"></i>Historial de Tareas Diarias
+                                    </h2>
+
+                                    {tareasDiarias.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <i className="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
+                                            <p className="text-gray-500 text-lg">No hay registros de tareas diarias</p>
+                                            <p className="text-gray-400 text-sm mt-2">Los registros completados aparecerán aquí</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {tareasDiarias.slice().reverse().map((registro) => {
+                                                const totalTareas = Object.keys(registro.tareas).length;
+                                                const tareasCompletadas = Object.values(registro.tareas).filter(t => t).length;
+                                                const porcentajeCompletado = Math.round((tareasCompletadas / totalTareas) * 100);
+
+                                                return (
+                                                    <div key={registro.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-gray-800">
+                                                                    <i className="fas fa-calendar-day mr-2 text-blue-500"></i>
+                                                                    {new Date(registro.fecha).toLocaleDateString('es-MX', {
+                                                                        weekday: 'long',
+                                                                        year: 'numeric',
+                                                                        month: 'long',
+                                                                        day: 'numeric'
+                                                                    })}
+                                                                </h3>
+                                                                <p className="text-sm text-gray-600 mt-1">
+                                                                    <i className="fas fa-user mr-2"></i>
+                                                                    Elaborado por: <span className="font-semibold">{registro.elaboradoPor}</span>
+                                                                </p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => eliminarRegistroTareas(registro.id)}
+                                                                className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                                                                title="Eliminar registro"
+                                                            >
+                                                                <i className="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Barra de progreso */}
+                                                        <div className="mb-4">
+                                                            <div className="flex justify-between items-center mb-2">
+                                                                <span className="text-sm font-medium text-gray-700">Progreso de tareas</span>
+                                                                <span className="text-sm font-bold text-blue-600">{porcentajeCompletado}%</span>
+                                                            </div>
+                                                            <div className="w-full bg-gray-200 rounded-full h-3">
+                                                                <div
+                                                                    className="bg-blue-500 h-3 rounded-full transition-all"
+                                                                    style={{ width: `${porcentajeCompletado}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                {tareasCompletadas} de {totalTareas} tareas completadas
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Información de reporte si existe */}
+                                                        {registro.reporteInfo && (
+                                                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                                                                <p className="text-sm font-semibold text-orange-800 mb-1">
+                                                                    <i className="fas fa-info-circle mr-2"></i>Reporte:
+                                                                </p>
+                                                                <p className="text-sm text-gray-700">{registro.reporteInfo}</p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Detalles de tareas */}
+                                                        <details className="mt-3">
+                                                            <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium text-sm">
+                                                                <i className="fas fa-chevron-down mr-2"></i>Ver detalles de tareas
+                                                            </summary>
+                                                            <div className="mt-3 pl-4 space-y-2">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                                    {Object.entries(registro.tareas).map(([key, completada]) => {
+                                                                        const nombresTareas = {
+                                                                            entrada_9am: 'Entrada 9:00 AM',
+                                                                            abrir_tienda: 'Abrir tienda',
+                                                                            encender_equipos: 'Encender equipos y abrir turno',
+                                                                            barrer_entrada: 'Barrer entrada y piso',
+                                                                            limpiar_area: 'Limpiar área de trabajo',
+                                                                            acomodar_papeles: 'Acomodar papeles',
+                                                                            vaciar_basura: 'Vaciar bote de basura',
+                                                                            limpiar_fabuloso: 'Limpiar con Fabuloso muebles y bancas',
+                                                                            trapear_piso: 'Trapear piso',
+                                                                            acomodar_basura_bolsas: 'Acomodar basura en bolsas',
+                                                                            acomodar_almacen: 'Acomodar almacén',
+                                                                            reportar_1030am: 'Reportar tareas 10:30 AM',
+                                                                            barrer_trapear_tarde: 'Barrer y trapear (tarde)',
+                                                                            acomodar_paquetes: 'Acomodar paquetes',
+                                                                            lavar_banio: 'Lavar baño',
+                                                                            acomodar_area_tarde: 'Acomodar área de trabajo',
+                                                                            cerrar_turno: 'Cerrar turno',
+                                                                            apagar_equipo: 'Apagar equipo y luces',
+                                                                            reportar_630pm: 'Reportar 6:30 PM',
+                                                                            salida_6pm: 'Salida 6:00 PM'
+                                                                        };
+
+                                                                        return (
+                                                                            <div key={key} className={`flex items-center ${completada ? 'text-green-700' : 'text-gray-400'}`}>
+                                                                                <i className={`fas ${completada ? 'fa-check-circle' : 'fa-times-circle'} mr-2`}></i>
+                                                                                <span>{nombresTareas[key] || key}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </details>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     )}
                                 </div>
                             </div>
