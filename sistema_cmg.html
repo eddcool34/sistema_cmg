@@ -94,7 +94,7 @@
         // ========== CONFIGURACIÓN DE TURNOS Y CAJA ==========
         const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
         const CONTRASEÑA_SISTEMA = 'Qaswed12'; // ⚠️ Cambiar por una contraseña segura
-        const FONDO_INICIAL_DEFAULT = 1000;
+        const FONDO_INICIAL_DEFAULT = 0; // Modificado: ahora inicia en 0, editable solo los lunes
 
         // Denominaciones de billetes y monedas mexicanas
         const DENOMINACIONES = [
@@ -8483,7 +8483,7 @@
                                                     readOnly={!esLunes}
                                                 />
                                                 <p className="text-xs text-gray-500 mt-1">
-                                                    {esLunes ? 'Fondo estándar: $1,000' : 'Monto tomado del corte anterior'}
+                                                    {esLunes ? 'Ingresa el fondo inicial para comenzar la semana' : 'Monto tomado del corte anterior'}
                                                 </p>
                                             </div>
                                         </div>

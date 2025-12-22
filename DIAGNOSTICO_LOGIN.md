@@ -39,7 +39,7 @@ const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
 4. Solicita:
    - **Cajero**: Seleccionar de la lista (Mariana, Edgar o Cris)
    - **Contraseña del Sistema**: `cmg2025`
-   - **Fondo Inicial**: $1000 (solo editable los lunes)
+   - **Fondo Inicial**: Ingresado manualmente los lunes (solo editable los lunes)
 5. Al validar correctamente, se abre el turno
 
 ---
