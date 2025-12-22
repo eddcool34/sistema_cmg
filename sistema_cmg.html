@@ -2057,6 +2057,12 @@
                         newData.comision = calcularComision(precio, tipoServicio);
                     }
 
+                    // Si cambia el tipo de operación a entrega, establecer precio fijo de 10 pesos
+                    if (name === 'tipoOperacion' && value === 'entrega') {
+                        newData.precio = '10';
+                        newData.costo = '0';
+                    }
+
                     return newData;
                 });
             };
@@ -2823,6 +2829,9 @@
                     nuevaVenta.fechaRegistro = fechaActual.toLocaleDateString('es-MX');
                     nuevaVenta.horaRegistro = fechaActual.toLocaleTimeString('es-MX');
                     nuevaVenta.estadoEntrega = 'pendiente';
+                    // Establecer precio fijo de 10 pesos para entregas
+                    nuevaVenta.precio = '10';
+                    nuevaVenta.costo = '0';
                 }
 
                 // Guardar clientes en localStorage para autocompletado
@@ -3043,7 +3052,7 @@
                     return;
                 }
 
-                if (window.confirm('¿Confirma que este paquete ha sido entregado?')) {
+                if (window.confirm('¿Confirma que este paquete ha sido entregado? Se cobrará automáticamente $10 pesos.')) {
                     const fechaActual = new Date();
                     const ventaActualizada = ventas.find(v => v.id === ventaId);
 
@@ -3052,7 +3061,18 @@
                             ...ventaActualizada,
                             estadoEntrega: 'entregado',
                             fechaLiberacion: fechaActual.toLocaleDateString('es-MX'),
-                            horaLiberacion: fechaActual.toLocaleTimeString('es-MX')
+                            horaLiberacion: fechaActual.toLocaleTimeString('es-MX'),
+                            // Asegurar precio fijo de 10 pesos al entregar
+                            precio: '10',
+                            costo: '0',
+                            // Si no tenía método de pago, establecer efectivo por defecto
+                            metodoPago: ventaActualizada.metodoPago || 'efectivo',
+                            // Asignar al turno actual
+                            turno_id: turnoActual.turno_id,
+                            cajero: turnoActual.cajero,
+                            cuenta_destino: 'Cash',
+                            // Marcar la venta como activa si estaba pendiente
+                            estadoVenta: 'activa'
                         };
 
                         // Actualizar en el estado local
@@ -3063,7 +3083,7 @@
                         // Actualizar en Google Sheets
                         try {
                             await guardarEntregaEnSheets(entregaActualizada);
-                            showNotification('Paquete marcado como entregado exitosamente', 'success');
+                            showNotification('✅ Paquete entregado y cobro de $10 registrado exitosamente', 'success');
                         } catch (error) {
                             console.error('Error al actualizar entrega:', error);
                             showNotification('Paquete marcado localmente, sin conexión con Google Sheets', 'warning');
@@ -3806,6 +3826,10 @@
                                                 <p className="text-sm text-purple-700 mt-2">
                                                     <i className="fas fa-clock mr-2"></i>
                                                     <strong>Fecha de liberación:</strong> Se registrará cuando el paquete sea entregado
+                                                </p>
+                                                <p className="text-sm text-purple-700 mt-2">
+                                                    <i className="fas fa-dollar-sign mr-2"></i>
+                                                    <strong>Precio fijo:</strong> $10.00 pesos (se cobrará al entregar)
                                                 </p>
                                             </div>
                                         </div>
