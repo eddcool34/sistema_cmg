@@ -94,7 +94,7 @@
         // ========== CONFIGURACIÓN DE TURNOS Y CAJA ==========
         const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
         const CONTRASEÑA_SISTEMA = 'Qaswed12'; // ⚠️ Cambiar por una contraseña segura
-        const FONDO_INICIAL_DEFAULT = 0; // Modificado: ahora inicia en 0, editable solo los lunes
+        const FONDO_INICIAL_DEFAULT = 0; // Fondo inicial por defecto, editable diariamente
 
         // Denominaciones de billetes y monedas mexicanas
         const DENOMINACIONES = [
@@ -1434,32 +1434,27 @@
                 };
             }, []);
 
-            // Calcular fondo inicial al abrir modal de apertura según día de la semana
+            // Calcular fondo inicial al abrir modal de apertura basado en el corte anterior
             useEffect(() => {
                 if (showAperturaTurno) {
-                    const fechaActual = new Date();
-                    const diaSemana = fechaActual.getDay(); // 0=Domingo, 1=Lunes, 2=Martes, etc.
+                    // Buscar el monto del corte anterior para sugerirlo
+                    const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
+                    if (turnosCerrados.length > 0) {
+                        // Ordenar por fecha de cierre (más reciente primero)
+                        const ultimoCorte = turnosCerrados.sort((a, b) => {
+                            const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
+                            const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
+                            return fechaB - fechaA;
+                        })[0];
 
-                    if (diaSemana !== 1) {
-                        // No es lunes, buscar el monto del corte anterior
-                        const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
-                        if (turnosCerrados.length > 0) {
-                            // Ordenar por fecha de cierre (más reciente primero)
-                            const ultimoCorte = turnosCerrados.sort((a, b) => {
-                                const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
-                                const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
-                                return fechaB - fechaA;
-                            })[0];
-
-                            if (ultimoCorte && ultimoCorte.monto_reportado_por_cajero) {
-                                setFormApertura(prev => ({
-                                    ...prev,
-                                    fondoInicial: parseFloat(ultimoCorte.monto_reportado_por_cajero).toFixed(2)
-                                }));
-                            }
+                        if (ultimoCorte && ultimoCorte.monto_reportado_por_cajero) {
+                            setFormApertura(prev => ({
+                                ...prev,
+                                fondoInicial: parseFloat(ultimoCorte.monto_reportado_por_cajero).toFixed(2)
+                            }));
                         }
                     } else {
-                        // Es lunes, usar el fondo inicial por defecto
+                        // Si no hay cortes anteriores, usar el fondo inicial por defecto
                         setFormApertura(prev => ({
                             ...prev,
                             fondoInicial: FONDO_INICIAL_DEFAULT
@@ -1798,29 +1793,9 @@
                     const horaStr = fechaActual.toTimeString().split(':').slice(0, 2).join('');
                     const turno_id = `TURN-${fechaStr}-${horaStr}-${formApertura.cajero}`;
 
-                    // Determinar el fondo inicial según el día de la semana
-                    const diaSemana = fechaActual.getDay(); // 0=Domingo, 1=Lunes, 2=Martes, etc.
-                    let fondoInicial = parseFloat(formApertura.fondoInicial);
-
-                    // Si NO es lunes (día 1), tomar el monto del corte anterior
-                    if (diaSemana !== 1) {
-                        const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
-                        if (turnosCerrados.length > 0) {
-                            // Ordenar por fecha de cierre (más reciente primero)
-                            const ultimoCorte = turnosCerrados.sort((a, b) => {
-                                const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
-                                const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
-                                return fechaB - fechaA;
-                            })[0];
-
-                            // Calcular el balance real del último corte (caja acumulada)
-                            if (ultimoCorte) {
-                                fondoInicial = calcularBalanceRealTurno(ultimoCorte);
-                                console.log(`📅 Día ${diaSemana} - Usando balance real del corte anterior: $${fondoInicial.toFixed(2)}`);
-                                console.log(`   Fondo inicial anterior: $${ultimoCorte.fondo_inicial}`);
-                            }
-                        }
-                    }
+                    // Usar el fondo inicial ingresado por el usuario
+                    const fondoInicial = parseFloat(formApertura.fondoInicial);
+                    console.log(`💰 Apertura de caja con fondo inicial: $${fondoInicial.toFixed(2)}`);
 
                     const nuevoTurno = {
                         turno_id,
@@ -1828,8 +1803,7 @@
                         hora_apertura: fechaActual.toLocaleTimeString('es-MX'),
                         cajero: formApertura.cajero,
                         fondo_inicial: fondoInicial,
-                        estado: 'abierto',
-                        es_lunes: diaSemana === 1 // Guardar si fue apertura de lunes
+                        estado: 'abierto'
                     };
 
                     setSyncStatus({ syncing: true, message: 'Abriendo turno...' });
@@ -3192,7 +3166,10 @@
             // Función para obtener el vendedor del mes
             const getVendedorDelMes = () => {
                 const estadisticas = getEstadisticasVendedores();
-                return estadisticas[0] || { nombre: 'N/A', cantidadVentas: 0, totalVentas: 0, comisionTotal: 0 };
+                if (!estadisticas || estadisticas.length === 0) {
+                    return { nombre: 'N/A', cantidadVentas: 0, totalVentas: 0, comisionTotal: 0 };
+                }
+                return estadisticas[0];
             };
 
             const ventasFiltradas = ventas.filter(v => 
@@ -8446,9 +8423,7 @@
                         )}
 
                         {/* Modal - Apertura de Turno */}
-                        {showAperturaTurno && (() => {
-                            const esLunes = new Date().getDay() === 1;
-                            return (
+                        {showAperturaTurno && (
                                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                                     <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                                         <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -8456,14 +8431,12 @@
                                             Apertura de Turno
                                         </h2>
 
-                                        {!esLunes && (
-                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                                                <p className="text-sm text-blue-800">
-                                                    <i className="fas fa-info-circle mr-2"></i>
-                                                    La caja abre automáticamente con el monto declarado del día anterior. Solo los lunes se puede modificar el fondo inicial.
-                                                </p>
-                                            </div>
-                                        )}
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                            <p className="text-sm text-blue-800">
+                                                <i className="fas fa-info-circle mr-2"></i>
+                                                Puedes modificar el fondo inicial diariamente según el efectivo disponible en caja.
+                                            </p>
+                                        </div>
 
                                         <div className="space-y-4">
                                             <div>
@@ -8497,17 +8470,16 @@
 
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Fondo Inicial {!esLunes && '(Automático)'}
+                                                    Fondo Inicial
                                                 </label>
                                                 <input
                                                     type="number"
                                                     value={formApertura.fondoInicial}
                                                     onChange={(e) => setFormApertura(prev => ({...prev, fondoInicial: e.target.value}))}
-                                                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 ${!esLunes ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                    readOnly={!esLunes}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                                 />
                                                 <p className="text-xs text-gray-500 mt-1">
-                                                    {esLunes ? 'Ingresa el fondo inicial para comenzar la semana' : 'Monto tomado del corte anterior'}
+                                                    Ingresa el monto con el que inicias el día (sugerido: monto del corte anterior)
                                                 </p>
                                             </div>
                                         </div>
@@ -8530,8 +8502,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            );
-                        })()}
+                        )}
 
                         {/* Modal - Cierre de Turno */}
                         {showCierreTurno && (
