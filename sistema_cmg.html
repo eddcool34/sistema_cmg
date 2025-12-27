@@ -1334,7 +1334,7 @@
             const [formApertura, setFormApertura] = useState({
                 cajero: '',
                 contraseña: '',
-                fondoInicial: FONDO_INICIAL_DEFAULT
+                fondoInicial: FONDO_INICIAL_DEFAULT ?? 0
             });
             const [formCierre, setFormCierre] = useState({
                 observaciones: '',
@@ -1386,7 +1386,7 @@
                 pais: 'México',
                 tipoServicio: 'nacional',
                 devolucion: 'no',
-                paqueteria: PAQUETERIAS_DEFAULT[0],
+                paqueteria: PAQUETERIAS_DEFAULT?.[0] || 'fedex',
                 precio: '',
                 costo: '',
                 impuesto: '0',
@@ -1394,12 +1394,12 @@
                 vendedor: 'Mariana', // Vendedor por defecto
                 comision: '0', // Comisión calculada automáticamente
                 // Campos para devolución
-                paqueteriaDevolucion: PAQUETERIAS_DEFAULT[0],
+                paqueteriaDevolucion: PAQUETERIAS_DEFAULT?.[0] || 'fedex',
                 numeroGuia: '',
                 caducidadDevolucion: '',
                 // Campos para entregas
                 nombreEntrega: '',
-                paqueteriaEntrega: PAQUETERIAS_ENTREGA_DEFAULT[0],
+                paqueteriaEntrega: PAQUETERIAS_ENTREGA_DEFAULT?.[0] || 'mercado libre',
                 fechaRegistro: '',
                 horaRegistro: '',
                 fechaLiberacion: '',
@@ -1408,7 +1408,7 @@
                 // Tabla de declaración
                 declaraciones: [{ cantidad: '', producto: '', costo: '', peso: '' }],
                 // Paquetería de pago
-                paqueteriaPago: PAQUETERIAS_DEFAULT[0],
+                paqueteriaPago: PAQUETERIAS_DEFAULT?.[0] || 'fedex',
                 // Campos para servicios
                 tipoServicioSeleccionado: '',
                 nombreCliente: '',
@@ -1595,8 +1595,8 @@
 
                         if (ventasSheets.length > 0) {
                             // Convertir las ventas de Sheets al formato de la app
-                            const ventasConvertidas = ventasSheets.map(v => ({
-                                id: v.numeroGuia || `ENV-${Date.now()}`,
+                            const ventasConvertidas = ventasSheets.map((v, index) => ({
+                                id: v.numeroGuia || `ENV-${Date.now()}-${index}`,
                                 fecha: v.fecha || v.fechaRegistro || new Date().toISOString(),
                                 nombreRemitente: v.remitente,
                                 telefonoRemitente: v.telRemitente,
@@ -1676,7 +1676,7 @@
                         // Si no hay cortes anteriores, usar el fondo inicial por defecto
                         setFormApertura(prev => ({
                             ...prev,
-                            fondoInicial: FONDO_INICIAL_DEFAULT
+                            fondoInicial: FONDO_INICIAL_DEFAULT ?? 0
                         }));
                     }
                 }
@@ -1967,9 +1967,12 @@
             const abrirGoogleSheets = () => {
                 try {
                     // Verificar si el ID de Google Sheet está configurado
-                    if (!GOOGLE_SHEET_ID || GOOGLE_SHEET_ID === '1YourSheetIdHere') {
-                        showNotification('⚠️ Debes configurar el ID de tu Google Sheet en el código', 'error');
-                        console.warn('Configura GOOGLE_SHEET_ID en la línea 68 del código');
+                    if (!GOOGLE_SHEET_ID ||
+                        GOOGLE_SHEET_ID === 'TU_SPREADSHEET_ID_AQUI' ||
+                        GOOGLE_SHEET_ID.includes('TU_') ||
+                        GOOGLE_SHEET_ID.length < 20) {
+                        showNotification('⚠️ Debes configurar el ID de tu Google Sheet en config.js', 'error');
+                        Logger.warn('Configura SPREADSHEET_ID en config.js con el ID real de tu Google Sheet');
                         return;
                     }
 
@@ -2052,7 +2055,7 @@
                     setFormApertura({
                         cajero: '',
                         contraseña: '',
-                        fondoInicial: FONDO_INICIAL_DEFAULT
+                        fondoInicial: FONDO_INICIAL_DEFAULT ?? 0
                     });
 
                     console.log('✅ Turno abierto:', turno_id);
