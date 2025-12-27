@@ -46,7 +46,7 @@ const CONFIG_USUARIOS = [
         id: 1,
         usuario: 'admin',
         nombre: 'Cris',
-        contrasena: 'AppUser_CMG2024!Secure', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
+        contrasena: 'Qaswed12@1', // ⚠️ EJEMPLO - Usa tu propia contraseña segura
         rol: 'ADMINISTRADOR',
         activo: true,
         fechaCreacion: '2025-01-01'
