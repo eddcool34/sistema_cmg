@@ -63,15 +63,32 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const { jsPDF } = window.jspdf;
 
-        // ========== CONFIGURACIÓN DE GOOGLE SHEETS ==========
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9XdqAP-HAZ3JiriptlZ6RlK3mJiI7A9DLUc47QEFpzCE07HcIZHVndqe57-9To5w1/exec';
+        // ========== VERIFICACIÓN DE DEPENDENCIAS ==========
+        // Verificar que jsPDF esté cargado
+        if (!window.jspdf) {
+            Logger.error('jsPDF no está cargado. Verifica que el CDN esté disponible.');
+            alert('Error crítico: No se pudo cargar la biblioteca jsPDF. Por favor, recarga la página.');
+        }
+        const { jsPDF } = window.jspdf || {};
 
-        // ID de tu Google Sheet (reemplaza con el ID real de tu hoja)
-        // Para obtenerlo: abre tu Google Sheet y copia el ID de la URL
-        // Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit
-        const GOOGLE_SHEET_ID = 'AKfycbx9XdqAP-HAZ3JiriptlZ6RlK3mJiI7A9DLUc47QEFpzCE07HcIZHVndqe57-9To5w1'; // ⚠️ REEMPLAZAR CON TU ID REAL
+        // Verificar que config.js esté cargado
+        if (typeof CONFIG_GOOGLE_SHEETS === 'undefined' || typeof CONTRASEÑA_SISTEMA === 'undefined') {
+            console.error('❌ ERROR CRÍTICO: config.js no está cargado correctamente.');
+            alert('Error de configuración: Asegúrate de que config.js existe y está configurado correctamente.');
+            throw new Error('Configuración no encontrada');
+        }
+
+        // Usar configuraciones del archivo config.js
+        const GOOGLE_SCRIPT_URL = CONFIG_GOOGLE_SHEETS.SCRIPT_URL;
+        const GOOGLE_SHEET_ID = CONFIG_GOOGLE_SHEETS.SPREADSHEET_ID;
+
+        // Log de verificación (solo en desarrollo)
+        Logger.info('Sistema iniciado con configuración:', {
+            scriptUrl: GOOGLE_SCRIPT_URL ? '✓ Configurado' : '✗ Faltante',
+            spreadsheetId: GOOGLE_SHEET_ID ? '✓ Configurado' : '✗ Faltante',
+            modo: CONFIG_SISTEMA.MODO
+        });
 
         // Constantes para evitar "magic numbers" y strings repetitivos
         const PAQUETERIAS_DEFAULT = ['fedex', 'estafeta', 'dhl'];
@@ -93,7 +110,7 @@
 
         // ========== CONFIGURACIÓN DE TURNOS Y CAJA ==========
         const CAJEROS = ['Mariana', 'Edgar', 'Cris'];
-        const CONTRASEÑA_SISTEMA = 'Qaswed12'; // ⚠️ Cambiar por una contraseña segura
+        // CONTRASEÑA_SISTEMA ahora se carga desde config.js (verificado en línea 76)
         const FONDO_INICIAL_DEFAULT = 0; // Fondo inicial por defecto, editable diariamente
 
         // Denominaciones de billetes y monedas mexicanas
@@ -130,33 +147,105 @@
 
         // Guardar cliente en localStorage
         const guardarCliente = (cliente) => {
+            // Validar campos requeridos
+            if (!cliente || typeof cliente !== 'object') {
+                Logger.error('guardarCliente: datos de cliente inválidos');
+                return { success: false, error: 'Datos de cliente inválidos' };
+            }
+
+            // Validar nombre
+            const nombreValidation = Validators.validateInput(
+                cliente.nombre,
+                'text',
+                { required: true, minLength: 2, maxLength: 100 }
+            );
+            if (!nombreValidation.valid) {
+                Logger.warn(`guardarCliente: Nombre inválido - ${nombreValidation.error}`);
+                return { success: false, error: `Nombre: ${nombreValidation.error}` };
+            }
+
+            // Validar teléfono
+            const telefonoValidation = Validators.validateInput(
+                cliente.telefono,
+                'phone',
+                { required: true }
+            );
+            if (!telefonoValidation.valid) {
+                Logger.warn(`guardarCliente: Teléfono inválido - ${telefonoValidation.error}`);
+                return { success: false, error: `Teléfono: ${telefonoValidation.error}` };
+            }
+
+            // Cargar clientes guardados
             const clientesGuardados = JSON.parse(localStorage.getItem('clientes') || '[]');
 
             // Verificar si el cliente ya existe (por nombre y teléfono)
             const existeCliente = clientesGuardados.find(c =>
-                c.nombre.toLowerCase() === cliente.nombre.toLowerCase() &&
-                c.telefono === cliente.telefono
+                c.nombre.toLowerCase().trim() === cliente.nombre.toLowerCase().trim() &&
+                c.telefono.replace(/[-\s]/g, '') === cliente.telefono.replace(/[-\s]/g, '')
             );
 
-            if (!existeCliente && cliente.nombre.trim() && cliente.telefono.trim()) {
-                clientesGuardados.push({
-                    ...cliente,
-                    fechaRegistro: new Date().toISOString()
-                });
-                localStorage.setItem('clientes', JSON.stringify(clientesGuardados));
+            if (existeCliente) {
+                Logger.debug(`Cliente ya existe: ${cliente.nombre}`);
+                return { success: false, error: 'Cliente ya registrado', duplicate: true };
             }
+
+            // Guardar nuevo cliente
+            const nuevoCliente = {
+                nombre: cliente.nombre.trim(),
+                telefono: cliente.telefono.trim(),
+                direccion: cliente.direccion?.trim() || '',
+                email: cliente.email?.trim() || '',
+                fechaRegistro: new Date().toISOString()
+            };
+
+            clientesGuardados.push(nuevoCliente);
+            localStorage.setItem('clientes', JSON.stringify(clientesGuardados));
+
+            Logger.info(`Cliente guardado exitosamente: ${nuevoCliente.nombre}`);
+            return { success: true, cliente: nuevoCliente };
         };
 
-        // Buscar clientes por nombre
+        // Buscar clientes por nombre con ordenamiento por relevancia
         const buscarClientes = (query) => {
-            if (!query || query.trim().length < 2) return [];
+            // Validar entrada usando configuración
+            if (!query || query.trim().length < CONFIG_UI.SEARCH_MIN_CHARS) return [];
 
             const clientesGuardados = JSON.parse(localStorage.getItem('clientes') || '[]');
-            const queryLower = query.toLowerCase();
+            const queryLower = query.toLowerCase().trim();
 
-            return clientesGuardados.filter(cliente =>
-                cliente.nombre.toLowerCase().includes(queryLower)
-            ).slice(0, 5); // Limitar a 5 resultados
+            // Filtrar clientes que coincidan
+            const resultados = clientesGuardados
+                .filter(cliente => cliente.nombre.toLowerCase().includes(queryLower))
+                .map(cliente => {
+                    const nombreLower = cliente.nombre.toLowerCase();
+                    let relevancia = 0;
+
+                    // Puntuación de relevancia:
+                    // 100 = coincidencia exacta
+                    // 50 = comienza con el query
+                    // 10 = contiene el query
+                    if (nombreLower === queryLower) {
+                        relevancia = 100;
+                    } else if (nombreLower.startsWith(queryLower)) {
+                        relevancia = 50;
+                    } else {
+                        relevancia = 10;
+                    }
+
+                    return { ...cliente, relevancia };
+                })
+                .sort((a, b) => {
+                    // Ordenar por relevancia (mayor a menor)
+                    if (b.relevancia !== a.relevancia) {
+                        return b.relevancia - a.relevancia;
+                    }
+                    // Si tienen la misma relevancia, ordenar alfabéticamente
+                    return a.nombre.localeCompare(b.nombre);
+                })
+                .slice(0, CONFIG_UI.SEARCH_MAX_RESULTS); // Usar constante de configuración
+
+            Logger.debug(`Búsqueda de clientes: "${query}" -> ${resultados.length} resultados`);
+            return resultados;
         };
 
         // Función para validar campos requeridos
@@ -195,7 +284,31 @@
         };
 
         // ========== FUNCIONES DE GOOGLE SHEETS ==========
-        
+
+        /**
+         * NOTA IMPORTANTE SOBRE mode: 'no-cors'
+         *
+         * ⚠️ LIMITACIONES CONOCIDAS:
+         * - Google Apps Script no permite CORS desde dominios externos
+         * - mode: 'no-cors' es NECESARIO para hacer peticiones desde el navegador
+         * - Con no-cors, NO se puede leer la respuesta del servidor
+         * - NO se puede verificar si la operación fue exitosa
+         * - Se asume éxito si fetch() no lanza error
+         *
+         * ALTERNATIVAS FUTURAS:
+         * 1. Configurar CORS en Google Apps Script
+         * 2. Usar backend intermedio que maneje las peticiones
+         * 3. Implementar sincronización bidireccional con verificación
+         *
+         * MITIGACIÓN ACTUAL:
+         * - Sistema de reintentos automáticos (ver googleSheets.js)
+         * - Timeout configurable
+         * - Logging detallado en desarrollo
+         * - Almacenamiento local como respaldo
+         *
+         * Ver documentación completa en: SEGURIDAD_Y_MEJORAS.md sección 3
+         */
+
         // Guardar venta en Google Sheets
         const guardarVentaEnSheets = async (venta) => {
             try {
