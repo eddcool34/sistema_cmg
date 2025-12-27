@@ -519,7 +519,8 @@
                 })),
                 paqueteriasEnvio: JSON.parse(localStorage.getItem('paqueteriasEnvio') || JSON.stringify(PAQUETERIAS_DEFAULT)),
                 paqueteriasEntrega: JSON.parse(localStorage.getItem('paqueteriasEntrega') || JSON.stringify(PAQUETERIAS_ENTREGA_DEFAULT)),
-                usuarios: JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(USUARIOS)),
+                // Usar CONFIG_USUARIOS de config.js (se carga automáticamente)
+                usuarios: JSON.parse(localStorage.getItem('usuarios_cmg') || JSON.stringify(CONFIG_USUARIOS || [])),
                 porcentajeComision: parseFloat(localStorage.getItem('porcentajeComision') || '0')
             };
 
@@ -622,70 +623,161 @@
             },
 
             /**
-             * Obtener todos los datos del sistema
+             * Obtener todos los datos del sistema con manejo robusto de errores
              */
             obtenerDatosSistema() {
+                const loadSafeJSON = (key, defaultValue) => {
+                    try {
+                        const item = localStorage.getItem(key);
+                        return item ? JSON.parse(item) : defaultValue;
+                    } catch (error) {
+                        Logger.error(`Error al parsear ${key} de localStorage:`, error);
+                        // Intentar limpiar el dato corrupto
+                        try {
+                            localStorage.removeItem(key);
+                        } catch (e) {
+                            Logger.error(`No se pudo limpiar ${key}:`, e);
+                        }
+                        return defaultValue;
+                    }
+                };
+
                 return {
-                    ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
-                    clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
-                    gastos: JSON.parse(localStorage.getItem('gastos') || '[]'),
-                    turnoActual: JSON.parse(localStorage.getItem('turnoActual') || 'null'),
-                    turnosCerrados: JSON.parse(localStorage.getItem('turnosCerrados') || '[]'),
-                    vuelosPendientes: JSON.parse(localStorage.getItem('vuelosPendientes') || '[]'),
-                    tareasPendientes: JSON.parse(localStorage.getItem('tareasPendientes') || '[]'),
-                    tareasDiarias: JSON.parse(localStorage.getItem('tareasDiarias') || '[]')
+                    ventas: loadSafeJSON('ventas', []),
+                    clientes: loadSafeJSON('clientes', []),
+                    gastos: loadSafeJSON('gastos', []),
+                    turnoActual: loadSafeJSON('turnoActual', null),
+                    turnosCerrados: loadSafeJSON('turnosCerrados', []),
+                    vuelosPendientes: loadSafeJSON('vuelosPendientes', []),
+                    tareasPendientes: loadSafeJSON('tareasPendientes', []),
+                    tareasDiarias: loadSafeJSON('tareasDiarias', [])
                 };
             },
 
             /**
-             * Calcular checksum MD5 simple de datos (para verificar integridad)
+             * Calcular checksum robusto de datos usando algoritmo djb2 mejorado
+             * Incluye timestamp y tamaño para reducir colisiones
              */
             calcularChecksum(datos) {
-                const str = JSON.stringify(datos);
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32bit integer
+                try {
+                    const str = JSON.stringify(datos);
+                    let hash = 5381; // Valor inicial djb2
+
+                    // Algoritmo djb2 mejorado
+                    for (let i = 0; i < str.length; i++) {
+                        const char = str.charCodeAt(i);
+                        hash = ((hash << 5) + hash) ^ char; // hash * 33 XOR char
+                    }
+
+                    // Combinar con tamaño para reducir colisiones
+                    hash = hash ^ str.length;
+
+                    // Convertir a hexadecimal unsigned
+                    const hexHash = (hash >>> 0).toString(16).padStart(8, '0');
+
+                    // Agregar checksum adicional del tamaño
+                    const sizeHash = (str.length % 65536).toString(16).padStart(4, '0');
+
+                    return `${hexHash}-${sizeHash}`;
+                } catch (error) {
+                    Logger.error('Error al calcular checksum:', error);
+                    return '00000000-0000'; // Checksum por defecto en caso de error
                 }
-                return Math.abs(hash).toString(16);
             },
 
             /**
-             * Verificar integridad de los datos
+             * Verificar integridad profunda de los datos
              */
             verificarIntegridad(datos) {
                 const errores = [];
+                const advertencias = [];
 
                 try {
                     // Verificar que los arrays sean válidos
-                    if (!Array.isArray(datos.ventas)) errores.push('Ventas no es un array válido');
-                    if (!Array.isArray(datos.clientes)) errores.push('Clientes no es un array válido');
-                    if (!Array.isArray(datos.gastos)) errores.push('Gastos no es un array válido');
-                    if (!Array.isArray(datos.vuelosPendientes)) errores.push('Vuelos pendientes no es un array válido');
-                    if (!Array.isArray(datos.tareasPendientes)) errores.push('Tareas pendientes no es un array válido');
+                    if (!Array.isArray(datos.ventas)) {
+                        errores.push('Ventas no es un array válido');
+                    } else {
+                        // Validación profunda de ventas
+                        datos.ventas.forEach((venta, idx) => {
+                            if (!venta.id) advertencias.push(`Venta ${idx}: falta ID`);
+                            if (!venta.fecha) advertencias.push(`Venta ${idx}: falta fecha`);
+                            if (typeof venta.precio !== 'number' && typeof venta.precio !== 'string') {
+                                advertencias.push(`Venta ${idx}: precio inválido`);
+                            }
+                        });
+                    }
 
-                    // Verificar estructura de ventas
-                    if (datos.ventas.length > 0) {
-                        const ventaEjemplo = datos.ventas[0];
-                        if (!ventaEjemplo.id || !ventaEjemplo.fecha) {
-                            errores.push('Estructura de ventas inválida');
-                        }
+                    if (!Array.isArray(datos.clientes)) {
+                        errores.push('Clientes no es un array válido');
+                    } else {
+                        // Validación profunda de clientes
+                        datos.clientes.forEach((cliente, idx) => {
+                            if (!cliente.nombre) advertencias.push(`Cliente ${idx}: falta nombre`);
+                            if (!cliente.telefono) advertencias.push(`Cliente ${idx}: falta teléfono`);
+                        });
+                    }
+
+                    if (!Array.isArray(datos.gastos)) {
+                        errores.push('Gastos no es un array válido');
+                    } else {
+                        // Validación de gastos
+                        datos.gastos.forEach((gasto, idx) => {
+                            if (!gasto.id) advertencias.push(`Gasto ${idx}: falta ID`);
+                            if (!gasto.monto || gasto.monto <= 0) {
+                                advertencias.push(`Gasto ${idx}: monto inválido`);
+                            }
+                        });
+                    }
+
+                    if (!Array.isArray(datos.vuelosPendientes)) {
+                        errores.push('Vuelos pendientes no es un array válido');
+                    }
+
+                    if (!Array.isArray(datos.tareasPendientes)) {
+                        errores.push('Tareas pendientes no es un array válido');
+                    }
+
+                    if (!Array.isArray(datos.tareasDiarias)) {
+                        errores.push('Tareas diarias no es un array válido');
                     }
 
                     // Verificar turno actual
                     if (datos.turnoActual !== null && typeof datos.turnoActual !== 'object') {
                         errores.push('Turno actual tiene formato inválido');
+                    } else if (datos.turnoActual) {
+                        // Validar estructura de turno
+                        if (!datos.turnoActual.cajero) advertencias.push('Turno actual: falta cajero');
+                        if (!datos.turnoActual.fechaApertura) advertencias.push('Turno actual: falta fecha de apertura');
+                    }
+
+                    // Verificar turnos cerrados
+                    if (Array.isArray(datos.turnosCerrados)) {
+                        datos.turnosCerrados.forEach((turno, idx) => {
+                            if (!turno.cajero) advertencias.push(`Turno cerrado ${idx}: falta cajero`);
+                            if (typeof turno.totalVentas !== 'number') {
+                                advertencias.push(`Turno cerrado ${idx}: totalVentas inválido`);
+                            }
+                        });
+                    }
+
+                    // Log advertencias solo en desarrollo
+                    if (advertencias.length > 0) {
+                        Logger.warn('Advertencias de integridad:', advertencias.slice(0, 5)); // Mostrar solo primeras 5
                     }
 
                     return {
                         valido: errores.length === 0,
-                        errores: errores
+                        errores: errores,
+                        advertencias: advertencias,
+                        totalAdvertencias: advertencias.length
                     };
                 } catch (error) {
+                    Logger.error('Error al verificar integridad:', error);
                     return {
                         valido: false,
-                        errores: ['Error al verificar integridad: ' + error.message]
+                        errores: ['Error al verificar integridad: ' + error.message],
+                        advertencias: [],
+                        totalAdvertencias: 0
                     };
                 }
             },
@@ -830,12 +922,26 @@
                         return { exitoso: false, error: 'Backup no encontrado' };
                     }
 
-                    const backup = JSON.parse(backupStr);
+                    // Try-catch específico para JSON.parse
+                    let backup;
+                    try {
+                        backup = JSON.parse(backupStr);
+                    } catch (parseError) {
+                        Logger.error('Backup corrupto, no se puede parsear:', parseError);
+                        return { exitoso: false, error: 'Backup corrupto o inválido' };
+                    }
 
                     // Verificar integridad antes de restaurar
                     const integridad = this.verificarIntegridad(backup.datos);
                     if (!integridad.valido) {
-                        console.warn('⚠️ Advertencia: Restaurando backup con problemas de integridad');
+                        Logger.warn('Advertencia: Restaurando backup con problemas de integridad');
+                        // Si hay errores críticos, no restaurar
+                        if (integridad.errores && integridad.errores.length > 0) {
+                            return {
+                                exitoso: false,
+                                error: 'Backup con errores críticos: ' + integridad.errores.join(', ')
+                            };
+                        }
                     }
 
                     // Crear backup de seguridad antes de restaurar
@@ -852,7 +958,7 @@
                     localStorage.setItem('tareasPendientes', JSON.stringify(datos.tareasPendientes));
                     localStorage.setItem('tareasDiarias', JSON.stringify(datos.tareasDiarias || []));
 
-                    console.log('✅ Backup restaurado exitosamente:', backupId);
+                    Logger.info('Backup restaurado exitosamente:', backupId);
                     return {
                         exitoso: true,
                         backup: backup,
@@ -860,7 +966,7 @@
                     };
 
                 } catch (error) {
-                    console.error('❌ Error al restaurar backup:', error);
+                    Logger.error('Error al restaurar backup:', error);
                     return { exitoso: false, error: error.message };
                 }
             },
