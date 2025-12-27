@@ -1661,11 +1661,25 @@
                     const turnosCerrados = JSON.parse(localStorage.getItem('turnosCerrados') || '[]');
                     if (turnosCerrados.length > 0) {
                         // Ordenar por fecha de cierre (más reciente primero)
-                        const ultimoCorte = turnosCerrados.sort((a, b) => {
-                            const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
-                            const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
-                            return fechaB - fechaA;
-                        })[0];
+                        const ultimoCorte = turnosCerrados
+                            .filter(turno => turno.fecha_cierre && turno.hora_cierre) // Filtrar turnos sin fecha
+                            .sort((a, b) => {
+                                try {
+                                    const fechaA = new Date(a.fecha_cierre.split('/').reverse().join('-') + ' ' + a.hora_cierre);
+                                    const fechaB = new Date(b.fecha_cierre.split('/').reverse().join('-') + ' ' + b.hora_cierre);
+
+                                    // Validar que las fechas sean válidas
+                                    if (isNaN(fechaA.getTime()) || isNaN(fechaB.getTime())) {
+                                        Logger.warn('Turno con fecha inválida detectado');
+                                        return 0;
+                                    }
+
+                                    return fechaB - fechaA;
+                                } catch (error) {
+                                    Logger.error('Error al ordenar turnos por fecha:', error);
+                                    return 0;
+                                }
+                            })[0];
 
                         if (ultimoCorte && ultimoCorte.monto_reportado_por_cajero) {
                             setFormApertura(prev => ({
@@ -1863,7 +1877,13 @@
                 try {
                     // Filtrar ventas por mes y año seleccionados
                     const ventasFiltradas = ventas.filter(venta => {
+                        if (!venta.fecha) return false;
                         const fecha = new Date(venta.fecha);
+                        // Validar que la fecha sea válida
+                        if (isNaN(fecha.getTime())) {
+                            Logger.warn(`Venta con fecha inválida: ${venta.fecha}`, venta.id);
+                            return false;
+                        }
                         const mes = fecha.getMonth() + 1; // 0-11 -> 1-12
                         const anio = fecha.getFullYear();
                         return mes === parseInt(filtroMes) && anio === parseInt(filtroAnio);
@@ -1901,12 +1921,20 @@
                     // Convertir ventas a filas CSV
                     const rows = ventasFiltradas.map(venta => {
                         const fecha = new Date(venta.fecha);
-                        const paqueteria = venta.tipoOperacion === 'devolucion' ? venta.paqueteriaDevolucion :
-                                         venta.tipoOperacion === 'entrega' ? venta.paqueteriaEntrega :
-                                         venta.paqueteria;
-                        const tipoServicio = venta.tipoOperacion === 'devolucion' ? 'Devolución' :
-                                           venta.tipoOperacion === 'entrega' ? 'Entrega' :
-                                           venta.tipoServicio || 'N/A';
+
+                        // Mapeo simplificado para paquetería según tipo de operación
+                        const paqueteriaMap = {
+                            'devolucion': venta.paqueteriaDevolucion,
+                            'entrega': venta.paqueteriaEntrega
+                        };
+                        const paqueteria = paqueteriaMap[venta.tipoOperacion] || venta.paqueteria;
+
+                        // Mapeo simplificado para tipo de servicio
+                        const tipoServicioMap = {
+                            'devolucion': 'Devolución',
+                            'entrega': 'Entrega'
+                        };
+                        const tipoServicio = tipoServicioMap[venta.tipoOperacion] || venta.tipoServicio || 'N/A';
 
                         const direccion = venta.direccion ?
                             `${venta.direccion} #${venta.numero || 'S/N'}, ${venta.colonia || ''}` :
@@ -5084,7 +5112,7 @@
                                         <h3 className="text-xl font-semibold text-orange-600 mb-4">
                                             <i className="fas fa-money-bill-wave mr-2"></i>Información Financiera
                                         </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Precio (venta al cliente) *</label>
                                                 <input
@@ -5112,17 +5140,16 @@
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto ($) *</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Impuesto ($)</label>
                                                 <input
                                                     type="number"
                                                     name="impuesto"
-                                                    value={formData.impuesto}
+                                                    value={formData.impuesto || ''}
                                                     onChange={handleInputChange}
                                                     step="0.01"
                                                     min="0"
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     placeholder="0.00"
-                                                    required
                                                 />
                                             </div>
                                             <div>
@@ -5138,26 +5165,28 @@
                                                     title="Calculada automáticamente según el precio y tipo de servicio"
                                                 />
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    <i className="fas fa-credit-card mr-2"></i>Método de Pago *
-                                                </label>
-                                                <select
-                                                    name="metodoPago"
-                                                    value={formData.metodoPago}
-                                                    onChange={handleInputChange}
-                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                    required
-                                                >
-                                                    <option value="efectivo">Efectivo</option>
-                                                    <option value="tarjeta">Tarjeta</option>
-                                                    <option value="transferencia">Transferencia</option>
-                                                </select>
-                                            </div>
+                                        </div>
+
+                                        {/* Método de Pago en fila separada para mejor legibilidad */}
+                                        <div className="mt-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <i className="fas fa-credit-card mr-2"></i>Método de Pago *
+                                            </label>
+                                            <select
+                                                name="metodoPago"
+                                                value={formData.metodoPago}
+                                                onChange={handleInputChange}
+                                                className="w-full md:w-1/2 lg:w-1/4 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                required
+                                            >
+                                                <option value="efectivo">Efectivo</option>
+                                                <option value="tarjeta">Tarjeta</option>
+                                                <option value="transferencia">Transferencia</option>
+                                            </select>
                                         </div>
 
                                         {/* Campos adicionales para pago en efectivo */}
-                                        {tipoOperacion !== 'entrega' && formData.metodoPago === 'efectivo' && formData.precio && (
+                                        {formData.metodoPago === 'efectivo' && formData.precio && (
                                             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                                 <h4 className="text-md font-semibold text-blue-700 mb-3">
                                                     <i className="fas fa-money-bill-alt mr-2"></i>
@@ -5168,9 +5197,16 @@
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                                             Total a Pagar
                                                         </label>
-                                                        <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg font-semibold text-lg">
-                                                            {formatCurrency(parseFloat(formData.precio) + parseFloat(formData.impuesto || 0))}
-                                                        </div>
+                                                        {(() => {
+                                                            const precio = parseFloat(formData.precio) || 0;
+                                                            const impuesto = parseFloat(formData.impuesto) || 0;
+                                                            const total = precio + impuesto;
+                                                            return (
+                                                                <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg font-semibold text-lg">
+                                                                    {formatCurrency(total)}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -5190,15 +5226,24 @@
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                                             Cambio
                                                         </label>
-                                                        <div className={`w-full px-4 py-2 border rounded-lg font-semibold text-lg ${
-                                                            montoPagado && parseFloat(montoPagado) >= (parseFloat(formData.precio) + parseFloat(formData.impuesto || 0))
-                                                                ? 'bg-green-100 border-green-300 text-green-700'
-                                                                : 'bg-red-100 border-red-300 text-red-700'
-                                                        }`}>
-                                                            {montoPagado
-                                                                ? formatCurrency(parseFloat(montoPagado) - (parseFloat(formData.precio) + parseFloat(formData.impuesto || 0)))
-                                                                : '$0.00'}
-                                                        </div>
+                                                        {(() => {
+                                                            const precio = parseFloat(formData.precio) || 0;
+                                                            const impuesto = parseFloat(formData.impuesto) || 0;
+                                                            const total = precio + impuesto;
+                                                            const pagado = parseFloat(montoPagado) || 0;
+                                                            const cambio = pagado - total;
+                                                            const suficiente = pagado >= total && pagado > 0;
+
+                                                            return (
+                                                                <div className={`w-full px-4 py-2 border rounded-lg font-semibold text-lg ${
+                                                                    suficiente
+                                                                        ? 'bg-green-100 border-green-300 text-green-700'
+                                                                        : 'bg-red-100 border-red-300 text-red-700'
+                                                                }`}>
+                                                                    {formatCurrency(cambio)}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <button
@@ -5215,8 +5260,12 @@
                                         {formData.precio && formData.costo && (
                                             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                                                 {(() => {
-                                                    const gananciaB = parseFloat(formData.precio) - parseFloat(formData.costo);
-                                                    const comision = gananciaB * (porcentajeComision / 100);
+                                                    // Validación contra NaN con parseFloat y || 0
+                                                    const precio = parseFloat(formData.precio) || 0;
+                                                    const costo = parseFloat(formData.costo) || 0;
+                                                    const gananciaB = precio - costo;
+                                                    const porcentaje = parseFloat(porcentajeComision) || 0;
+                                                    const comision = gananciaB * (porcentaje / 100);
                                                     const gananciaNeta = gananciaB - comision;
 
                                                     return (
