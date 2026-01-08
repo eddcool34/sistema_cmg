@@ -3003,10 +3003,10 @@
                     ];
 
                     try {
-                        await guardarEnGoogleSheets('VENTAS', datosVenta);
-                        console.log('✅ Venta guardada en Google Sheets (nuevo formato)');
+                        await guardarDual('VENTAS', datosVenta);
+                        console.log('✅ Venta guardada en Sistema DUAL (Supabase + Google Sheets)');
                     } catch (error) {
-                        console.error('❌ Error al guardar venta en Google Sheets (nuevo formato):', error);
+                        console.error('❌ Error al guardar venta en Sistema DUAL:', error);
                     }
 
                     // Guardar cliente si es nuevo
@@ -3026,10 +3026,10 @@
                         ];
 
                         try {
-                            await guardarEnGoogleSheets('CLIENTES', datosCliente);
-                            console.log('✅ Cliente guardado en Google Sheets (nuevo formato)');
+                            await guardarDual('CLIENTES', datosCliente);
+                            console.log('✅ Cliente guardado en Sistema DUAL (Supabase + Google Sheets)');
                         } catch (error) {
-                            console.error('❌ Error al guardar cliente en Google Sheets (nuevo formato):', error);
+                            console.error('❌ Error al guardar cliente en Sistema DUAL:', error);
                         }
                     }
                 } else if (tipoOperacion === 'servicio') {
@@ -3049,10 +3049,10 @@
                     ];
 
                     try {
-                        await guardarEnGoogleSheets('SERVICIOS', datosServicio);
-                        console.log('✅ Servicio guardado en Google Sheets (nuevo formato)');
+                        await guardarDual('SERVICIOS', datosServicio);
+                        console.log('✅ Servicio guardado en Sistema DUAL (Supabase + Google Sheets)');
                     } catch (error) {
-                        console.error('❌ Error al guardar servicio en Google Sheets (nuevo formato):', error);
+                        console.error('❌ Error al guardar servicio en Sistema DUAL:', error);
                     }
                 }
 
@@ -8904,7 +8904,11 @@
         console.log('%c  verTurno() - Muestra el turno guardado', 'font-size: 12px; color: #2196F3;');
         console.log('%c  limpiarTodo() - Limpia todo el localStorage', 'font-size: 12px; color: #FF5722;');
     </script>
+
+    <!-- Scripts de integración DUAL: Supabase + Google Sheets -->
+    <script src="supabase-config.js"></script>
     <script src="googleSheets.js"></script>
+    <script src="supabase-integration.js"></script>
 </body>
 </html>
 
